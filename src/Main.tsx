@@ -97,14 +97,20 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         { continuous: false }
     );
     
-    // Request speech permission on mount and check Electron
+    // Request speech permission on mount
     useEffect(() => {
         wakeWordListener.checkAndRequestPermission();
         
-        // Check if running in Electron and show warning
-        const isElectron = !!(window as any).isElectron || !!(window as any).electronAPI;
-        if (isElectron && !wakeWordListener.hasSupport) {
-            setShowElectronWarning(true);
+        // Show warning only if speech recognition completely fails (not just because it's Electron)
+        if (!wakeWordListener.hasSupport) {
+            const isElectron = !!(window as any).isElectron || !!(window as any).electronAPI;
+            if (isElectron) {
+                setTimeout(() => {
+                    if (!wakeWordListener.hasSupport) {
+                        setShowElectronWarning(true);
+                    }
+                }, 5000); // Wait 5 seconds to see if speech recognition works
+            }
         }
     }, [wakeWordListener.checkAndRequestPermission, wakeWordListener.hasSupport]);
 

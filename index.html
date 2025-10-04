@@ -6,7 +6,7 @@
   <title>EchoDay - Sesli Günlük Planlayıcı</title>
   
   <!-- Content Security Policy for Electron App -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: file: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; style-src 'self' 'unsafe-inline' https:; font-src 'self' https: data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; media-src 'self' data: blob: https:; frame-src 'self' https:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob: file:; script-src * 'unsafe-inline' 'unsafe-eval' data: blob:; style-src * 'unsafe-inline'; font-src * data:; img-src * data: blob:; connect-src * wss: data: blob:; media-src * data: blob:; frame-src *;">
   
   <!-- Permissions Policy for microphone access -->
   <meta http-equiv="Permissions-Policy" content="microphone=*">

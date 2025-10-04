@@ -282,6 +282,34 @@ const classifyChatIntent = async (apiKey: string, message: string): Promise<{ in
     }
 };
 
+// Speech-to-Text for Electron fallback
+const speechToText = async (apiKey: string, audioBase64: string, mimeType: string = 'audio/webm'): Promise<string | null> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                temperature: 0.3,
+            },
+        });
+        
+        const audioPart = {
+            inlineData: {
+                data: audioBase64,
+                mimeType: mimeType,
+            },
+        };
+        
+        const prompt = "Bu ses kaydındaki Türkçe konuşmayı tam olarak metne dönüştür. Sadece söylenenleri yaz, başka birşey ekleme:";
+        
+        const result = await model.generateContent([prompt, audioPart]);
+        const response = await result.response;
+        return response.text().trim();
+    } catch (error) {
+        console.error('Error transcribing audio with Gemini:', error);
+        return null;
+    }
+};
+
 export const geminiService = {
     analyzeTask,
     analyzeImageForTask,
@@ -291,4 +319,5 @@ export const geminiService = {
     processNotesWithPrompt,
     extractTextFromImage,
     classifyChatIntent,
+    speechToText,
 };

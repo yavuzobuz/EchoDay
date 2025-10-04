@@ -6,6 +6,7 @@ const isDev = process.env.NODE_ENV === 'development';
 let mainWindow;
 
 function createWindow() {
+  console.log('Creating window...');
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -15,7 +16,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
-      webSecurity: !isDev, // Disable webSecurity in development
+      webSecurity: false, // Disable for speech recognition
       allowRunningInsecureContent: true, // Allow for speech recognition
       experimentalFeatures: true,
       enableRemoteModule: false,
@@ -27,22 +28,31 @@ function createWindow() {
       enableBlinkFeatures: 'SpeechSynthesis,SpeechRecognition',
       // Additional security but allow needed features
       sandbox: false,
-      partition: null,
     },
-    icon: path.join(__dirname, '../public/icon.png'),
     title: 'Sesli Günlük Planlayıcı',
     backgroundColor: '#1a1a1a',
     autoHideMenuBar: true,
   });
 
   // Load the app
+  console.log('Loading app, isDev:', isDev);
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    console.log('Loading from localhost:5173');
+    mainWindow.loadURL('http://localhost:5173').then(() => {
+      console.log('Loaded successfully');
+    }).catch(err => {
+      console.error('Failed to load:', err);
+    });
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+  
+  // Show window when ready
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
 
   // Handle window close
   mainWindow.on('closed', () => {
@@ -102,8 +112,19 @@ app.commandLine.appendSwitch('high-dpi-support', '1');
 app.commandLine.appendSwitch('enable-accelerated-2d-canvas');
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 
+// More aggressive switches for speech recognition
+app.commandLine.appendSwitch('unsafely-treat-insecure-origin-as-secure', 'http://localhost:5173,http://localhost:5174,https://www.google.com');
+app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,WebRTC-H264WithOpenH264FFmpeg,WebSpeech,SpeechSynthesis');
+app.commandLine.appendSwitch('use-fake-device-for-media-stream');
+app.commandLine.appendSwitch('enable-logging');
+app.commandLine.appendSwitch('v', '1');
+app.commandLine.appendSwitch('auto-accept-camera-and-microphone-capture');
+app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
+app.commandLine.appendSwitch('lang', 'tr-TR');
+
 // App ready
 app.whenReady().then(() => {
+  console.log('App is ready');
   createWindow();
 
   app.on('activate', () => {
@@ -111,6 +132,8 @@ app.whenReady().then(() => {
       createWindow();
     }
   });
+}).catch(err => {
+  console.error('Error when app ready:', err);
 });
 
 // Quit when all windows are closed (except on macOS)

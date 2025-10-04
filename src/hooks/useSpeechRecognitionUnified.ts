@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { geminiService } from '../services/geminiService';
 
 // Web Speech API types
 interface WebSpeechRecognition {
@@ -21,24 +22,26 @@ export const useSpeechRecognition = (
   onTranscriptReady: (transcript: string) => void,
   options?: { stopOnKeywords?: boolean | string[]; stopOnSilence?: boolean; continuous?: boolean; }
 ) => {
+  // All hooks must be called before any conditional logic
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [hasSupport, setHasSupport] = useState(false);
-  const isWeb = Capacitor.getPlatform() === 'web';
   
-  // Retry counter to prevent infinite loops
+  // All useRef hooks at the top
   const retryCountRef = useRef(0);
-  const maxRetries = 3;
   const isElectronRef = useRef(false);
-  
-  // Web Speech API için referanslar
   const recognitionRef = useRef<WebSpeechRecognition | null>(null);
   const transcriptReadyCalledRef = useRef(false);
   const silenceTimerRef = useRef<number | null>(null);
   const cleanedTranscriptRef = useRef<string | null>(null);
   const finalTranscriptRef = useRef('');
-  
   const onTranscriptReadyRef = useRef(onTranscriptReady);
+  
+  // Platform detection after all hooks
+  const isWeb = Capacitor.getPlatform() === 'web';
+  const maxRetries = 3;
+  
+  // Update refs in useEffect hooks
   useEffect(() => {
     onTranscriptReadyRef.current = onTranscriptReady;
   }, [onTranscriptReady]);
@@ -55,14 +58,12 @@ export const useSpeechRecognition = (
     if (isWeb) {
       // Web platformunda Web Speech API kullan
       if (WebSpeechRecognitionAPI) {
-        // Electron'da speech recognition'ı devre dışı bırak
-        if (isElectronRef.current) {
-          console.warn('Electron detected. Web Speech API disabled due to network restrictions.');
-          setHasSupport(false);
-          return;
-        }
-        
         setHasSupport(true);
+        
+        // Electron detection için bilgi ver ama devre dışı bırakma
+        if (isElectronRef.current) {
+          console.warn('Electron detected. Web Speech API might have limitations but will attempt to work.');
+        }
       } else {
         console.error('Web Speech API bu tarayıcıda desteklenmiyor');
         setHasSupport(false);
@@ -83,7 +84,7 @@ export const useSpeechRecognition = (
   
   // Web Speech API setup
   useEffect(() => {
-    if (!isWeb || !WebSpeechRecognitionAPI || isElectronRef.current) return;
+    if (!isWeb || !WebSpeechRecognitionAPI) return;
     
     const rec = new WebSpeechRecognitionAPI();
     recognitionRef.current = rec;
@@ -143,9 +144,30 @@ export const useSpeechRecognition = (
       if (event.error === 'network') {
         console.warn('Network error in speech recognition. This might be due to offline status or security restrictions.');
         
-        // For Electron, don't retry - just log and disable
-        if (isElectronRef.current) {
-          console.warn('Electron app detected. Speech recognition disabled due to network restrictions.');
+        // Try retry with counter to prevent infinite loops
+        if (retryCountRef.current < maxRetries) {
+          retryCountRef.current += 1;
+          console.log(`Retrying speech recognition (attempt ${retryCountRef.current}/${maxRetries})`);
+          
+          setTimeout(() => {
+            if (recognitionRef.current && hasSupport) {
+              try {
+                // Reset and try different settings
+                recognitionRef.current.continuous = false;
+                recognitionRef.current.interimResults = false;
+                transcriptReadyCalledRef.current = false;
+                cleanedTranscriptRef.current = null;
+                setTranscript('');
+                recognitionRef.current.start();
+                setIsListening(true);
+              } catch (retryError) {
+                console.error('Retry failed:', retryError);
+                retryCountRef.current = maxRetries; // Stop retrying
+              }
+            }
+          }, 2000); // Longer delay
+        } else {
+          console.error('Max retries reached. Speech recognition unavailable.');
           setHasSupport(false);
         }
       } else if (event.error === 'not-allowed') {
@@ -186,7 +208,10 @@ export const useSpeechRecognition = (
   }, [options, isWeb]);
   
   const startListening = useCallback(async () => {
-    if (!hasSupport || isListening || isElectronRef.current) return;
+    if (!hasSupport || isListening) return;
+    
+    // Reset retry counter on new start
+    retryCountRef.current = 0;
     
     if (isWeb) {
       // Web Speech API kullan
