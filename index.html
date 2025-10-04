@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="tr" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EchoDay - Sesli Günlük Planlayıcı</title>
+  
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#3b82f6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="EchoDay">
+  <link rel="apple-touch-icon" href="/icon-192.svg">
+  <meta name="msapplication-TileColor" content="#3b82f6">
+  <meta name="msapplication-TileImage" content="/icon-192.svg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Nunito:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Blue (Default) */
+      --blue-100: #dbeafe; --blue-300: #93c5fd; --blue-500: #3b82f6; --blue-600: #2563eb; --blue-700: #1d4ed8; --blue-900: #1e3a8a;
+      /* Green */
+      --green-100: #d1fae5; --green-300: #6ee7b7; --green-500: #10b981; --green-600: #059669; --green-700: #047857; --green-900: #064e3b;
+      /* Red */
+      --red-100: #fee2e2; --red-300: #fca5a5; --red-500: #ef4444; --red-600: #dc2626; --red-700: #b91c1c; --red-900: #7f1d1d;
+    }
+  </style>
+  <script>
+    // This script prevents the "FOUC" (Flash of Unstyled Content) for dark mode.
+    (function() {
+      try {
+        const theme = localStorage.getItem('theme');
+        if (theme === 'dark') {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <style id="accent-color-styles"></style>
+  <style>
+    .font-theme-blue { font-family: 'Inter', sans-serif; }
+    .font-theme-green { font-family: 'Nunito', serif; }
+    .font-theme-red { font-family: 'Poppins', sans-serif; }
+
+    /* Custom styles for Red Theme to make it more distinct */
+    .font-theme-red h1, .font-theme-red h2, .font-theme-red h3, .font-theme-red strong, .font-theme-red b {
+      font-weight: 600; /* Bolder headings and strong text for urgency */
+    }
+
+    /* Custom scrollbar for notepad */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background-color: rgba(156, 163, 175, 0.5); /* gray-400 with opacity */
+      border-radius: 10px;
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background-color: rgba(107, 114, 128, 0.5); /* gray-500 with opacity */
+    }
+    .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+       background-color: rgba(75, 85, 99, 0.7); /* gray-600 with opacity */
+    }
+    .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+       background-color: rgba(107, 114, 128, 0.7); /* gray-500 with opacity */
+    }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+  <div id="root"></div>
+  <script type="module" src="/src/index.tsx"></script>
+</body>
+</html>

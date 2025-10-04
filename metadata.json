@@ -1,0 +1,9 @@
+{
+  "name": "Sesli Günlük Planlayıcı",
+  "description": "Sesle kontrol edilebilen, Google Gemini AI destekli akıllı bir kişisel asistan ve görev planlayıcı uygulaması.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation",
+    "camera"
+  ]
+}

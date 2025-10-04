@@ -1,0 +1,231 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Todo, Priority } from '../types';
+import { useTextToSpeech } from '../hooks/useTextToSpeech';
+
+interface TodoItemProps {
+  todo: Todo;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
+  onGetDirections: (todo: Todo) => void;
+  onEdit: (id: string, newText: string) => void;
+  onShare: (todo: Todo) => void;
+}
+
+const priorityClasses = {
+  [Priority.High]: 'border-red-500 dark:border-red-500',
+  [Priority.Medium]: 'border-yellow-500 dark:border-yellow-400',
+};
+
+// --- Modern SVG Icons for Route Steps ---
+const WalkIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3 text-gray-500 dark:text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>;
+const BusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3 text-gray-500 dark:text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>;
+const MetroIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3 text-gray-500 dark:text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2h8a2 2 0 002-2v-1a2 2 0 012-2h1.945M7.884 5.036A9 9 0 0117.965 15h.002" /></svg>;
+
+const RouteStep: React.FC<{ line: string }> = ({ line }) => {
+    const getIcon = () => {
+        const lowerLine = line.toLowerCase();
+        if (lowerLine.includes('metro')) return <MetroIcon />;
+        if (lowerLine.includes('otobüs') || lowerLine.includes('metrobüs') || lowerLine.includes('dolmuş')) return <BusIcon />;
+        if (lowerLine.includes('yürü') || lowerLine.includes('adım') || lowerLine.includes('geç')) return <WalkIcon />;
+        return <div className="w-6 mr-3 flex-shrink-0" />;
+    };
+    return (
+        <li className="flex items-center text-base">
+            {getIcon()}
+            <span className="flex-1">{line.replace(/^- /, '')}</span>
+        </li>
+    );
+};
+
+const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDirections, onEdit, onShare }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(todo.text);
+  const editInputRef = useRef<HTMLInputElement>(null);
+  const { isSpeaking, speak, cancel, hasSupport } = useTextToSpeech();
+
+  const mapDirectionsUrl = useMemo(() => {
+    if (todo.aiMetadata?.routingInfo && todo.aiMetadata.routingOrigin && todo.aiMetadata.destination) {
+      const origin = encodeURIComponent(todo.aiMetadata.routingOrigin);
+      const destination = encodeURIComponent(todo.aiMetadata.destination);
+      // This URL format opens Google Maps directions and doesn't require an API key.
+      return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+    }
+    return null;
+  }, [todo.aiMetadata]);
+
+  useEffect(() => {
+    if (isEditing) {
+      editInputRef.current?.focus();
+      editInputRef.current?.select();
+    }
+  }, [isEditing]);
+
+  const handleSave = () => {
+    if (editText.trim() && editText.trim() !== todo.text) {
+      onEdit(todo.id, editText.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditText(todo.text);
+    setIsEditing(false);
+  };
+  
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+        handleSave();
+    } else if (e.key === 'Escape') {
+        handleCancel();
+    }
+  };
+  
+  const handleSpeakDirections = () => {
+    if (!todo.aiMetadata?.routingInfo) return;
+    if (isSpeaking) {
+      cancel();
+    } else {
+      speak(todo.aiMetadata.routingInfo);
+    }
+  };
+
+  const hasAIMetadata = todo.aiMetadata && Object.values(todo.aiMetadata).some(v => v !== undefined && v !== null && (!Array.isArray(v) || v.length > 0));
+  const isConflict = todo.aiMetadata?.isConflict;
+  const conflictClass = isConflict ? 'border-orange-500 ring-2 ring-orange-500/20 dark:ring-orange-500/30' : priorityClasses[todo.priority];
+
+  return (
+    <div className={`bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow-md border-l-4 ${conflictClass} transition-all duration-300 ${todo.completed ? 'opacity-60 saturate-50' : ''}`}>
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
+          <input
+            type="checkbox"
+            checked={todo.completed}
+            onChange={() => onToggle(todo.id)}
+            className="mt-1 h-5 w-5 flex-shrink-0 rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)] bg-gray-100 dark:bg-gray-900"
+            disabled={isEditing}
+          />
+          <div className="flex-1 min-w-0">
+            {isEditing ? (
+              <div className="flex flex-col gap-2">
+                <input
+                  ref={editInputRef}
+                  type="text"
+                  value={editText}
+                  onChange={(e) => setEditText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="w-full p-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
+                />
+                <div className="flex gap-2">
+                    <button onClick={handleSave} className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700">Kaydet</button>
+                    <button onClick={handleCancel} className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">İptal</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-start gap-2">
+                    <p className={`text-sm sm:text-lg font-medium text-gray-900 dark:text-white break-words ${todo.completed ? 'line-through' : ''}`}>
+                    {todo.text}
+                    </p>
+                    {isConflict && !todo.completed && (
+                        <div className="flex-shrink-0" title="Zamanlama Çakışması">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                        </div>
+                    )}
+                </div>
+                {todo.datetime && (
+                  <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <span className="font-semibold hidden sm:inline">Zaman:</span> {new Date(todo.datetime).toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'short', day: 'numeric' })}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        {!isEditing && (
+          <div className="flex items-center gap-0 sm:gap-1 flex-shrink-0 ml-1 sm:ml-2">
+            {hasAIMetadata && (
+              <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Detayları gör">
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 sm:h-5 sm:w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+              </button>
+            )}
+            <button onClick={() => onShare(todo)} className="p-1 rounded-full text-gray-400 hover:text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50 hidden sm:block" aria-label="Görevi paylaş">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                </svg>
+            </button>
+            <button onClick={() => setIsEditing(true)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" aria-label="Görevi düzenle">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                    <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+                </svg>
+            </button>
+            <button onClick={() => onDelete(todo.id)} className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" aria-label="Görevi sil">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+            </button>
+          </div>
+        )}
+      </div>
+      {isExpanded && hasAIMetadata && (
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3 text-sm text-gray-700 dark:text-gray-300">
+          <p><strong className="font-semibold text-gray-800 dark:text-gray-200">Kategori:</strong> {todo.aiMetadata?.category || 'Belirtilmemiş'}</p>
+          <p><strong className="font-semibold text-gray-800 dark:text-gray-200">Tahmini Süre:</strong> {todo.aiMetadata?.estimatedDuration ? `${todo.aiMetadata.estimatedDuration} dakika` : 'Belirtilmemiş'}</p>
+          {todo.aiMetadata?.routingInfo && (
+             <div>
+                <div className="flex justify-between items-center mb-3">
+                  <strong className="font-semibold text-gray-800 dark:text-gray-200">Yol Tarifi:</strong>
+                   {hasSupport && (
+                    <button
+                      onClick={handleSpeakDirections}
+                      className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      aria-label={isSpeaking ? "Okumayı durdur" : "Yol tarifini sesli oku"}
+                      title={isSpeaking ? "Okumayı durdur" : "Yol tarifini sesli oku"}
+                    >
+                      {isSpeaking ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </button>
+                  )}
+                </div>
+                <ul className="space-y-4">
+                    {todo.aiMetadata.routingInfo.split('\n').filter(line => line.trim() !== '').map((line, i) => <RouteStep key={i} line={line} />)}
+                </ul>
+                {mapDirectionsUrl && (
+                  <div className="mt-4">
+                    <a
+                      href={mapDirectionsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[var(--accent-color-600)] rounded-md hover:bg-[var(--accent-color-700)] transition-colors"
+                      title={`Harita: ${todo.aiMetadata.destination}`}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v12a1 1 0 00.293.707l6 6a1 1 0 001.414 0l6-6A1 1 0 0018 16V4a1 1 0 00-.293-.707l-6-6a1 1 0 00-1.414 0l-6 6z" clipRule="evenodd" />
+                      </svg>
+                      Haritada Görüntüle
+                    </a>
+                  </div>
+                )}
+             </div>
+          )}
+          {todo.aiMetadata?.requiresRouting && !todo.aiMetadata?.routingInfo && (
+            <button onClick={() => onGetDirections(todo)} className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-[var(--accent-color-600)] rounded-md hover:bg-[var(--accent-color-700)]">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v12a1 1 0 00.293.707l6 6a1 1 0 001.414 0l6-6A1 1 0 0018 16V4a1 1 0 00-.293-.707l-6-6a1 1 0 00-1.414 0l-6 6z" clipRule="evenodd" /></svg>
+              Yol Tarifi Al
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default TodoItem;

@@ -1,0 +1,44 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="#3b82f6"/>
+  
+  <!-- Calendar/Planner Base -->
+  <rect x="96" y="128" width="320" height="320" rx="24" fill="white" opacity="0.95"/>
+  
+  <!-- Calendar Header -->
+  <rect x="96" y="128" width="320" height="64" rx="24" fill="#1e40af"/>
+  <rect x="96" y="168" width="320" height="24" fill="#1e40af"/>
+  
+  <!-- Calendar Binding Rings -->
+  <circle cx="156" cy="112" r="16" fill="#64748b" stroke="white" stroke-width="4"/>
+  <circle cx="256" cy="112" r="16" fill="#64748b" stroke="white" stroke-width="4"/>
+  <circle cx="356" cy="112" r="16" fill="#64748b" stroke="white" stroke-width="4"/>
+  
+  <!-- Tasks/Lines -->
+  <rect x="128" y="224" width="256" height="8" rx="4" fill="#e2e8f0"/>
+  <rect x="128" y="256" width="192" height="8" rx="4" fill="#e2e8f0"/>
+  <rect x="128" y="288" width="224" height="8" rx="4" fill="#e2e8f0"/>
+  
+  <!-- Checkboxes -->
+  <rect x="128" y="336" width="24" height="24" rx="6" fill="#10b981" stroke="#10b981" stroke-width="2"/>
+  <path d="M134 348 l4 4 l8 -8" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="168" y="336" width="184" height="8" rx="4" fill="#e2e8f0"/>
+  
+  <rect x="128" y="376" width="24" height="24" rx="6" fill="none" stroke="#94a3b8" stroke-width="2"/>
+  <rect x="168" y="376" width="144" height="8" rx="4" fill="#e2e8f0"/>
+  
+  <!-- Microphone Icon (for voice feature) -->
+  <g transform="translate(336, 352)">
+    <rect x="0" y="0" width="80" height="80" rx="40" fill="#ef4444"/>
+    <path d="M40 24 C40 18 36 14 30 14 C24 14 20 18 20 24 L20 36 C20 42 24 46 30 46 C36 46 40 42 40 36 Z" fill="white"/>
+    <path d="M18 32 C18 40 23 46 30 46 C37 46 42 40 42 32" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <rect x="29" y="46" width="2" height="8" fill="white"/>
+    <rect x="24" y="54" width="12" height="2" rx="1" fill="white"/>
+  </g>
+  
+  <!-- AI Star (for AI assistant feature) -->
+  <g transform="translate(80, 64)">
+    <circle cx="24" cy="24" r="20" fill="#fbbf24"/>
+    <path d="M24 14 L26.5 21 L34 21 L28 26 L30.5 33 L24 28 L17.5 33 L20 26 L14 21 L21.5 21 Z" fill="white"/>
+  </g>
+</svg>
