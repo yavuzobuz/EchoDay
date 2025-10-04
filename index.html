@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EchoDay - Sesli Günlük Planlayıcı</title>
   
+  <!-- Content Security Policy for Electron App -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: file: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; style-src 'self' 'unsafe-inline' https:; font-src 'self' https: data:; img-src 'self' data: blob: https:; connect-src 'self' https: wss: data: blob:; media-src 'self' data: blob: https:; frame-src 'self' https:;">
+  
+  <!-- Permissions Policy for microphone access -->
+  <meta http-equiv="Permissions-Policy" content="microphone=*">
+  
   <!-- PWA Meta Tags -->
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#3b82f6">
@@ -15,6 +21,12 @@
   <meta name="msapplication-TileColor" content="#3b82f6">
   <meta name="msapplication-TileImage" content="/icon-192.svg">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    // Ensure Tailwind uses class-based dark mode so 'dark:' variants obey html.dark
+    tailwind.config = {
+      darkMode: 'class',
+    };
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Nunito:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
@@ -29,16 +41,24 @@
     }
   </style>
   <script>
-    // This script prevents the "FOUC" (Flash of Unstyled Content) for dark mode.
+    // Prevent FOUC and apply saved theme before React mounts.
     (function() {
       try {
-        const theme = localStorage.getItem('theme');
+        const raw = localStorage.getItem('theme');
+        // Values are stored via JSON.stringify in useLocalStorage, so parse when needed.
+        let theme = raw;
+        if (raw && raw.startsWith('"') && raw.endsWith('"')) {
+          try { theme = JSON.parse(raw); } catch (_) { /* ignore */ }
+        }
         if (theme === 'dark') {
           document.documentElement.classList.add('dark');
         } else {
           document.documentElement.classList.remove('dark');
         }
-      } catch (e) {}
+      } catch (e) {
+        // On error default to light (no 'dark' class)
+        document.documentElement.classList.remove('dark');
+      }
     })();
   </script>
   <style id="accent-color-styles"></style>

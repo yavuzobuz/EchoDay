@@ -13,7 +13,10 @@ interface SpeechRecognition {
 }
 
 const SpeechRecognition =
-  (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+  (window as any).SpeechRecognition || 
+  (window as any).webkitSpeechRecognition ||
+  (window as any).mozSpeechRecognition ||
+  (window as any).msSpeechRecognition;
 
 export const useSpeechRecognition = (
   onTranscriptReady: (transcript: string) => void,
@@ -95,6 +98,24 @@ export const useSpeechRecognition = (
 
     rec.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
+      if (event.error === 'network') {
+        console.error('Network error in speech recognition. This might be due to offline status or security restrictions.');
+        // Try to restart in case of network error in Electron
+        if ((window as any).electronAPI) {
+          console.log('Electron app detected - attempting workaround for network error');
+          setTimeout(() => {
+            if (!isListening && recognitionRef.current) {
+              try {
+                recognitionRef.current.start();
+                setIsListening(true);
+              } catch (e) {
+                console.error('Failed to restart speech recognition:', e);
+                setIsListening(false);
+              }
+            }
+          }, 1000);
+        }
+      }
       setIsListening(false);
     };
 

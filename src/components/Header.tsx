@@ -15,7 +15,9 @@ const Header: React.FC<HeaderProps> = ({ theme, setTheme, accentColor, setAccent
   return (
     <header className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm p-2 sticky top-0 z-40 flex justify-between items-center border-b border-gray-200 dark:border-gray-800 px-4">
       <div className="flex items-center gap-2">
-        <Logo className="h-8 w-8 text-[var(--accent-color-600)]" />
+        <span className="inline-flex items-center justify-center h-10 w-10 rounded-xl bg-white dark:bg-gray-800 ring-1 ring-gray-200 dark:ring-gray-700 shadow-sm">
+          <Logo className="h-8 w-8 drop-shadow" />
+        </span>
         <span className="font-bold text-lg hidden sm:inline text-gray-800 dark:text-gray-200">EchoDay</span>
       </div>
       <ThemeSwitcher theme={theme} setTheme={setTheme} accentColor={accentColor} setAccentColor={setAccentColor} />

@@ -26,6 +26,11 @@ export const useSpeechRecognition = (
   const [hasSupport, setHasSupport] = useState(false);
   const isWeb = Capacitor.getPlatform() === 'web';
   
+  // Retry counter to prevent infinite loops
+  const retryCountRef = useRef(0);
+  const maxRetries = 3;
+  const isElectronRef = useRef(false);
+  
   // Web Speech API için referanslar
   const recognitionRef = useRef<WebSpeechRecognition | null>(null);
   const transcriptReadyCalledRef = useRef(false);
@@ -44,9 +49,19 @@ export const useSpeechRecognition = (
   
   // Platform desteğini kontrol et
   useEffect(() => {
+    // Check if running in Electron
+    isElectronRef.current = !!(window as any).isElectron || !!(window as any).electronAPI;
+    
     if (isWeb) {
       // Web platformunda Web Speech API kullan
       if (WebSpeechRecognitionAPI) {
+        // Electron'da speech recognition'ı devre dışı bırak
+        if (isElectronRef.current) {
+          console.warn('Electron detected. Web Speech API disabled due to network restrictions.');
+          setHasSupport(false);
+          return;
+        }
+        
         setHasSupport(true);
       } else {
         console.error('Web Speech API bu tarayıcıda desteklenmiyor');
@@ -68,7 +83,7 @@ export const useSpeechRecognition = (
   
   // Web Speech API setup
   useEffect(() => {
-    if (!isWeb || !WebSpeechRecognitionAPI) return;
+    if (!isWeb || !WebSpeechRecognitionAPI || isElectronRef.current) return;
     
     const rec = new WebSpeechRecognitionAPI();
     recognitionRef.current = rec;
@@ -123,6 +138,21 @@ export const useSpeechRecognition = (
     rec.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
       setIsListening(false);
+      
+      // Handle specific error cases
+      if (event.error === 'network') {
+        console.warn('Network error in speech recognition. This might be due to offline status or security restrictions.');
+        
+        // For Electron, don't retry - just log and disable
+        if (isElectronRef.current) {
+          console.warn('Electron app detected. Speech recognition disabled due to network restrictions.');
+          setHasSupport(false);
+        }
+      } else if (event.error === 'not-allowed') {
+        console.error('Microphone access not allowed. Please check permissions.');
+      } else if (event.error === 'no-speech') {
+        console.log('No speech detected. This is usually not an error.');
+      }
     };
 
     rec.onend = () => {
@@ -156,16 +186,30 @@ export const useSpeechRecognition = (
   }, [options, isWeb]);
   
   const startListening = useCallback(async () => {
-    if (!hasSupport || isListening) return;
+    if (!hasSupport || isListening || isElectronRef.current) return;
     
     if (isWeb) {
       // Web Speech API kullan
       if (recognitionRef.current) {
-        transcriptReadyCalledRef.current = false;
-        cleanedTranscriptRef.current = null;
-        setTranscript('');
-        recognitionRef.current.start();
-        setIsListening(true);
+        try {
+          transcriptReadyCalledRef.current = false;
+          cleanedTranscriptRef.current = null;
+          setTranscript('');
+          recognitionRef.current.start();
+          setIsListening(true);
+        } catch (error) {
+          console.error('Failed to start speech recognition:', error);
+          setIsListening(false);
+          
+          // Check if this is a security/permission issue
+          if (error instanceof DOMException) {
+            if (error.name === 'NotAllowedError') {
+              console.error('Microphone permission denied');
+            } else if (error.name === 'NotSupportedError') {
+              console.error('Speech recognition not supported in this context');
+            }
+          }
+        }
       }
     } else {
       // Capacitor kullan (dinamik import)

@@ -10,3 +10,11 @@ contextBridge.exposeInMainWorld('electron', {
 
 // Add a flag to detect Electron environment
 contextBridge.exposeInMainWorld('isElectron', true);
+
+// Add electronAPI for feature detection
+contextBridge.exposeInMainWorld('electronAPI', {
+  isElectron: true,
+  platform: process.platform,
+  getAppVersion: () => ipcRenderer.invoke('app-version'),
+  getPlatform: () => ipcRenderer.invoke('platform'),
+});

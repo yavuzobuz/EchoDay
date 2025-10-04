@@ -6,18 +6,99 @@ interface LogoProps {
 
 const Logo: React.FC<LogoProps> = ({ className }) => {
   return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      viewBox="0 0 24 24" 
-      fill="currentColor" 
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 400 400"
       className={className}
-      aria-hidden="true"
+      role="img"
+      aria-label="EchoDay logo"
     >
-      <path 
-        fillRule="evenodd" 
-        d="M21.582 6.031a.75.75 0 01.446 1.323l-1.336.445a.75.75 0 01-.976-.976l.445-1.336a.75.75 0 011.42.544zm-2.48-2.48a.75.75 0 011.06 0l.97.97a.75.75 0 11-1.06 1.06l-.97-.97a.75.75 0 010-1.06zM12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10zm-4-12a1 1 0 011-1h.01a1 1 0 011 1v4a1 1 0 01-1 1H9a1 1 0 01-1-1v-4zm4-3a1 1 0 011-1h.01a1 1 0 011 1v10a1 1 0 01-1 1H13a1 1 0 01-1-1V7zm4 3a1 1 0 011-1h.01a1 1 0 011 1v4a1 1 0 01-1 1H17a1 1 0 01-1-1v-4z" 
-        clipRule="evenodd"
-      />
+      <defs>
+        <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#f59e0b" stopOpacity="1" />
+          <stop offset="50%" stopColor="#ec4899" stopOpacity="1" />
+          <stop offset="100%" stopColor="#8b5cf6" stopOpacity="1" />
+        </linearGradient>
+        <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#06b6d4" stopOpacity="1" />
+          <stop offset="100%" stopColor="#3b82f6" stopOpacity="1" />
+        </linearGradient>
+        <linearGradient id="sunGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fbbf24" stopOpacity="1" />
+          <stop offset="100%" stopColor="#f97316" stopOpacity="1" />
+        </linearGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+          <feMerge>
+            <feMergeNode in="coloredBlur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      <circle cx="200" cy="200" r="180" fill="url(#primaryGrad)" opacity="0.05" />
+      <circle cx="200" cy="200" r="150" fill="url(#primaryGrad)" opacity="0.03" />
+
+      <g transform="translate(200, 180)">
+        <circle cx="0" cy="0" r="45" fill="url(#sunGlow)" filter="url(#glow)" opacity="0.3" />
+        <circle cx="0" cy="0" r="40" fill="url(#sunGlow)" />
+        <circle cx="0" cy="0" r="32" fill="#fef3c7" opacity="0.4" />
+        <g stroke="url(#sunGlow)" strokeWidth="4" strokeLinecap="round">
+          <line x1="0" y1="-55" x2="0" y2="-70" />
+          <line x1="39" y1="-39" x2="49" y2="-49" />
+          <line x1="55" y1="0" x2="70" y2="0" />
+          <line x1="39" y1="39" x2="49" y2="49" />
+          <line x1="0" y1="55" x2="0" y2="70" />
+          <line x1="-39" y1="39" x2="-49" y2="49" />
+          <line x1="-55" y1="0" x2="-70" y2="0" />
+          <line x1="-39" y1="-39" x2="-49" y2="-49" />
+        </g>
+        <g stroke="url(#sunGlow)" strokeWidth="3" strokeLinecap="round" opacity="0.5">
+          <line x1="27" y1="-50" x2="32" y2="-58" transform="rotate(22.5)" />
+          <line x1="50" y1="-27" x2="58" y2="-32" transform="rotate(22.5)" />
+          <line x1="50" y1="27" x2="58" y2="32" transform="rotate(22.5)" />
+          <line x1="27" y1="50" x2="32" y2="58" transform="rotate(22.5)" />
+        </g>
+      </g>
+
+      <g transform="translate(200, 280)">
+        <path
+          d="M -80,0 Q -60,-20 -40,0 T 0,0 T 40,0 T 80,0"
+          stroke="url(#waveGrad)"
+          strokeWidth="5"
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M -70,18 Q -50,-2 -30,18 T 10,18 T 50,18 T 70,18"
+          stroke="url(#waveGrad)"
+          strokeWidth="4"
+          fill="none"
+          opacity="0.7"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M -60,32 Q -45,17 -30,32 T 0,32 T 30,32 T 60,32"
+          stroke="url(#waveGrad)"
+          strokeWidth="3"
+          fill="none"
+          opacity="0.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <circle cx="-90" cy="8" r="3" fill="url(#waveGrad)" opacity="0.6" />
+        <circle cx="90" cy="8" r="3" fill="url(#waveGrad)" opacity="0.6" />
+        <circle cx="-75" cy="25" r="2.5" fill="url(#waveGrad)" opacity="0.4" />
+        <circle cx="75" cy="25" r="2.5" fill="url(#waveGrad)" opacity="0.4" />
+      </g>
+
+      <g transform="translate(145, 155)" opacity="0.3">
+        <circle cx="0" cy="0" r="4" fill="url(#primaryGrad)" />
+        <line x1="-3" y1="-3" x2="3" y2="3" stroke="url(#primaryGrad)" strokeWidth="1.5" />
+        <line x1="3" y1="-3" x2="-3" y2="3" stroke="url(#primaryGrad)" strokeWidth="1.5" />
+      </g>
     </svg>
   );
 };

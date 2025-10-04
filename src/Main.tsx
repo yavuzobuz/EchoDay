@@ -46,6 +46,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const [notes, setNotes] = useLocalStorage<Note[]>('notes', []);
     const [chatHistory, setChatHistory] = useLocalStorage<ChatMessage[]>('chatHistory', []);
     const [showInfoBanner, setShowInfoBanner] = useLocalStorage<boolean>('show-info-banner', true);
+    const [showElectronWarning, setShowElectronWarning] = useState(false);
 
     // Component State
     const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -96,10 +97,16 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         { continuous: false }
     );
     
-    // Request speech permission on mount
+    // Request speech permission on mount and check Electron
     useEffect(() => {
         wakeWordListener.checkAndRequestPermission();
-    }, [wakeWordListener.checkAndRequestPermission]);
+        
+        // Check if running in Electron and show warning
+        const isElectron = !!(window as any).isElectron || !!(window as any).electronAPI;
+        if (isElectron && !wakeWordListener.hasSupport) {
+            setShowElectronWarning(true);
+        }
+    }, [wakeWordListener.checkAndRequestPermission, wakeWordListener.hasSupport]);
 
 
     // Wake word effect management
