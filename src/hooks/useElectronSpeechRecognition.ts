@@ -166,10 +166,12 @@ export const useElectronSpeechRecognition = (
               console.log('[Electron SR] 🎙️ Live:', fullTranscript.trim());
               
               // Check for stop keywords
+              if (!options?.stopOnKeywords) return;
+              
               const lowerTranscript = fullTranscript.toLowerCase();
               for (const keyword of options.stopOnKeywords) {
                 if (lowerTranscript.includes(keyword.toLowerCase())) {
-                  console.log(`[Electron SR] 🛑 STOP KEYWORD "${keyword}" DETECTED! Stopping...`);
+                  console.log(`[Electron SR] 🛑 STOP KEYWORD \"${keyword}\" DETECTED! Stopping...`);
                   if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
                     mediaRecorderRef.current.stop();
                   }
