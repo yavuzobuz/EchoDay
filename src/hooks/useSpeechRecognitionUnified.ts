@@ -313,7 +313,10 @@ export const useSpeechRecognition = (
   }, [hasSupport, isWeb]);
 
   // Electron fallback hook'u her zaman en üstte çağırıyoruz (hook kuralları için) ve gerektiğinde kullanıyoruz
-  const electronSR = useElectronSpeechRecognition((t) => onTranscriptReadyRef.current(t), { continuous: options?.continuous });
+  const electronSR = useElectronSpeechRecognition((t) => onTranscriptReadyRef.current(t), { 
+    continuous: options?.continuous,
+    stopOnKeywords: typeof options?.stopOnKeywords === 'boolean' ? undefined : options?.stopOnKeywords
+  });
 
   const useElectron = isElectronRef.current || (!WebSpeechRecognitionAPI && isWeb);
 
