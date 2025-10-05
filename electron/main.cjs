@@ -16,18 +16,12 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.cjs'),
-      webSecurity: false, // Disable for speech recognition
-      allowRunningInsecureContent: true, // Allow for speech recognition
-      experimentalFeatures: true,
+      webSecurity: true,
+      allowRunningInsecureContent: isDev,
       enableRemoteModule: false,
-      enableWebSQL: false,
       spellcheck: false,
       backgroundThrottling: false,
-      offscreen: false,
-      // Better media support
-      enableBlinkFeatures: 'SpeechSynthesis,SpeechRecognition',
-      // Additional security but allow needed features
-      sandbox: false,
+      sandbox: true,
     },
     title: 'Sesli Günlük Planlayıcı',
     backgroundColor: '#1a1a1a',
@@ -83,44 +77,15 @@ app.setPath('cache', path.join(userDataPath, 'cache'));
 app.setPath('logs', path.join(userDataPath, 'logs'));
 app.setPath('crashDumps', path.join(userDataPath, 'crashDumps'));
 
-// Configure app before ready
-app.commandLine.appendSwitch('enable-web-bluetooth');
-app.commandLine.appendSwitch('enable-experimental-web-platform-features');
-app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
-app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
-
-// Additional cache and GPU related switches to avoid permission issues
-app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
-app.commandLine.appendSwitch('disable-software-rasterizer');
-app.commandLine.appendSwitch('disable-background-timer-throttling');
-app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
-
-// Speech recognition and media related switches for packaged app
-app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder');
-app.commandLine.appendSwitch('ignore-certificate-errors');
-app.commandLine.appendSwitch('ignore-ssl-errors');
-app.commandLine.appendSwitch('allow-running-insecure-content');
-app.commandLine.appendSwitch('disable-web-security');
-app.commandLine.appendSwitch('allow-file-access-from-files');
-
-// Additional switches for speech recognition
-app.commandLine.appendSwitch('enable-speech-input');
-app.commandLine.appendSwitch('enable-web-speech-api');
-app.commandLine.appendSwitch('force-device-scale-factor', '1');
-app.commandLine.appendSwitch('high-dpi-support', '1');
-app.commandLine.appendSwitch('enable-accelerated-2d-canvas');
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-
-// More aggressive switches for speech recognition
-app.commandLine.appendSwitch('unsafely-treat-insecure-origin-as-secure', 'http://localhost:5173,http://localhost:5174,https://www.google.com');
-app.commandLine.appendSwitch('enable-features', 'VaapiVideoDecoder,WebRTC-H264WithOpenH264FFmpeg,WebSpeech,SpeechSynthesis');
-app.commandLine.appendSwitch('use-fake-device-for-media-stream');
-app.commandLine.appendSwitch('enable-logging');
-app.commandLine.appendSwitch('v', '1');
-app.commandLine.appendSwitch('auto-accept-camera-and-microphone-capture');
-app.commandLine.appendSwitch('use-fake-ui-for-media-stream');
-app.commandLine.appendSwitch('lang', 'tr-TR');
+// Configure app before ready (minimal, safer defaults)
+if (isDev) {
+  app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+  app.commandLine.appendSwitch('lang', 'tr-TR');
+  app.commandLine.appendSwitch('enable-logging');
+} else {
+  app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+  app.commandLine.appendSwitch('lang', 'tr-TR');
+}
 
 // App ready
 app.whenReady().then(() => {

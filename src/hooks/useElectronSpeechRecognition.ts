@@ -17,7 +17,7 @@ export const useElectronSpeechRecognition = (
   useEffect(() => {
     const isElectron = !!(window as any).isElectron || !!(window as any).electronAPI;
     const hasMediaRecorder = typeof MediaRecorder !== 'undefined';
-    const hasGetUserMedia = navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+    const hasGetUserMedia = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
     
     setHasSupport(isElectron && hasMediaRecorder && hasGetUserMedia);
   }, []);
@@ -26,8 +26,9 @@ export const useElectronSpeechRecognition = (
     if (!hasSupport || isListening) return;
     
     try {
-      // Get microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Get microphone access (bind to mediaDevices to avoid Illegal invocation)
+      const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+      const stream = await gum({ audio: true });
       streamRef.current = stream;
       
       // Create MediaRecorder
@@ -74,8 +75,13 @@ export const useElectronSpeechRecognition = (
               setTranscript('');
               onTranscriptReady('');
             }
-          } catch (e) {
-            console.error('Speech-to-text işleminde hata:', e);
+          } catch (e: any) {
+            if (e?.message === 'API_QUOTA_EXCEEDED') {
+              console.warn('Gemini API günlük kullanım limiti aşıldı. Sesli komutlar geçici olarak devre dışı.');
+              alert('⚠️ API kullanım limiti aşıldı. Lütfen manuel görev ekleme kullanın veya yarın tekrar deneyin.');
+            } else {
+              console.error('Speech-to-text işleminde hata:', e);
+            }
             setTranscript('');
             onTranscriptReady('');
           }
@@ -122,7 +128,8 @@ export const useElectronSpeechRecognition = (
     hasSupport,
     checkAndRequestPermission: async () => {
       try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
+        const gum = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+        await gum({ audio: true });
         return true;
       } catch {
         return false;

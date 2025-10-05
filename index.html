@@ -6,7 +6,7 @@
   <title>EchoDay - Sesli Günlük Planlayıcı</title>
   
   <!-- Content Security Policy for Electron App -->
-  <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob: file:; script-src * 'unsafe-inline' 'unsafe-eval' data: blob:; style-src * 'unsafe-inline'; font-src * data:; img-src * data: blob:; connect-src * wss: data: blob:; media-src * data: blob:; frame-src *;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' http://localhost:5173 http://localhost:* ws://localhost:* https://generativelanguage.googleapis.com https://*.googleapis.com https://fonts.googleapis.com; media-src 'self' blob:; frame-src 'none';">
   
   <!-- Permissions Policy for microphone access -->
   <meta http-equiv="Permissions-Policy" content="microphone=*">

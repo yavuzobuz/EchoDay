@@ -6,7 +6,8 @@ import { DailyBriefing, Note, Priority, Todo, AnalyzedTaskData, ChatMessage } fr
 
 // Helper to create a new AI instance for each request, ensuring the user-provided API key is used.
 const getAI = (apiKey: string) => new GoogleGenerativeAI(apiKey);
-const modelName = 'gemini-2.5-pro';
+// Using gemini-2.0-flash for higher rate limits (200 RPD vs 100 RPD for 2.5-pro)
+const modelName = 'gemini-2.0-flash';
 
 const taskSchema = {
     type: SchemaType.OBJECT as SchemaType.OBJECT,
@@ -326,7 +327,13 @@ const speechToText = async (apiKey: string, audioBase64: string, mimeType: strin
         const result = await model.generateContent([prompt, audioPart]);
         const response = await result.response;
         return response.text().trim();
-    } catch (error) {
+    } catch (error: any) {
+        // Check if it's a rate limit error
+        if (error?.message?.includes('quota') || error?.message?.includes('429')) {
+            console.warn('Gemini API rate limit exceeded. Speech recognition unavailable temporarily.');
+            // Return a user-friendly message instead of null
+            throw new Error('API_QUOTA_EXCEEDED');
+        }
         console.error('Error transcribing audio with Gemini:', error);
         return null;
     }
