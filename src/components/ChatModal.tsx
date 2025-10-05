@@ -18,6 +18,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
   const [showNoteProcessor, setShowNoteProcessor] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [notePrompt, setNotePrompt] = useState('');
+  const [isElectron] = useState(() => {
+    return !!(window as any).isElectron || !!(window as any).electronAPI;
+  });
 
   const handleTranscriptReady = useCallback((transcript: string) => {
     if (transcript.trim()) {
@@ -277,6 +280,13 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
         </main>
 
         <footer className="p-3 sm:p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
+          {isListening && isElectron && (
+            <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                💡 İpucu: Konuşmanızı bitirmek için <strong>"tamam"</strong>, <strong>"bitti"</strong> veya <strong>"gönder"</strong> deyin, ya da mikrofon butonuna tıklayın.
+              </p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="flex gap-2">
             <input
               type="text"

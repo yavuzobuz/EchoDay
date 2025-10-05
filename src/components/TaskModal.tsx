@@ -9,6 +9,9 @@ interface TaskModalProps {
 
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => {
   const [description, setDescription] = useState('');
+  const [isElectron] = useState(() => {
+    return !!(window as any).isElectron || !!(window as any).electronAPI;
+  });
 
   const handleTranscript = (transcript: string) => {
     setDescription(transcript);
@@ -59,6 +62,15 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Görevinizi yazın veya mikrofon ile söyleyin..."
           />
+          
+          {isListening && isElectron && (
+            <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                💡 İpucu: Konuşmanızı bitirmek için <strong>"tamam"</strong>, <strong>"bitti"</strong> veya <strong>"kaydet"</strong> deyin, ya da mikrofon butonuna tıklayın.
+              </p>
+            </div>
+          )}
+          
           <div className="mt-4 flex justify-between items-center">
             {hasSupport ? (
               <button

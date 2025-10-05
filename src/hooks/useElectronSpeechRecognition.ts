@@ -5,6 +5,34 @@ export const useElectronSpeechRecognition = (
   onTranscriptReady: (transcript: string) => void,
   options?: { continuous?: boolean; stopOnKeywords?: string[]; }
 ) => {
+  // Helper function to remove stop keywords from end of transcript
+  const cleanStopKeywords = (text: string, keywords?: string[]): string => {
+    if (!keywords || keywords.length === 0) return text;
+    
+    let cleaned = text.trim();
+    const lowerText = cleaned.toLowerCase();
+    
+    // Check if text ends with any stop keyword
+    for (const keyword of keywords) {
+      const lowerKeyword = keyword.toLowerCase();
+      if (lowerText.endsWith(lowerKeyword)) {
+        // Remove the keyword from the end
+        cleaned = cleaned.slice(0, -(lowerKeyword.length)).trim();
+        console.log(`[Electron SR] Removed stop keyword "${keyword}" from transcript`);
+        break;
+      }
+      // Also check with common punctuation
+      if (lowerText.endsWith(lowerKeyword + '.') || 
+          lowerText.endsWith(lowerKeyword + '!') ||
+          lowerText.endsWith(lowerKeyword + ',')) {
+        cleaned = cleaned.slice(0, -(lowerKeyword.length + 1)).trim();
+        console.log(`[Electron SR] Removed stop keyword "${keyword}" (with punctuation) from transcript`);
+        break;
+      }
+    }
+    
+    return cleaned;
+  };
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [hasSupport, setHasSupport] = useState(false);
@@ -70,8 +98,10 @@ export const useElectronSpeechRecognition = (
             }
             const text = await geminiService.speechToText(apiKey, base64Data, 'audio/webm');
             if (text) {
-              setTranscript(text);
-              onTranscriptReady(text);
+              // Clean stop keywords from transcript
+              const cleanedText = cleanStopKeywords(text, options?.stopOnKeywords);
+              setTranscript(cleanedText);
+              onTranscriptReady(cleanedText);
             } else {
               setTranscript('');
               onTranscriptReady('');
