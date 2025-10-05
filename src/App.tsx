@@ -16,6 +16,7 @@ const App: React.FC = () => {
 
 
   React.useEffect(() => {
+    console.log('[App] Theme changed to:', theme);
     document.documentElement.classList.toggle('dark', theme === 'dark');
     if (theme === 'dark') {
       document.documentElement.classList.remove('light');
@@ -24,6 +25,7 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
       document.documentElement.classList.add('light');
     }
+    console.log('[App] HTML classes:', document.documentElement.classList.toString());
   }, [theme]);
 
   React.useEffect(() => {

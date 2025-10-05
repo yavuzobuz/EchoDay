@@ -28,7 +28,9 @@ interface ThemeSwitcherProps {
 
 const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ theme, setTheme, accentColor, setAccentColor }) => {
   const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    console.log('[ThemeSwitcher] Toggling theme from', theme, 'to', newTheme);
+    setTheme(newTheme);
   };
 
   return (
