@@ -107,13 +107,13 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         // Disable wake word listener in Electron (causes network errors)
         if (isElectron) {
             console.log('[Main] Wake word listener disabled in Electron');
-            setShowElectronWarning(true);
+            // Don't show warning - user can still use manual buttons
             return;
         }
         
         wakeWordListener.checkAndRequestPermission();
         
-        // Show warning only if speech recognition completely fails
+        // Show warning only if speech recognition completely fails in browser
         if (!wakeWordListener.hasSupport) {
             setTimeout(() => {
                 if (!wakeWordListener.hasSupport) {
