@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎮 NEON-DAY Launcher</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Courier New', monospace;
+      background: #0a0a0f;
+      color: #00ffff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image: 
+        linear-gradient(rgba(255, 16, 240, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 16, 240, 0.1) 1px, transparent 1px);
+      background-size: 50px 50px;
+    }
+    
+    .container {
+      text-align: center;
+      padding: 40px;
+      border: 3px solid #00ffff;
+      border-radius: 10px;
+      background: rgba(0, 0, 0, 0.9);
+      box-shadow: 
+        0 0 20px #00ffff,
+        inset 0 0 20px rgba(0, 255, 255, 0.1);
+      max-width: 600px;
+    }
+    
+    h1 {
+      font-size: 3em;
+      color: #ff10f0;
+      text-shadow: 
+        0 0 10px #ff10f0,
+        0 0 20px #ff10f0,
+        0 0 30px #ff10f0;
+      margin-bottom: 20px;
+      animation: glow 2s ease-in-out infinite;
+    }
+    
+    @keyframes glow {
+      0%, 100% { 
+        text-shadow: 
+          0 0 10px #ff10f0,
+          0 0 20px #ff10f0,
+          0 0 30px #ff10f0;
+      }
+      50% { 
+        text-shadow: 
+          0 0 20px #ff10f0,
+          0 0 40px #ff10f0,
+          0 0 60px #ff10f0;
+      }
+    }
+    
+    .version {
+      color: #39ff14;
+      margin-bottom: 30px;
+      font-size: 0.9em;
+    }
+    
+    .buttons {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    
+    .button {
+      padding: 15px 30px;
+      font-size: 1.2em;
+      font-weight: bold;
+      text-transform: uppercase;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      transition: all 0.3s ease;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .button-cyber {
+      background: linear-gradient(45deg, #b000ff, #ff10f0);
+      color: white;
+      box-shadow: 0 0 20px #ff10f0;
+    }
+    
+    .button-cyber:hover {
+      transform: scale(1.1);
+      box-shadow: 
+        0 0 30px #ff10f0,
+        0 0 60px #b000ff;
+    }
+    
+    .button-normal {
+      background: linear-gradient(45deg, #1e3a8a, #3b82f6);
+      color: white;
+      box-shadow: 0 0 20px #3b82f6;
+    }
+    
+    .button-normal:hover {
+      transform: scale(1.1);
+      box-shadow: 
+        0 0 30px #3b82f6,
+        0 0 60px #1e3a8a;
+    }
+    
+    .info {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 2px solid #00ffff;
+      color: #888;
+      font-size: 0.85em;
+    }
+    
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(100vh); }
+    }
+    
+    .scanlines {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 999;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15),
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      animation: scanline 8s linear infinite;
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="scanlines"></div>
+  
+  <div class="container">
+    <h1>⚡ NEON-DAY ⚡</h1>
+    <p class="version">[ SELECT VERSION ]</p>
+    
+    <div class="buttons">
+      <a href="/index-cyberpunk.html" class="button button-cyber">
+        🎮 CYBERPUNK MODE
+      </a>
+      
+      <a href="/index.html" class="button button-normal">
+        📱 NORMAL MODE
+      </a>
+    </div>
+    
+    <div class="info">
+      <p>🌟 Cyberpunk Mode: Full neon effects, scan lines, retro vibes</p>
+      <p>📱 Normal Mode: Original clean interface</p>
+    </div>
+  </div>
+  
+  <script>
+    // Auto-redirect to cyberpunk after 3 seconds if no choice
+    // Uncomment below to enable auto-redirect:
+    // setTimeout(() => {
+    //   window.location.href = '/index-cyberpunk.html';
+    // }, 3000);
+  </script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import ReactDOM from 'react-dom/client';
+import './index.css';
 // Fix: Import and render the main App component instead of the Main component.
 import App from './App';
 

@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { geminiService } from '../services/geminiService';
 import { useElectronSpeechRecognition } from './useElectronSpeechRecognition';
 
 // Web Speech API types

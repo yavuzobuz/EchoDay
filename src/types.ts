@@ -44,6 +44,12 @@ export interface Note {
   text: string;
   imageUrl?: string;
   createdAt: string;
+  // New optional fields for richer note features
+  pinned?: boolean;
+  favorite?: boolean;
+  tags?: string[];
+  color?: 'yellow' | 'blue' | 'green' | 'red' | 'purple' | 'gray';
+  updatedAt?: string;
 }
 
 export interface ChatMessage {

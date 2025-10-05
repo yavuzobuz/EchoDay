@@ -94,6 +94,15 @@ const searchArchive = async (query: string): Promise<{ todos: Todo[], notes: Not
     return { todos, notes };
 };
 
+const removeNotes = async (ids: string[]): Promise<void> => {
+  try {
+    if (!ids.length) return;
+    await db.notes.where('id').anyOf(ids).delete();
+  } catch (error) {
+    console.error('[Archive] Failed to remove notes from archive:', error);
+  }
+};
+
 const getDashboardStats = async (currentTodos: Todo[]): Promise<DashboardStats> => {
   try {
     const archivedTodos = await db.todos.toArray();
@@ -157,4 +166,5 @@ export const archiveService = {
   getArchivedItemsForDate,
   searchArchive,
   getDashboardStats,
+  removeNotes,
 };

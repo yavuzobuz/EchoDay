@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="tr" class="">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚡ NEON-DAY ⚡ - Cyberpunk Günlük</title>
+  
+  <!-- Content Security Policy for Electron App -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' http://localhost:5173 http://localhost:* ws://localhost:* https://generativelanguage.googleapis.com https://*.googleapis.com https://fonts.googleapis.com; media-src 'self' blob:; frame-src 'none';">
+  
+  <!-- Permissions Policy for microphone access -->
+  <meta http-equiv="Permissions-Policy" content="microphone=*">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  
+  <style>
+    /* 🌈 CYBERPUNK COLOR PALETTE 🌈 */
+    :root {
+      --neon-pink: #ff10f0;
+      --neon-cyan: #00ffff;
+      --neon-purple: #b000ff;
+      --neon-yellow: #ffff00;
+      --neon-green: #39ff14;
+      --dark-bg: #0a0a0f;
+      --grid-color: #ff10f055;
+    }
+
+    /* 🎮 RETRO FONTS 🎮 */
+    .font-retro { font-family: 'Press Start 2P', cursive; }
+    .font-cyber { font-family: 'Orbitron', sans-serif; }
+    .font-terminal { font-family: 'VT323', monospace; }
+
+    /* ⚡ SCAN LINES EFFECT ⚡ */
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(100vh); }
+    }
+
+    .scanlines {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15),
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      animation: scanline 8s linear infinite;
+      opacity: 0.5;
+    }
+
+    /* 🌟 NEON GLOW ANIMATIONS 🌟 */
+    @keyframes neon-glow-pink {
+      0%, 100% { 
+        text-shadow: 0 0 10px var(--neon-pink),
+                     0 0 20px var(--neon-pink),
+                     0 0 30px var(--neon-pink),
+                     0 0 40px var(--neon-pink);
+      }
+      50% { 
+        text-shadow: 0 0 5px var(--neon-pink),
+                     0 0 10px var(--neon-pink),
+                     0 0 15px var(--neon-pink),
+                     0 0 20px var(--neon-pink);
+      }
+    }
+
+    @keyframes neon-glow-cyan {
+      0%, 100% { 
+        text-shadow: 0 0 10px var(--neon-cyan),
+                     0 0 20px var(--neon-cyan),
+                     0 0 30px var(--neon-cyan);
+      }
+      50% { 
+        text-shadow: 0 0 5px var(--neon-cyan),
+                     0 0 10px var(--neon-cyan),
+                     0 0 15px var(--neon-cyan);
+      }
+    }
+
+    @keyframes glitch {
+      0% { transform: translate(0); }
+      20% { transform: translate(-2px, 2px); }
+      40% { transform: translate(-2px, -2px); }
+      60% { transform: translate(2px, 2px); }
+      80% { transform: translate(2px, -2px); }
+      100% { transform: translate(0); }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    @keyframes color-shift {
+      0% { filter: hue-rotate(0deg); }
+      100% { filter: hue-rotate(360deg); }
+    }
+
+    .neon-text-pink {
+      color: var(--neon-pink);
+      animation: neon-glow-pink 2s ease-in-out infinite;
+    }
+
+    .neon-text-cyan {
+      color: var(--neon-cyan);
+      animation: neon-glow-cyan 2s ease-in-out infinite;
+    }
+
+    .neon-text-green {
+      color: var(--neon-green);
+      text-shadow: 0 0 10px var(--neon-green),
+                   0 0 20px var(--neon-green),
+                   0 0 30px var(--neon-green);
+    }
+
+    .glitch-effect {
+      animation: glitch 0.3s infinite;
+    }
+
+    .float-animation {
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .color-shift {
+      animation: color-shift 10s linear infinite;
+    }
+
+    /* 🔲 GRID BACKGROUND 🔲 */
+    .cyber-grid {
+      background-color: var(--dark-bg);
+      background-image: 
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+      background-size: 50px 50px;
+      position: relative;
+    }
+
+    /* 💫 NEON BORDERS 💫 */
+    .neon-border {
+      border: 2px solid var(--neon-cyan);
+      box-shadow: 
+        0 0 10px var(--neon-cyan),
+        inset 0 0 10px var(--neon-cyan),
+        0 0 20px var(--neon-purple);
+    }
+
+    .neon-border-pink {
+      border: 2px solid var(--neon-pink);
+      box-shadow: 
+        0 0 10px var(--neon-pink),
+        inset 0 0 10px var(--neon-pink),
+        0 0 20px var(--neon-purple);
+    }
+
+    /* 🎯 BUTTON STYLES 🎯 */
+    .cyber-button {
+      position: relative;
+      background: linear-gradient(45deg, var(--neon-purple), var(--neon-pink));
+      border: none;
+      padding: 12px 24px;
+      color: white;
+      font-weight: bold;
+      text-transform: uppercase;
+      cursor: pointer;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .cyber-button:hover {
+      transform: scale(1.05);
+      box-shadow: 
+        0 0 20px var(--neon-pink),
+        0 0 40px var(--neon-purple),
+        0 0 60px var(--neon-cyan);
+    }
+
+    .cyber-button:active {
+      transform: scale(0.95);
+    }
+
+    .cyber-button::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.5);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    .cyber-button:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    /* 📟 RETRO TERMINAL STYLE 📟 */
+    .terminal-window {
+      background: rgba(0, 0, 0, 0.85);
+      border: 3px solid var(--neon-green);
+      box-shadow: 
+        0 0 20px var(--neon-green),
+        inset 0 0 20px rgba(57, 255, 20, 0.1);
+      font-family: 'VT323', monospace;
+      color: var(--neon-green);
+    }
+
+    /* ⚡ CUSTOM SCROLLBAR ⚡ */
+    .cyber-scrollbar::-webkit-scrollbar {
+      width: 12px;
+    }
+
+    .cyber-scrollbar::-webkit-scrollbar-track {
+      background: var(--dark-bg);
+      border: 1px solid var(--neon-cyan);
+    }
+
+    .cyber-scrollbar::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, var(--neon-pink), var(--neon-purple));
+      border-radius: 6px;
+      box-shadow: 0 0 10px var(--neon-pink);
+    }
+
+    .cyber-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, var(--neon-cyan), var(--neon-pink));
+    }
+
+    /* 🌠 PARTICLE EFFECT 🌠 */
+    @keyframes particle-float {
+      0% {
+        transform: translateY(100vh) scale(0);
+        opacity: 0;
+      }
+      10% {
+        opacity: 1;
+      }
+      90% {
+        opacity: 1;
+      }
+      100% {
+        transform: translateY(-100px) scale(1);
+        opacity: 0;
+      }
+    }
+
+    .particle {
+      position: fixed;
+      width: 4px;
+      height: 4px;
+      background: var(--neon-cyan);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: particle-float 10s linear infinite;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    /* 🎨 HOLOGRAPHIC EFFECT 🎨 */
+    .holographic {
+      background: linear-gradient(
+        45deg,
+        var(--neon-pink) 0%,
+        var(--neon-purple) 25%,
+        var(--neon-cyan) 50%,
+        var(--neon-green) 75%,
+        var(--neon-yellow) 100%
+      );
+      background-size: 400% 400%;
+      animation: color-shift 5s ease infinite;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* 🔊 AUDIO VISUALIZER BARS 🔊 */
+    @keyframes audio-pulse {
+      0%, 100% { height: 20px; }
+      50% { height: 60px; }
+    }
+
+    .audio-bar {
+      background: linear-gradient(to top, var(--neon-pink), var(--neon-cyan));
+      animation: audio-pulse 0.5s ease-in-out infinite;
+    }
+
+    /* 💾 RETRO CARD STYLE 💾 */
+    .retro-card {
+      background: rgba(10, 10, 15, 0.9);
+      border: 3px solid var(--neon-cyan);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .retro-card::before {
+      content: '';
+      position: absolute;
+      top: -2px;
+      left: -2px;
+      right: -2px;
+      bottom: -2px;
+      background: linear-gradient(45deg, var(--neon-pink), var(--neon-cyan), var(--neon-purple));
+      z-index: -1;
+      filter: blur(10px);
+      opacity: 0.5;
+    }
+
+    /* 🎪 LOADING ANIMATION 🎪 */
+    @keyframes retro-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .retro-spinner {
+      border: 4px solid rgba(255, 16, 240, 0.3);
+      border-top: 4px solid var(--neon-pink);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: retro-spin 1s linear infinite;
+      box-shadow: 0 0 20px var(--neon-pink);
+    }
+  </style>
+
+  <script>
+    // 🌟 Apply cyberpunk theme on load
+    (function() {
+      document.documentElement.classList.add('dark');
+    })();
+  </script>
+</head>
+<body class="cyber-grid font-cyber min-h-screen text-white overflow-x-hidden">
+  
+  <!-- 🎬 SCAN LINES OVERLAY 🎬 -->
+  <div class="scanlines"></div>
+  
+  <!-- 💫 FLOATING PARTICLES 💫 -->
+  <div id="particles-container"></div>
+  
+  <div id="root"></div>
+  
+  <script>
+    // 🎆 Create floating particles
+    function createParticles() {
+      const container = document.getElementById('particles-container');
+      for (let i = 0; i < 30; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 10 + 's';
+        particle.style.animationDuration = (Math.random() * 5 + 5) + 's';
+        container.appendChild(particle);
+      }
+    }
+    createParticles();
+  </script>
+  
+  <script type="module" src="/src/index-cyberpunk.tsx"></script>
+</body>
+</html>

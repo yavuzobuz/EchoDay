@@ -149,9 +149,9 @@ export const useElectronSpeechRecognition = (
                 console.log('[Electron SR] Web Speech heard:', transcriptPart);
                 
                 // Check if any stop keyword is spoken
-                for (const keyword of options.stopOnKeywords) {
+                for (const keyword of (options?.stopOnKeywords ?? [])) {
                   if (transcriptPart.includes(keyword.toLowerCase())) {
-                    console.log(`[Electron SR] Stop keyword "${keyword}" detected! Stopping recording...`);
+                    console.log(`[Electron SR] Stop keyword \"${keyword}\" detected! Stopping recording...`);
                     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
                       mediaRecorderRef.current.stop();
                     }

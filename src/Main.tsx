@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { Clipboard } from '@capacitor/clipboard';
 
 import Header from './components/Header';
 import TodoList from './components/TodoList';
@@ -19,6 +18,7 @@ import DailyNotepad from './components/DailyNotepad';
 import TimelineView from './components/TimelineView';
 import ArchiveModal from './components/ArchiveModal';
 import InfoBanner from './components/InfoBanner';
+import ShareModal from './components/ShareModal';
 
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSpeechRecognition } from './hooks/useSpeechRecognitionUnified';
@@ -64,6 +64,11 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const [isSuggestionsModalOpen, setIsSuggestionsModalOpen] = useState(false);
     const [isNotepadAiModalOpen, setIsNotepadAiModalOpen] = useState(false);
     const [isArchiveModalOpen, setIsArchiveModalOpen] = useState(false);
+
+    // Share Modal State
+    const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+    const [shareItem, setShareItem] = useState<Todo | Note | null>(null);
+    const [shareType, setShareType] = useState<'todo' | 'note'>('todo');
 
     const [todoForDirections, setTodoForDirections] = useState<Todo | null>(null);
     const [dailyBriefing, setDailyBriefing] = useState<DailyBriefing | null>(null);
@@ -431,7 +436,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
 
     return (
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+        <div className="min-h-screen overflow-x-hidden bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
             {isLoading && <Loader message={loadingMessage} />}
             {notification && <NotificationPopup message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
             {activeReminders.map(id => {
@@ -482,14 +487,20 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                                 onDelete={handleDeleteTodo}
                                 onGetDirections={handleGetDirections}
                                 onEdit={handleEditTodo}
-                                onShare={(todo) => Clipboard.write({string: `Görev: ${todo.text}${todo.datetime ? `\nTarih: ${new Date(todo.datetime).toLocaleString('tr-TR')}` : ''}`}).then(() => setNotification({message: 'Görev panoya kopyalandı!', type: 'success'}))}
+                                onShare={(todo) => { setShareType('todo'); setShareItem(todo); setIsShareModalOpen(true); }}
                             />
                         ) : (
                             <TimelineView todos={todos} />
                         )}
                     </div>
                     <div className="lg:col-span-1 mt-4 lg:mt-0">
-                       <DailyNotepad notes={notes} setNotes={setNotes} onOpenAiModal={() => {if(checkApiKey()) setIsNotepadAiModalOpen(true);}} onAnalyzeImage={handleAnalyzeImageNote} />
+                       <DailyNotepad
+                           notes={notes}
+                           setNotes={setNotes}
+                           onOpenAiModal={() => { if(checkApiKey()) setIsNotepadAiModalOpen(true); }}
+                           onAnalyzeImage={handleAnalyzeImageNote}
+                           onShareNote={(note) => { setShareType('note'); setShareItem(note); setIsShareModalOpen(true); }}
+                       />
                     </div>
                 </div>
 
@@ -511,6 +522,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             <SuggestionsModal isOpen={isSuggestionsModalOpen} onClose={() => setIsSuggestionsModalOpen(false)} briefing={dailyBriefing} />
             <NotepadAiModal isOpen={isNotepadAiModalOpen} onClose={() => setIsNotepadAiModalOpen(false)} onSubmit={handleAnalyzeNotes} notes={notes} />
             <ArchiveModal isOpen={isArchiveModalOpen} onClose={() => setIsArchiveModalOpen(false)} currentTodos={todos} />
+            <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} item={shareItem} type={shareType} />
         </div>
     );
 };

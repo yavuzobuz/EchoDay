@@ -238,7 +238,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                 </div>
               )}
               <div className={`max-w-md lg:max-w-lg p-3 rounded-lg ${msg.role === 'user' ? 'bg-[var(--accent-color-600)] text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
-                <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
               </div>
             </div>
           ))}
