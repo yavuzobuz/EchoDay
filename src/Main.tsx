@@ -97,26 +97,40 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         { continuous: false }
     );
     
+    // Detect if running in Electron
+    const [isElectron] = useState(() => {
+        return !!(window as any).isElectron || !!(window as any).electronAPI;
+    });
+
     // Request speech permission on mount
     useEffect(() => {
+        // Disable wake word listener in Electron (causes network errors)
+        if (isElectron) {
+            console.log('[Main] Wake word listener disabled in Electron');
+            setShowElectronWarning(true);
+            return;
+        }
+        
         wakeWordListener.checkAndRequestPermission();
         
-        // Show warning only if speech recognition completely fails (not just because it's Electron)
+        // Show warning only if speech recognition completely fails
         if (!wakeWordListener.hasSupport) {
-            const isElectron = !!(window as any).isElectron || !!(window as any).electronAPI;
-            if (isElectron) {
-                setTimeout(() => {
-                    if (!wakeWordListener.hasSupport) {
-                        setShowElectronWarning(true);
-                    }
-                }, 5000); // Wait 5 seconds to see if speech recognition works
-            }
+            setTimeout(() => {
+                if (!wakeWordListener.hasSupport) {
+                    setShowElectronWarning(true);
+                }
+            }, 5000);
         }
-    }, [wakeWordListener.checkAndRequestPermission, wakeWordListener.hasSupport]);
+    }, [wakeWordListener.checkAndRequestPermission, wakeWordListener.hasSupport, isElectron]);
 
 
-    // Wake word effect management
+    // Wake word effect management (disabled in Electron)
     useEffect(() => {
+        // Skip wake word listener in Electron
+        if (isElectron) {
+            return;
+        }
+        
         const canListen = !isTaskModalOpen && !isChatOpen && !isImageTaskModalOpen && !isLocationPromptOpen && !isSuggestionsModalOpen && !isNotepadAiModalOpen && !isArchiveModalOpen && !mainCommandListener.isListening;
         
         if (canListen && !wakeWordListener.isListening) {
@@ -128,7 +142,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         } else if (!canListen && wakeWordListener.isListening) {
             wakeWordListener.stopListening();
         }
-    }, [isTaskModalOpen, isChatOpen, isImageTaskModalOpen, isLocationPromptOpen, isSuggestionsModalOpen, isNotepadAiModalOpen, isArchiveModalOpen, mainCommandListener.isListening, wakeWordListener]);
+    }, [isTaskModalOpen, isChatOpen, isImageTaskModalOpen, isLocationPromptOpen, isSuggestionsModalOpen, isNotepadAiModalOpen, isArchiveModalOpen, mainCommandListener.isListening, wakeWordListener, isElectron]);
 
 
     // --- Task Management ---
@@ -449,10 +463,10 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                             </div>
                             <div className="ml-3 flex-1">
                                 <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                                    Sesli Komutlar Devre Dışı
+                                    Uyandırma Kelimesi Devre Dışı
                                 </h3>
                                 <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                                    Electron uygulamasında sesli komutlar güvenlik kısıtlamaları nedeniyle çalışmıyor. Görev ekleme için manuel butonları kullanabilirsiniz.
+                                    Electron'da "uyandırma kelimesi" özelliği çalışmıyor. Ancak "Sesli Görev" ve "AI Sohbet" butonlarındaki mikrofon özelliği aktif! Butonlara tıklayarak sesli komut kullanabilirsiniz.
                                 </p>
                             </div>
                             <div className="ml-auto pl-3">
