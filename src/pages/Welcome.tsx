@@ -73,7 +73,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
       
       <div className="text-center max-w-7xl mx-auto relative z-10">
         {/* Logo with pulse animation - BÜYÜTÜLDÜ */}
-        <div className={`inline-block p-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-3xl mb-8 shadow-2xl transform transition-all duration-1000 border-4 border-[var(--accent-color-500)] ${
+        <div className={`inline-block p-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-3xl mb-8 shadow-2xl transform transition-all duration-1000 ${
           isLoaded ? 'scale-100 opacity-100 rotate-0' : 'scale-0 opacity-0 rotate-180'
         }`}>
           <Logo className="w-32 h-32 text-[var(--accent-color-600)] animate-pulse" />
@@ -294,7 +294,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
           </button>
 
           <a
-            href="https://github.com/yavuzobuz/EchoDay/releases/latest"
+            href="https://github.com/yavuzobuz/EchoDay/releases/tag/untagged-f6c63d3f235128100f77"
             target="_blank"
             rel="noopener noreferrer"
             className="group inline-flex items-center gap-3 px-12 py-6 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xl font-bold rounded-2xl shadow-2xl hover:shadow-gray-700/50 transition-all duration-300 transform hover:scale-105 border-2 border-gray-700 dark:border-gray-600 hover:border-gray-600"
