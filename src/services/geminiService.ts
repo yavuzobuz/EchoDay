@@ -73,7 +73,18 @@ const analyzeTask = async (apiKey: string, description: string): Promise<Analyze
             },
         });
         
-        const prompt = `Aşağıdaki görev tanımını analiz et ve özelliklerini çıkar. Özellikle 'text' alanını kullanıcının girdiği orijinal metinle, çeviri yapmadan doldur. Kullanıcının şu anki tarihi ve saati: ${new Date().toISOString()}. 'Yarın saat 3' gibi göreceli zamanları bu bilgiye göre yorumla. Nihai tarihi tam bir ISO 8601 formatında döndür. Görev: "${description}"`;
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
+        const now = new Date();
+        const nowISO = now.toISOString(); // UTC
+        const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
+        const offsetMinutes = -now.getTimezoneOffset();
+        const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
+        const prompt = `Aşağıdaki görev tanımını analiz et ve özelliklerini çıkar. Özellikle 'text' alanını kullanıcının girdiği orijinal metinle, çeviri yapmadan doldur.
+Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours}).
+Kullanıcının şu anki tarihi ve saati (yerel): ${nowLocal}.
+Referans için şu anın UTC zamanı: ${nowISO}.
+'Yarın saat 3' gibi göreceli zamanları bu yerel saat dilimine göre yorumla ve sonucu ISO 8601 UTC (Z) formatında döndür (ör. 2025-01-02T10:00:00Z).
+Görev: "${description}"`;
         
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -105,7 +116,18 @@ const analyzeImageForTask = async (apiKey: string, prompt: string, imageBase64: 
             },
         };
         
-        const textPrompt = `Sağlanan resme dayanarak kullanıcının isteğini analiz et. İstekten ve resim içeriğinden görev özelliklerini çıkar. Özellikle 'text' alanını kullanıcının girdiği orijinal metinle, çeviri yapmadan doldur. Kullanıcının şu anki tarihi ve saati: ${new Date().toISOString()}. 'Yarın saat 3' gibi göreceli zamanları bu bilgiye göre yorumla. Nihai tarihi tam bir ISO 8601 formatında döndür. Kullanıcı isteği: "${prompt}"`;
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
+        const now = new Date();
+        const nowISO = now.toISOString(); // UTC
+        const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
+        const offsetMinutes = -now.getTimezoneOffset();
+        const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
+        const textPrompt = `Sağlanan resme dayanarak kullanıcının isteğini analiz et. İstekten ve resim içeriğinden görev özelliklerini çıkar. Özellikle 'text' alanını kullanıcının girdiği orijinal metinle, çeviri yapmadan doldur.
+Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours}).
+Kullanıcının şu anki tarihi ve saati (yerel): ${nowLocal}.
+Referans için şu anın UTC zamanı: ${nowISO}.
+'Yarın saat 3' gibi göreceli zamanları bu yerel saat dilimine göre yorumla ve sonucu ISO 8601 UTC (Z) formatında döndür (ör. 2025-01-02T10:00:00Z).
+Kullanıcı isteği: "${prompt}"`;
         
         const result = await model.generateContent([textPrompt, imagePart]);
         const response = await result.response;
