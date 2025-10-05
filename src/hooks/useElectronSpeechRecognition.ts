@@ -10,6 +10,8 @@ export const useElectronSpeechRecognition = (
     if (!keywords || keywords.length === 0) return text;
     
     let cleaned = text.trim();
+    console.log('[Electron SR] 🧹 Cleaning transcript:', cleaned);
+    console.log('[Electron SR] 🔍 Looking for keywords:', keywords);
     
     // Sort keywords by length (longest first) to match longer phrases first
     const sortedKeywords = [...keywords].sort((a, b) => b.length - a.length);
@@ -19,14 +21,24 @@ export const useElectronSpeechRecognition = (
       const lowerKeyword = keyword.toLowerCase();
       const lowerCleaned = cleaned.toLowerCase();
       
-      // Check if text ends with keyword (with or without punctuation)
-      // Match: "keyword", "keyword.", "keyword!", "keyword,", "keyword?"
-      const punctuationPattern = new RegExp(`\\s*${lowerKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s,.!?;:]*$`, 'i');
-      
-      if (punctuationPattern.test(cleaned)) {
-        cleaned = cleaned.replace(punctuationPattern, '').trim();
-        console.log(`[Electron SR] ✅ Removed stop keyword "${keyword}" from transcript`);
-        break;
+      // Simple approach: check if ends with keyword (case insensitive)
+      // Then remove with any trailing punctuation
+      if (lowerCleaned.endsWith(lowerKeyword) || 
+          lowerCleaned.endsWith(lowerKeyword + '.') ||
+          lowerCleaned.endsWith(lowerKeyword + '!') ||
+          lowerCleaned.endsWith(lowerKeyword + ',') ||
+          lowerCleaned.endsWith(lowerKeyword + '?') ||
+          lowerCleaned.endsWith(lowerKeyword + ';') ||
+          lowerCleaned.endsWith(lowerKeyword + ':')) {
+        
+        // Find the position where keyword starts
+        const keywordIndex = lowerCleaned.lastIndexOf(lowerKeyword);
+        if (keywordIndex !== -1) {
+          cleaned = cleaned.substring(0, keywordIndex).trim();
+          console.log(`[Electron SR] ✅ Removed stop keyword "${keyword}" from transcript`);
+          console.log('[Electron SR] 📝 Result:', cleaned);
+          break;
+        }
       }
     }
     
