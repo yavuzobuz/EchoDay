@@ -46,7 +46,6 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const [notes, setNotes] = useLocalStorage<Note[]>('notes', []);
     const [chatHistory, setChatHistory] = useLocalStorage<ChatMessage[]>('chatHistory', []);
     const [showInfoBanner, setShowInfoBanner] = useLocalStorage<boolean>('show-info-banner', true);
-    const [showElectronWarning, setShowElectronWarning] = useState(false);
 
     // Component State
     const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -112,16 +111,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         }
         
         wakeWordListener.checkAndRequestPermission();
-        
-        // Show warning only if speech recognition completely fails in browser
-        if (!wakeWordListener.hasSupport) {
-            setTimeout(() => {
-                if (!wakeWordListener.hasSupport) {
-                    setShowElectronWarning(true);
-                }
-            }, 5000);
-        }
-    }, [wakeWordListener.checkAndRequestPermission, wakeWordListener.hasSupport, isElectron]);
+    }, [wakeWordListener.checkAndRequestPermission, isElectron]);
 
 
     // Wake word effect management (disabled in Electron)
@@ -453,38 +443,6 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
                 {showInfoBanner && <InfoBanner assistantName={assistantName} onClose={() => setShowInfoBanner(false)} />}
-                {showElectronWarning && (
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-4">
-                        <div className="flex items-start">
-                            <div className="flex-shrink-0">
-                                <svg className="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.19-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                                </svg>
-                            </div>
-                            <div className="ml-3 flex-1">
-                                <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                                    Uyandırma Kelimesi Devre Dışı
-                                </h3>
-                                <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                                    Electron'da "uyandırma kelimesi" özelliği çalışmıyor. Ancak "Sesli Görev" ve "AI Sohbet" butonlarındaki mikrofon özelliği aktif! Butonlara tıklayarak sesli komut kullanabilirsiniz.
-                                </p>
-                            </div>
-                            <div className="ml-auto pl-3">
-                                <div className="-mx-1.5 -my-1.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowElectronWarning(false)}
-                                        className="inline-flex bg-yellow-50 dark:bg-yellow-900/20 rounded-md p-1.5 text-yellow-500 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-yellow-50 focus:ring-yellow-600"
-                                    >
-                                        <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
                 <ActionBar
                     onSimpleVoiceCommand={() => { if(checkApiKey()) setIsTaskModalOpen(true); }}
                     onOpenChat={handleOpenChat}
