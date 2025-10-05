@@ -41,7 +41,6 @@ export const useElectronSpeechRecognition = (
   const streamRef = useRef<MediaStream | null>(null);
   const autoStopTimerRef = useRef<number | null>(null);
   const webSpeechRecognitionRef = useRef<any>(null);
-  const fullTranscriptRef = useRef<string>('');
   
   // Check if we're in Electron and MediaRecorder is available
   useEffect(() => {
@@ -68,55 +67,10 @@ export const useElectronSpeechRecognition = (
       
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
-      fullTranscriptRef.current = ''; // Reset full transcript
       
-      mediaRecorder.ondataavailable = async (event) => {
+      mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
-          
-          // Real-time keyword detection: analyze this chunk
-          if (options?.stopOnKeywords && options.stopOnKeywords.length > 0 && mediaRecorder.state === 'recording') {
-            try {
-              const chunkBlob = new Blob([event.data], { type: 'audio/webm' });
-              const chunkReader = new FileReader();
-              
-              chunkReader.onloadend = async () => {
-                try {
-                  const base64Audio = chunkReader.result as string;
-                  const base64Data = base64Audio.split(',')[1];
-                  
-                  const raw = localStorage.getItem('gemini-api-key') || '';
-                  const apiKey = raw && raw.startsWith('\"') && raw.endsWith('\"') ? JSON.parse(raw) : raw;
-                  
-                  if (apiKey) {
-                    const chunkText = await geminiService.speechToText(apiKey, base64Data, 'audio/webm');
-                    if (chunkText) {
-                      fullTranscriptRef.current += ' ' + chunkText;
-                      console.log('[Electron SR] 🔊 Chunk transcript:', chunkText);
-                      
-                      // Check for stop keywords in this chunk
-                      const lowerChunkText = chunkText.toLowerCase();
-                      for (const keyword of options.stopOnKeywords) {
-                        if (lowerChunkText.includes(keyword.toLowerCase())) {
-                          console.log(`[Electron SR] 🛑 STOP KEYWORD "${keyword}" DETECTED! Stopping...`);
-                          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                            mediaRecorderRef.current.stop();
-                          }
-                          return;
-                        }
-                      }
-                    }
-                  }
-                } catch (e) {
-                  console.warn('[Electron SR] Chunk analysis error (non-critical):', e);
-                }
-              };
-              
-              chunkReader.readAsDataURL(chunkBlob);
-            } catch (e) {
-              console.warn('[Electron SR] Chunk processing error:', e);
-            }
-          }
         }
       };
       
@@ -142,17 +96,10 @@ export const useElectronSpeechRecognition = (
               onTranscriptReady('');
               return;
             }
-            // Use full transcript from chunks if available, otherwise process the complete audio
-            let finalText = fullTranscriptRef.current.trim();
-            
-            // If no chunks were processed, analyze the complete audio
-            if (!finalText) {
-              finalText = await geminiService.speechToText(apiKey, base64Data, 'audio/webm') || '';
-            }
-            
-            if (finalText) {
+            const text = await geminiService.speechToText(apiKey, base64Data, 'audio/webm');
+            if (text) {
               // Clean stop keywords from transcript
-              const cleanedText = cleanStopKeywords(finalText, options?.stopOnKeywords);
+              const cleanedText = cleanStopKeywords(text, options?.stopOnKeywords);
               console.log('[Electron SR] Final transcript (cleaned):', cleanedText);
               setTranscript(cleanedText);
               onTranscriptReady(cleanedText);
@@ -180,14 +127,61 @@ export const useElectronSpeechRecognition = (
         setIsListening(false);
       };
       
-      // Start recording with timeslice for real-time keyword detection
-      // This creates chunks every 2 seconds that we can analyze
-      mediaRecorder.start(2000); // 2 second chunks
+      // Start recording
+      mediaRecorder.start();
       setIsListening(true);
       
-      console.log('[Electron SR] MediaRecorder started with 2-second chunking for keyword detection');
+      console.log('[Electron SR] MediaRecorder started');
       console.log('[Electron SR] Stop keywords:', options?.stopOnKeywords);
-      console.log('[Electron SR] 💡 Say one of these words to stop recording:', options?.stopOnKeywords?.join(', '));
+      
+      // Try Web Speech API for real-time keyword detection
+      if (options?.stopOnKeywords && options.stopOnKeywords.length > 0) {
+        try {
+          const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+          if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'tr-TR';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            
+            recognition.onresult = (event: any) => {
+              const results = event.results;
+              let fullTranscript = '';
+              for (let i = 0; i < results.length; i++) {
+                fullTranscript += results[i][0].transcript + ' ';
+              }
+              
+              console.log('[Electron SR] 🎙️ Live:', fullTranscript.trim());
+              
+              // Check for stop keywords
+              const lowerTranscript = fullTranscript.toLowerCase();
+              for (const keyword of options.stopOnKeywords) {
+                if (lowerTranscript.includes(keyword.toLowerCase())) {
+                  console.log(`[Electron SR] 🛑 STOP KEYWORD "${keyword}" DETECTED! Stopping...`);
+                  if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                    mediaRecorderRef.current.stop();
+                  }
+                  recognition.stop();
+                  return;
+                }
+              }
+            };
+            
+            recognition.onerror = (event: any) => {
+              console.warn('[Electron SR] Web Speech error (will use manual stop):', event.error);
+            };
+            
+            recognition.start();
+            webSpeechRecognitionRef.current = recognition;
+            console.log('[Electron SR] ✅ Web Speech API started for keyword detection');
+            console.log('[Electron SR] 💡 Say: ' + options.stopOnKeywords.join(', '));
+          } else {
+            console.log('[Electron SR] ⚠️ Web Speech API not available - use manual stop');
+          }
+        } catch (error) {
+          console.warn('[Electron SR] Web Speech failed (non-critical):', error);
+        }
+      }
       
       // Auto-stop after 15 seconds if continuous is false (increased from 10 to give more time)
       if (!options?.continuous) {
