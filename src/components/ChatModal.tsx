@@ -283,7 +283,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
           {isListening && isElectron && (
             <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
               <p className="text-xs text-blue-700 dark:text-blue-300">
-                💡 İpucu: Konuşmanızı bitirmek için <strong>"tamam"</strong>, <strong>"bitti"</strong> veya <strong>"gönder"</strong> deyin, ya da mikrofon butonuna tıklayın.
+                💡 İpucu: Konuşmanızı bitirmek için <strong>"tamam"</strong>, <strong>"bitti"</strong>, <strong>"kaydet"</strong> veya <strong>"gönder"</strong> deyin.
               </p>
             </div>
           )}

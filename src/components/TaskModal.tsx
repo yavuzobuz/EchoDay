@@ -66,7 +66,10 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
           {isListening && isElectron && (
             <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
               <p className="text-xs text-blue-700 dark:text-blue-300">
-                💡 İpucu: Konuşmanızı bitirmek için <strong>"tamam"</strong>, <strong>"bitti"</strong> veya <strong>"kaydet"</strong> deyin, ya da mikrofon butonuna tıklayın.
+                💡 İpucu: Konuşmanızı bitirmek için <strong>"tamam"</strong>, <strong>"bitti"</strong>, <strong>"kaydet"</strong>, <strong>"ekle"</strong> veya <strong>"oluştur"</strong> deyin.
+              </p>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                ⏱️ Otomatik olarak 15 saniye sonra duracak veya mikrofon butonuna tıklayabilirsiniz.
               </p>
             </div>
           )}

@@ -95,10 +95,14 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const mainCommandListener = useSpeechRecognition(
         (command) => {
             if (command) {
+                console.log('[Main] Command received:', command);
                 handleAddTask(command);
             }
         },
-        { continuous: false }
+        { 
+            continuous: false,
+            stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'ekle', 'oluştur', 'ok']
+        }
     );
     
     // Detect if running in Electron
