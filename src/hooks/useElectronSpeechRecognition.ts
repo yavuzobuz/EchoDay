@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { geminiService } from '../services/geminiService';
 
 export const useElectronSpeechRecognition = (
   onTranscriptReady: (transcript: string) => void,
@@ -55,14 +56,29 @@ export const useElectronSpeechRecognition = (
           // Remove data URL prefix
           const base64Data = base64Audio.split(',')[1];
           
-          // Here we would normally send to a speech-to-text API
-          // For now, we'll use a placeholder
-          console.log('Audio recorded, length:', audioChunksRef.current.length);
-          
-          // Simulate transcript for testing
-          const simulatedTranscript = "Ses kaydı alındı (Electron'da gerçek speech-to-text API entegrasyonu gerekiyor)";
-          setTranscript(simulatedTranscript);
-          onTranscriptReady(simulatedTranscript);
+          try {
+            // Read API key from localStorage (same key used in App.tsx)
+            const raw = localStorage.getItem('gemini-api-key') || '';
+            const apiKey = raw && raw.startsWith('"') && raw.endsWith('"') ? JSON.parse(raw) : raw;
+            if (!apiKey) {
+              console.warn('Gemini API anahtarı bulunamadı. Profil sayfasından ekleyin.');
+              setTranscript('');
+              onTranscriptReady('');
+              return;
+            }
+            const text = await geminiService.speechToText(apiKey, base64Data, 'audio/webm');
+            if (text) {
+              setTranscript(text);
+              onTranscriptReady(text);
+            } else {
+              setTranscript('');
+              onTranscriptReady('');
+            }
+          } catch (e) {
+            console.error('Speech-to-text işleminde hata:', e);
+            setTranscript('');
+            onTranscriptReady('');
+          }
         };
         
         // Clean up

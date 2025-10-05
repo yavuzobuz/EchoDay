@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { geminiService } from '../services/geminiService';
+import { useElectronSpeechRecognition } from './useElectronSpeechRecognition';
 
 // Web Speech API types
 interface WebSpeechRecognition {
@@ -56,16 +57,13 @@ export const useSpeechRecognition = (
     isElectronRef.current = !!(window as any).isElectron || !!(window as any).electronAPI;
     
     if (isWeb) {
-      // Web platformunda Web Speech API kullan
-      if (WebSpeechRecognitionAPI) {
+      // Web platformunda Web Speech API kullan (Electron değilse)
+      if (WebSpeechRecognitionAPI && !isElectronRef.current) {
         setHasSupport(true);
-        
-        // Electron detection için bilgi ver ama devre dışı bırakma
-        if (isElectronRef.current) {
-          console.warn('Electron detected. Web Speech API might have limitations but will attempt to work.');
-        }
+      } else if (isElectronRef.current) {
+        // Electron'da Web Speech API genellikle desteklenmez; Electron fallback kullanacağız
+        setHasSupport(true); // Fallback destekliyoruz
       } else {
-        console.error('Web Speech API bu tarayıcıda desteklenmiyor');
         setHasSupport(false);
       }
     } else {
@@ -84,7 +82,8 @@ export const useSpeechRecognition = (
   
   // Web Speech API setup
   useEffect(() => {
-    if (!isWeb || !WebSpeechRecognitionAPI) return;
+    // Electron ortamında Web Speech API'yi kurmayalım; fallback kullanılacak
+    if (!isWeb || !WebSpeechRecognitionAPI || isElectronRef.current) return;
     
     const rec = new WebSpeechRecognitionAPI();
     recognitionRef.current = rec;
@@ -312,6 +311,22 @@ export const useSpeechRecognition = (
     }
     // Web için otomatik olarak tarayıcı soracak
   }, [hasSupport, isWeb]);
+
+  // Electron fallback hook'u her zaman en üstte çağırıyoruz (hook kuralları için) ve gerektiğinde kullanıyoruz
+  const electronSR = useElectronSpeechRecognition((t) => onTranscriptReadyRef.current(t), { continuous: options?.continuous });
+
+  const useElectron = isElectronRef.current || (!WebSpeechRecognitionAPI && isWeb);
+
+  if (useElectron) {
+    return {
+      isListening: electronSR.isListening,
+      transcript: electronSR.transcript,
+      startListening: electronSR.startListening,
+      stopListening: electronSR.stopListening,
+      hasSupport: electronSR.hasSupport,
+      checkAndRequestPermission: electronSR.checkAndRequestPermission || (() => Promise.resolve()),
+    };
+  }
 
   return { isListening, transcript, startListening, stopListening, hasSupport, checkAndRequestPermission };
 };
