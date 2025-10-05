@@ -19,14 +19,20 @@ import TimelineView from './components/TimelineView';
 import ArchiveModal from './components/ArchiveModal';
 import InfoBanner from './components/InfoBanner';
 import ShareModal from './components/ShareModal';
+import ContextInsightsPanel from './components/ContextInsightsPanel';
+import ProactiveSuggestionsModal from './components/ProactiveSuggestionsModal';
 
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSpeechRecognition } from './hooks/useSpeechRecognitionUnified';
 import { geminiService } from './services/geminiService';
 import { archiveService } from './services/archiveService';
+import { contextMemoryService } from './services/contextMemoryService';
+// import { smartPriorityService } from './services/smartPriorityService';
+// import { proactiveSuggestionsService } from './services/proactiveSuggestionsService';
+// import { taskTemplatesService } from './services/taskTemplatesService';
 
 // FIX: Import the new AnalyzedTaskData type.
-import { Todo, Priority, ChatMessage, Note, DailyBriefing, AnalyzedTaskData } from './types';
+import { Todo, Priority, ChatMessage, Note, DailyBriefing, AnalyzedTaskData, UserContext, ProactiveSuggestion } from './types';
 import { AccentColor } from './App';
 
 interface MainProps {
@@ -37,15 +43,23 @@ interface MainProps {
   apiKey: string;
   assistantName: string;
   onNavigateToProfile: () => void;
+  onShowWelcome: () => void;
 }
 
 type ViewMode = 'list' | 'timeline';
 
-const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, onNavigateToProfile }) => {
+const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, onNavigateToProfile, onShowWelcome }) => {
     const [todos, setTodos] = useLocalStorage<Todo[]>('todos', []);
     const [notes, setNotes] = useLocalStorage<Note[]>('notes', []);
     const [chatHistory, setChatHistory] = useLocalStorage<ChatMessage[]>('chatHistory', []);
     const [showInfoBanner, setShowInfoBanner] = useLocalStorage<boolean>('show-info-banner', true);
+    
+    // New AI Features State
+    const [userContext, setUserContext] = useState<UserContext>(contextMemoryService.getUserContext());
+    const [proactiveSuggestions, setProactiveSuggestions] = useState<ProactiveSuggestion[]>([]);
+    // const [taskDependencies, setTaskDependencies] = useState<TaskDependency[]>([]);
+    const [showContextInsights, setShowContextInsights] = useState(false);
+    const [showProactiveSuggestions, setShowProactiveSuggestions] = useState(false);
 
     // Component State
     const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -343,6 +357,69 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         }
     };
 
+    // ==================== NEW AI FEATURES ====================
+    
+    // Update user context whenever todos change
+    useEffect(() => {
+        const updatedContext = contextMemoryService.updateUserContext(todos);
+        setUserContext(updatedContext);
+        
+        // Generate proactive suggestions
+        // if (apiKey && todos.length > 0) {
+        //     const suggestions = proactiveSuggestionsService.generateAllSuggestions(
+        //         todos,
+        //         updatedContext,
+        //         taskDependencies
+        //     );
+        //     setProactiveSuggestions(suggestions);
+        // }
+    }, [todos, apiKey]);
+    
+    // Show proactive suggestions automatically if there are high priority ones
+    // useEffect(() => {
+    //     const highPrioritySuggestions = proactiveSuggestionsService.getHighPrioritySuggestions(proactiveSuggestions);
+    //     if (highPrioritySuggestions.length > 0 && !showProactiveSuggestions) {
+    //         // Auto-show after 2 seconds if there are high priority suggestions
+    //         const timer = setTimeout(() => {
+    //             setShowProactiveSuggestions(true);
+    //         }, 2000);
+    //         return () => clearTimeout(timer);
+    //     }
+    // }, [proactiveSuggestions, showProactiveSuggestions]);
+    
+    // Handler for accepting suggestions
+    const handleAcceptSuggestion = useCallback(async (suggestion: ProactiveSuggestion) => {
+        if (!suggestion.actionable || !suggestion.action) return;
+        
+        switch (suggestion.action.type) {
+            case 'add_task':
+                const taskData = suggestion.action.data;
+                await handleAddTask(taskData.text || suggestion.title);
+                break;
+            case 'reschedule':
+                // TODO: Implement reschedule logic
+                setNotification({ message: 'Yeniden zamanlama özelliği yakında!', type: 'success' });
+                break;
+            case 'break_task':
+                // TODO: Implement break task logic
+                setNotification({ message: 'Görev bölme özelliği yakında!', type: 'success' });
+                break;
+            case 'group_tasks':
+                // TODO: Implement group tasks logic
+                setNotification({ message: 'Görev gruplama özelliği yakında!', type: 'success' });
+                break;
+        }
+        
+        // Remove the accepted suggestion
+        setProactiveSuggestions(prev => prev.filter(s => s.id !== suggestion.id));
+    }, [handleAddTask, setNotification]);
+    
+    const handleDismissSuggestion = useCallback((suggestionId: string) => {
+        setProactiveSuggestions(prev => prev.filter(s => s.id !== suggestionId));
+    }, []);
+    
+    // ==================== END NEW AI FEATURES ====================
+    
     // --- Reminders & Archive ---
     const [lastArchiveDate, setLastArchiveDate] = useLocalStorage<string>('lastArchiveDate', '');
 
@@ -448,7 +525,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                  return todo ? <ReminderPopup key={id} message={`Yaklaşan Görev: ${todo.text}`} onClose={() => setActiveReminders(r => r.filter(rid => rid !== id))} /> : null;
             })}
 
-            <Header theme={theme} setTheme={setTheme} accentColor={accentColor} setAccentColor={setAccentColor} onNavigateToProfile={onNavigateToProfile} />
+            <Header theme={theme} setTheme={setTheme} accentColor={accentColor} setAccentColor={setAccentColor} onNavigateToProfile={onNavigateToProfile} onShowWelcome={onShowWelcome} />
             
             <main className="container mx-auto p-4 sm:p-6 lg:p-8">
                 {showInfoBanner && <InfoBanner assistantName={assistantName} onClose={() => setShowInfoBanner(false)} />}
@@ -469,6 +546,18 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                                 <span className="hidden sm:inline">Günün Özetini Al</span>
                                 <span className="sm:hidden">Özet</span>
                             </button>
+                            <button onClick={() => setShowContextInsights(true)} className="inline-flex items-center gap-1 text-xs sm:text-sm text-purple-600 dark:text-purple-400 hover:underline">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" /><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" /></svg>
+                                <span className="hidden sm:inline">📊 İçgörüler</span>
+                                <span className="sm:hidden">İçgörü</span>
+                            </button>
+                            {proactiveSuggestions.length > 0 && (
+                                <button onClick={() => setShowProactiveSuggestions(true)} className="inline-flex items-center gap-1 text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 hover:underline animate-pulse">
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+                                    <span className="hidden sm:inline">🤖 AI Önerileri ({proactiveSuggestions.length})</span>
+                                    <span className="sm:hidden">🤖 ({proactiveSuggestions.length})</span>
+                                </button>
+                            )}
                             <button onClick={() => setIsArchiveModalOpen(true)} className="inline-flex items-center gap-1 text-xs sm:text-sm text-gray-500 hover:text-[var(--accent-color-600)] dark:hover:text-[var(--accent-color-400)] hover:underline">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                                 <span className="hidden sm:inline">Arşivi Görüntüle</span>
@@ -527,6 +616,22 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             <NotepadAiModal isOpen={isNotepadAiModalOpen} onClose={() => setIsNotepadAiModalOpen(false)} onSubmit={handleAnalyzeNotes} notes={notes} />
             <ArchiveModal isOpen={isArchiveModalOpen} onClose={() => setIsArchiveModalOpen(false)} currentTodos={todos} />
             <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} item={shareItem} type={shareType} />
+            
+            {/* New AI Features Modals */}
+            {showContextInsights && (
+                <ContextInsightsPanel 
+                    userContext={userContext} 
+                    onClose={() => setShowContextInsights(false)} 
+                />
+            )}
+            {showProactiveSuggestions && (
+                <ProactiveSuggestionsModal
+                    suggestions={proactiveSuggestions}
+                    onClose={() => setShowProactiveSuggestions(false)}
+                    onAcceptSuggestion={handleAcceptSuggestion}
+                    onDismissSuggestion={handleDismissSuggestion}
+                />
+            )}
         </div>
     );
 };

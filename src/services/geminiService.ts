@@ -2,7 +2,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SchemaType } from "@google/generative-ai";
 // FIX: Import the new AnalyzedTaskData type.
-import { DailyBriefing, Note, Priority, Todo, AnalyzedTaskData, ChatMessage } from "../types";
+import { DailyBriefing, Note, Priority, Todo, AnalyzedTaskData, ChatMessage, ComplexCommandResult, TaskDependency, UserContext, ImageAnalysisResult } from "../types";
 
 // Helper to create a new AI instance for each request, ensuring the user-provided API key is used.
 const getAI = (apiKey: string) => new GoogleGenerativeAI(apiKey);
@@ -49,6 +49,37 @@ const chatIntentSchema = {
         },
     },
     required: ['intent']
+};
+
+const complexCommandSchema = {
+    type: SchemaType.OBJECT as SchemaType.OBJECT,
+    properties: {
+        tasks: {
+            type: SchemaType.ARRAY,
+            items: taskSchema,
+            description: "Komuttan çıkarılan görevlerin listesi."
+        },
+        dependencies: {
+            type: SchemaType.ARRAY,
+            items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                    taskIndex: { type: SchemaType.NUMBER, description: "Bağımlı görevin tasks dizisindeki indexi" },
+                    dependsOnIndex: { type: SchemaType.NUMBER, description: "Bağımlı olduğu görevin tasks dizisindeki indexi" },
+                    dependencyType: { type: SchemaType.STRING, enum: ['before', 'after', 'parallel'], description: "Bağımlılık tipi" },
+                    description: { type: SchemaType.STRING, description: "Bağımlılığın açıklaması", nullable: true }
+                },
+                required: ['taskIndex', 'dependsOnIndex', 'dependencyType']
+            },
+            description: "Görevler arasındaki bağımlılıklar."
+        },
+        suggestedOrder: {
+            type: SchemaType.ARRAY,
+            items: { type: SchemaType.NUMBER },
+            description: "Önerilen görev yapılma sırası (task index'leri)."
+        }
+    },
+    required: ['tasks', 'dependencies', 'suggestedOrder']
 };
 
 
@@ -305,6 +336,394 @@ const classifyChatIntent = async (apiKey: string, message: string): Promise<{ in
     }
 };
 
+// ==================== ADVANCED NLP - TASK DEPENDENCIES ====================
+
+/**
+ * Karmaşık komutları analiz ederek birden fazla görev ve bağımlılıklarını tespit et
+ * Örnek: "Yarın sabah 9'da doktora gitmeden önce eczaneye uğra"
+ */
+const parseComplexCommand = async (apiKey: string, command: string, userContext?: UserContext): Promise<ComplexCommandResult | null> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: complexCommandSchema as any,
+                temperature: 0.2,
+            },
+        });
+        
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
+        const now = new Date();
+        const nowISO = now.toISOString();
+        const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
+        const offsetMinutes = -now.getTimezoneOffset();
+        const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
+        
+        let contextInfo = '';
+        if (userContext) {
+            contextInfo = `\n\nKullanıcı Bağlamı:
+- Çalışma Saatleri: ${userContext.workingHours.weekdayStart} - ${userContext.workingHours.weekdayEnd}
+- Favori Kategoriler: ${userContext.preferences.favoriteCategories.join(', ')}
+- Ortalama Günlük Görev: ${userContext.preferences.averageTasksPerDay.toFixed(1)}`;
+        }
+        
+        const prompt = `Aşağıdaki komutu analiz et ve içerdiği tüm görevleri ve bağımlılıkları tespit et.
+
+Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours}).
+Kullanıcının şu anki tarihi ve saati (yerel): ${nowLocal}.
+Referans için şu anın UTC zamanı: ${nowISO}.${contextInfo}
+
+BAĞLACÇLARA DİKKAT ET:
+- "önce" / "evvel" / "-den önce" → before bağımlılığı
+- "sonra" / "ardından" / "-den sonra" → after bağımlılığı
+- "aynı anda" / "birlikte" / "paralel" → parallel bağımlılığı
+
+Komut: "${command}"
+
+Tüm görevleri çıkar, bağımlılıkları belirle ve optimal sıralamayı öner.`;
+        
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        
+        const parsed = safelyParseJSON<any>(text);
+        if (!parsed) return null;
+        
+        return {
+            tasks: parsed.tasks || [],
+            dependencies: parsed.dependencies.map((dep: any) => ({
+                taskId: '', // Will be filled after task creation
+                dependsOn: [],
+                dependencyType: dep.dependencyType,
+                description: dep.description
+            })) || [],
+            suggestedOrder: parsed.suggestedOrder || []
+        };
+    } catch (error) {
+        console.error('Error parsing complex command:', error);
+        return null;
+    }
+};
+
+/**
+ * Mevcut görevler arasındaki bağımlılıkları tespit et
+ */
+const detectTaskDependencies = async (apiKey: string, newTask: Todo, existingTasks: Todo[], userContext?: UserContext): Promise<TaskDependency[]> => {
+    if (existingTasks.length === 0) return [];
+    
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                temperature: 0.3,
+            },
+        });
+        
+        const taskList = existingTasks
+            .filter(t => !t.completed)
+            .slice(0, 10) // Son 10 tamamlanmamış görevi incele
+            .map((t, i) => `${i}. ${t.text} (${t.datetime ? new Date(t.datetime).toLocaleString('tr-TR') : 'zamanlanmamış'})`)
+            .join('\n');
+        
+        let contextInfo = '';
+        if (userContext && userContext.patterns.length > 0) {
+            const patterns = userContext.patterns.slice(0, 3).map(p => p.pattern).join(', ');
+            contextInfo = `\nKullanıcının sık yaptığı görevler: ${patterns}`;
+        }
+        
+        const prompt = `Yeni Görev: "${newTask.text}"${newTask.datetime ? ` (${new Date(newTask.datetime).toLocaleString('tr-TR')})` : ''}
+
+Mevcut Görevler:
+${taskList}${contextInfo}
+
+Yeni görev ile mevcut görevler arasında bağımlılık var mı? Örnekler:
+- Yeni görev başka bir görevden önce yapılmalı mı?
+- Başka bir görev tamamlanmadan yapılamaz mı?
+- Hangi görevler birlikte yapılabilir?
+
+Eğer bağımlılık varsa, JSON formatında [{{"taskIndex": 0, "type": "before", "reason": "açıklama"}}] şeklinde yanıt ver.
+Eğer bağımlılık yoksa, boş array [] döndür.`;
+        
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        
+        // JSON parse
+        const dependencies = safelyParseJSON<any[]>(text) || [];
+        
+        return dependencies.map(dep => ({
+            taskId: newTask.id,
+            dependsOn: dep.taskIndex !== undefined ? [existingTasks[dep.taskIndex]?.id] : [],
+            dependencyType: dep.type || 'before',
+            description: dep.reason
+        }));
+    } catch (error) {
+        console.error('Error detecting task dependencies:', error);
+        return [];
+    }
+};
+
+/**
+ * Bağlamsal bilgilerle görev analizini geliştir
+ */
+const analyzeTaskWithContext = async (apiKey: string, description: string, userContext: UserContext): Promise<AnalyzedTaskData | null> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: taskSchema as any,
+                temperature: 0.2,
+            },
+        });
+        
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
+        const now = new Date();
+        const nowISO = now.toISOString();
+        const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
+        const offsetMinutes = -now.getTimezoneOffset();
+        const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
+        
+        // Pattern eşleşmesi kontrol et
+        let patternInfo = '';
+        const matchingPattern = userContext.patterns.find(p => 
+            description.toLowerCase().includes(p.pattern.toLowerCase()) ||
+            p.pattern.toLowerCase().includes(description.toLowerCase())
+        );
+        
+        if (matchingPattern && matchingPattern.timeOfDay) {
+            patternInfo = `\n\nÖNEMLİ: Bu görev kullanıcının bilinen bir pattern'i ile eşleşiyor.
+Genellikle ${matchingPattern.dayOfWeek !== undefined ? ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'][matchingPattern.dayOfWeek] + ' günleri' : ''} saat ${matchingPattern.timeOfDay} civarında yapılıyor.
+Eğer zaman belirtilmemişse, bu zamanı öner.`;
+        }
+        
+        const contextInfo = `
+Kullanıcı Profili:
+- Çalışma Saatleri: ${userContext.workingHours.weekdayStart} - ${userContext.workingHours.weekdayEnd}
+- En Üretken Saatler: ${userContext.workingHours.mostProductiveHours.slice(0, 2).join(', ')}
+- Favori Kategoriler: ${userContext.preferences.favoriteCategories.slice(0, 3).join(', ') || 'Henüz yok'}
+- Ortalama Günlük Görev: ${userContext.preferences.averageTasksPerDay.toFixed(1)}
+- Tamamlama Oranı: %${(userContext.completionStats.completionRate * 100).toFixed(0)}${patternInfo}`;
+        
+        const prompt = `Aşağıdaki görev tanımını kullanıcı bağlamını dikkate alarak analiz et.
+
+Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours}).
+Kullanıcının şu anki tarihi ve saati (yerel): ${nowLocal}.
+Referans için şu anın UTC zamanı: ${nowISO}.${contextInfo}
+
+Görev: "${description}"
+
+Kullanıcının alışkanlıklarını ve tercihleri dikkate al. Eğer pattern eşleşmesi varsa, o pattern'in tipik zamanını kullan.`;
+        
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        
+        return safelyParseJSON<AnalyzedTaskData>(text);
+    } catch (error) {
+        console.error('Error analyzing task with context:', error);
+        return null;
+    }
+};
+
+// ==================== MULTIMODAL ENHANCEMENTS ====================
+
+/**
+ * Gelişmiş görsel analiz - Resim tipini tespit et ve içeriği analiz et
+ */
+const analyzeImageAdvanced = async (apiKey: string, imageBase64: string, mimeType: string): Promise<ImageAnalysisResult | null> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                temperature: 0.3,
+            },
+        });
+        
+        const imagePart = {
+            inlineData: {
+                data: imageBase64,
+                mimeType: mimeType,
+            },
+        };
+        
+        const prompt = `Bu resmi analiz et ve aşağıdaki bilgileri JSON formatında döndür:
+{
+  "type": "calendar" | "invoice" | "handwriting" | "screenshot" | "document" | "other",
+  "extractedText": "resimdeki tüm metin",
+  "detectedDates": ["2025-01-15", "2025-01-20"],
+  "detectedNumbers": [{"value": 150, "context": "Tutar"}, {"value": 3, "context": "Adet"}],
+  "confidence": 0.95,
+  "metadata": {
+    "language": "tr",
+    "quality": "high"
+  }
+}
+
+RESMİ TİPLERİ:
+- calendar: Takvim, randevu, tarih içeren resimler
+- invoice: Fatura, makbuz, ödeme belgesi
+- handwriting: El yazısı
+- screenshot: Ekran görüntüsü
+- document: Basılı belge, form
+- other: Diğer
+
+Eğer resimde tarih varsa ("15 Ocak", "20/01/2025" vb.), ISO formatında detectedDates'e ekle.
+Eğer sayılar varsa (fiyat, miktar vb.), detectedNumbers'a ekle.
+confidence: 0-1 arası güven skoru.`;
+        
+        const result = await model.generateContent([prompt, imagePart]);
+        const response = await result.response;
+        const text = response.text();
+        
+        return safelyParseJSON<ImageAnalysisResult>(text);
+    } catch (error) {
+        console.error('Error analyzing image (advanced):', error);
+        return null;
+    }
+};
+
+/**
+ * Takvim/Randevu resminden görevler çıkar
+ */
+const extractTasksFromCalendarImage = async (apiKey: string, imageBase64: string, mimeType: string): Promise<AnalyzedTaskData[]> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                temperature: 0.2,
+            },
+        });
+        
+        const imagePart = {
+            inlineData: {
+                data: imageBase64,
+                mimeType: mimeType,
+            },
+        };
+        
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
+        const now = new Date();
+        const nowISO = now.toISOString();
+        const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
+        
+        const prompt = `Bu takvim/randevu resmini analiz et ve tüm randevuları/etkinlikleri JSON array olarak döndür.
+
+Kullanıcının yerel saat dilimi: ${tz}
+Kullanıcının şu anki tarihi ve saati: ${nowLocal}
+Referans için şu anın UTC zamanı: ${nowISO}
+
+Her randevu/etkinlik için:
+[
+  {
+    "text": "Randevu/etkinlik adı",
+    "priority": "high" | "medium",
+    "datetime": "ISO 8601 UTC formatında tarih-saat",
+    "category": "Randevu",
+    "estimatedDuration": dakika cinsinden süre,
+    "requiresRouting": true/false,
+    "destination": "konum varsa"
+  }
+]
+
+Sadece JSON array döndür, başka birşey yazma.`;
+        
+        const result = await model.generateContent([prompt, imagePart]);
+        const response = await result.response;
+        const text = response.text();
+        
+        const tasks = safelyParseJSON<AnalyzedTaskData[]>(text);
+        return tasks || [];
+    } catch (error) {
+        console.error('Error extracting tasks from calendar image:', error);
+        return [];
+    }
+};
+
+/**
+ * Fatura resminden ödeme görevi oluştur
+ */
+const createTaskFromInvoice = async (apiKey: string, imageBase64: string, mimeType: string): Promise<AnalyzedTaskData | null> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: taskSchema as any,
+                temperature: 0.2,
+            },
+        });
+        
+        const imagePart = {
+            inlineData: {
+                data: imageBase64,
+                mimeType: mimeType,
+            },
+        };
+        
+        const prompt = `Bu fatura/makbuz resmini analiz et ve ödeme görevi oluştur.
+
+Faturadan çıkaracakların:
+- Firma adı
+- Tutar
+- Son ödeme tarihi
+- Fatura numarası (varsa)
+
+Görev metnini şöyle oluştur: "[Firma adı] - [Tutar] TL fatura ödemesi"
+Son ödeme tarihi varsa datetime'a ekle.
+Kategori: "Ödeme" veya "Fatura"
+Priority: Tarihe yakınsa "high", değilse "medium"`;
+        
+        const result = await model.generateContent([prompt, imagePart]);
+        const response = await result.response;
+        const text = response.text();
+        
+        return safelyParseJSON<AnalyzedTaskData>(text);
+    } catch (error) {
+        console.error('Error creating task from invoice:', error);
+        return null;
+    }
+};
+
+/**
+ * El yazısı notlarını dijitalleştir
+ */
+const digitizeHandwriting = async (apiKey: string, imageBase64: string, mimeType: string): Promise<string | null> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                temperature: 0.2,
+            },
+        });
+        
+        const imagePart = {
+            inlineData: {
+                data: imageBase64,
+                mimeType: mimeType,
+            },
+        };
+        
+        const prompt = `Bu resimdeki el yazısı notları dikkatle oku ve olduğu gibi metne dönüştür.
+
+ÖNEMLİ:
+- Her satırı ayrı satıra yaz
+- Madde işaretlerini ve numaralandırmaları koru
+- Yalnızca okuduğun metni yaz, yorum yapma
+- Belirsiz kelimeler için [?] kullan
+
+Sadece metni döndür, başka birşey ekleme.`;
+        
+        const result = await model.generateContent([prompt, imagePart]);
+        const response = await result.response;
+        return response.text();
+    } catch (error) {
+        console.error('Error digitizing handwriting:', error);
+        return null;
+    }
+};
+
 // Speech-to-Text for Electron fallback
 const speechToText = async (apiKey: string, audioBase64: string, mimeType: string = 'audio/webm'): Promise<string | null> => {
     try {
@@ -349,4 +768,13 @@ export const geminiService = {
     extractTextFromImage,
     classifyChatIntent,
     speechToText,
+    // Advanced NLP
+    parseComplexCommand,
+    detectTaskDependencies,
+    analyzeTaskWithContext,
+    // Multimodal Enhancements
+    analyzeImageAdvanced,
+    extractTasksFromCalendarImage,
+    createTaskFromInvoice,
+    digitizeHandwriting,
 };

@@ -146,7 +146,7 @@ const Profile: React.FC<ProfileProps> = ({
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">API Anahtarı</h2>
                 {isEditingApiKey ? (
                     <form onSubmit={handleSaveApiKey} className="space-y-3">
-                        <label htmlFor="apiKey" className="font-semibold text-lg">Google Gemini API Anahtarı</label>
+                        <label htmlFor="apiKey" className="font-semibold text-lg">AI API Anahtarı</label>
                         <div className="relative">
                             <input
                                 id="apiKey"

@@ -78,6 +78,7 @@ const App: React.FC = () => {
             apiKey={apiKey}
             assistantName={assistantName}
             onNavigateToProfile={() => setView('profile')}
+            onShowWelcome={() => setView('welcome')}
           />
         );
     }

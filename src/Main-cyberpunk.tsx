@@ -8,6 +8,7 @@ interface MainCyberpunkProps {
   apiKey: string;
   assistantName: string;
   onNavigateToProfile: () => void;
+  onShowWelcome: () => void;
 }
 
 interface Task {
@@ -23,7 +24,8 @@ const MainCyberpunk: React.FC<MainCyberpunkProps> = ({
   setAccentColor,
   apiKey,
   assistantName,
-  onNavigateToProfile
+  onNavigateToProfile,
+  onShowWelcome
 }) => {
   // Mark apiKey as intentionally unused to satisfy noUnusedLocals
   void apiKey;
@@ -85,6 +87,7 @@ const MainCyberpunk: React.FC<MainCyberpunkProps> = ({
         accentColor={accentColor}
         setAccentColor={setAccentColor}
         onNavigateToProfile={onNavigateToProfile}
+        onShowWelcome={onShowWelcome}
       />
 
       <main className="container mx-auto p-4 max-w-7xl">
