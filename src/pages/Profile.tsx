@@ -109,6 +109,36 @@ const Profile: React.FC<ProfileProps> = ({
                         Tekrar Göster
                     </button>
                 </div>
+                <div className="flex items-center justify-between pt-4 border-t dark:border-gray-700">
+                    <div>
+                        <label className="font-semibold text-lg block">Tarayıcı Bildirimleri</label>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Hatırlatmalar için bildirim izni gereklidir</p>
+                    </div>
+                    <button
+                        onClick={() => {
+                            if ('Notification' in window) {
+                                Notification.requestPermission().then(permission => {
+                                    if (permission === 'granted') {
+                                        setNotification('Bildirim izni verildi!');
+                                    } else {
+                                        setNotification('Bildirim izni reddedildi.');
+                                    }
+                                    setTimeout(() => setNotification(null), 3000);
+                                });
+                            } else {
+                                setNotification('Tarayıcınız bildirimleri desteklemiyor.');
+                                setTimeout(() => setNotification(null), 3000);
+                            }
+                        }}
+                        className={`px-4 py-2 rounded-md text-sm ${
+                            'Notification' in window && Notification.permission === 'granted'
+                                ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                                : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
+                        }`}
+                    >
+                        {'Notification' in window && Notification.permission === 'granted' ? '✓ Aktif' : 'İzin Ver'}
+                    </button>
+                </div>
             </div>
 
             {/* API Key Settings */}

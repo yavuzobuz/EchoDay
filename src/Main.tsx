@@ -358,25 +358,69 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         }
     }, [lastArchiveDate, notes, setLastArchiveDate, setNotes, setTodos, todos]);
 
+    // Request notification permission on mount
     useEffect(() => {
-        const interval = setInterval(() => {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+    }, []);
+
+    useEffect(() => {
+        // Function to check reminders
+        const checkReminders = () => {
             const now = new Date();
+            console.log('[Reminder Check] Current time:', now.toISOString());
+            console.log('[Reminder Check] Total todos:', todos.length);
+            console.log('[Reminder Check] Notified task IDs:', notifiedTaskIds);
+            
             const upcomingTodos = todos.filter(todo => {
                 if (!todo.datetime || todo.completed) return false;
                 const todoTime = new Date(todo.datetime);
                 const diffMinutes = (todoTime.getTime() - now.getTime()) / (1000 * 60);
+                
+                console.log(`[Reminder Check] Task: "${todo.text}"`);
+                console.log(`  - datetime: ${todo.datetime}`);
+                console.log(`  - todoTime: ${todoTime.toISOString()}`);
+                console.log(`  - diffMinutes: ${diffMinutes.toFixed(2)}`);
+                console.log(`  - notified: ${notifiedTaskIds.includes(todo.id)}`);
+                
                 // Remind if task is within 15 mins and we haven't reminded for it yet
                 return diffMinutes > 0 && diffMinutes <= 15 && !notifiedTaskIds.includes(todo.id);
             });
 
+            console.log('[Reminder Check] Upcoming todos count:', upcomingTodos.length);
+
             if (upcomingTodos.length > 0) {
                 const newReminderIds = upcomingTodos.map(t => t.id);
+                console.log('[Reminder Check] Triggering reminders for:', newReminderIds);
+                
                 // Add to notified list so we don't show it again
                 setNotifiedTaskIds(prev => [...new Set([...prev, ...newReminderIds])]);
                 // Add to active reminders to show the popup
                 setActiveReminders(prev => [...new Set([...prev, ...newReminderIds])]);
+                
+                // Send browser notifications if permission granted
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    upcomingTodos.forEach(todo => {
+                        const todoTime = new Date(todo.datetime!);
+                        const diffMinutes = Math.round((todoTime.getTime() - now.getTime()) / (1000 * 60));
+                        new Notification('EchoDay Hatırlatma', {
+                            body: `${diffMinutes} dakika içinde: ${todo.text}`,
+                            icon: '/icon-192.png',
+                            badge: '/icon-192.png',
+                            tag: todo.id,
+                            requireInteraction: false
+                        });
+                    });
+                }
             }
-        }, 60 * 1000); // Check every minute
+        };
+        
+        // Check immediately on mount/update
+        checkReminders();
+        
+        // Then check every minute
+        const interval = setInterval(checkReminders, 60 * 1000);
 
         return () => clearInterval(interval);
     }, [todos, notifiedTaskIds]);
