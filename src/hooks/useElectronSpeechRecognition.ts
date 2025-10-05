@@ -41,6 +41,7 @@ export const useElectronSpeechRecognition = (
   const streamRef = useRef<MediaStream | null>(null);
   const autoStopTimerRef = useRef<number | null>(null);
   const webSpeechRecognitionRef = useRef<any>(null);
+  const fullTranscriptRef = useRef<string>('');
   
   // Check if we're in Electron and MediaRecorder is available
   useEffect(() => {
@@ -67,10 +68,55 @@ export const useElectronSpeechRecognition = (
       
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      fullTranscriptRef.current = ''; // Reset full transcript
       
-      mediaRecorder.ondataavailable = (event) => {
+      mediaRecorder.ondataavailable = async (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          
+          // Real-time keyword detection: analyze this chunk
+          if (options?.stopOnKeywords && options.stopOnKeywords.length > 0 && mediaRecorder.state === 'recording') {
+            try {
+              const chunkBlob = new Blob([event.data], { type: 'audio/webm' });
+              const chunkReader = new FileReader();
+              
+              chunkReader.onloadend = async () => {
+                try {
+                  const base64Audio = chunkReader.result as string;
+                  const base64Data = base64Audio.split(',')[1];
+                  
+                  const raw = localStorage.getItem('gemini-api-key') || '';
+                  const apiKey = raw && raw.startsWith('\"') && raw.endsWith('\"') ? JSON.parse(raw) : raw;
+                  
+                  if (apiKey) {
+                    const chunkText = await geminiService.speechToText(apiKey, base64Data, 'audio/webm');
+                    if (chunkText) {
+                      fullTranscriptRef.current += ' ' + chunkText;
+                      console.log('[Electron SR] 🔊 Chunk transcript:', chunkText);
+                      
+                      // Check for stop keywords in this chunk
+                      const lowerChunkText = chunkText.toLowerCase();
+                      for (const keyword of options.stopOnKeywords) {
+                        if (lowerChunkText.includes(keyword.toLowerCase())) {
+                          console.log(`[Electron SR] 🛑 STOP KEYWORD "${keyword}" DETECTED! Stopping...`);
+                          if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                            mediaRecorderRef.current.stop();
+                          }
+                          return;
+                        }
+                      }
+                    }
+                  }
+                } catch (e) {
+                  console.warn('[Electron SR] Chunk analysis error (non-critical):', e);
+                }
+              };
+              
+              chunkReader.readAsDataURL(chunkBlob);
+            } catch (e) {
+              console.warn('[Electron SR] Chunk processing error:', e);
+            }
+          }
         }
       };
       
@@ -96,10 +142,17 @@ export const useElectronSpeechRecognition = (
               onTranscriptReady('');
               return;
             }
-            const text = await geminiService.speechToText(apiKey, base64Data, 'audio/webm');
-            if (text) {
+            // Use full transcript from chunks if available, otherwise process the complete audio
+            let finalText = fullTranscriptRef.current.trim();
+            
+            // If no chunks were processed, analyze the complete audio
+            if (!finalText) {
+              finalText = await geminiService.speechToText(apiKey, base64Data, 'audio/webm') || '';
+            }
+            
+            if (finalText) {
               // Clean stop keywords from transcript
-              const cleanedText = cleanStopKeywords(text, options?.stopOnKeywords);
+              const cleanedText = cleanStopKeywords(finalText, options?.stopOnKeywords);
               console.log('[Electron SR] Final transcript (cleaned):', cleanedText);
               setTranscript(cleanedText);
               onTranscriptReady(cleanedText);
