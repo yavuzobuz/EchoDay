@@ -10,23 +10,22 @@ export const useElectronSpeechRecognition = (
     if (!keywords || keywords.length === 0) return text;
     
     let cleaned = text.trim();
-    const lowerText = cleaned.toLowerCase();
     
-    // Check if text ends with any stop keyword
-    for (const keyword of keywords) {
+    // Sort keywords by length (longest first) to match longer phrases first
+    const sortedKeywords = [...keywords].sort((a, b) => b.length - a.length);
+    
+    // Try to find and remove any stop keyword from the end
+    for (const keyword of sortedKeywords) {
       const lowerKeyword = keyword.toLowerCase();
-      if (lowerText.endsWith(lowerKeyword)) {
-        // Remove the keyword from the end
-        cleaned = cleaned.slice(0, -(lowerKeyword.length)).trim();
-        console.log(`[Electron SR] Removed stop keyword "${keyword}" from transcript`);
-        break;
-      }
-      // Also check with common punctuation
-      if (lowerText.endsWith(lowerKeyword + '.') || 
-          lowerText.endsWith(lowerKeyword + '!') ||
-          lowerText.endsWith(lowerKeyword + ',')) {
-        cleaned = cleaned.slice(0, -(lowerKeyword.length + 1)).trim();
-        console.log(`[Electron SR] Removed stop keyword "${keyword}" (with punctuation) from transcript`);
+      const lowerCleaned = cleaned.toLowerCase();
+      
+      // Check if text ends with keyword (with or without punctuation)
+      // Match: "keyword", "keyword.", "keyword!", "keyword,", "keyword?"
+      const punctuationPattern = new RegExp(`\\s*${lowerKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s,.!?;:]*$`, 'i');
+      
+      if (punctuationPattern.test(cleaned)) {
+        cleaned = cleaned.replace(punctuationPattern, '').trim();
+        console.log(`[Electron SR] ✅ Removed stop keyword "${keyword}" from transcript`);
         break;
       }
     }
