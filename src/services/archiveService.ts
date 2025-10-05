@@ -18,20 +18,47 @@ db.version(2).stores({
   notes: 'id, createdAt, text',
 });
 
+// Test database initialization
+const initDB = async (): Promise<boolean> => {
+  try {
+    await db.open();
+    console.log('[Archive] Dexie database initialized successfully');
+    console.log('[Archive] Platform:', navigator.userAgent);
+    console.log('[Archive] IndexedDB available:', 'indexedDB' in window);
+    return true;
+  } catch (error) {
+    console.error('[Archive] Failed to initialize Dexie:', error);
+    return false;
+  }
+};
+
+// Initialize on load
+initDB();
+
 
 const archiveItems = async (todos: Todo[], notes: Note[]): Promise<void> => {
   try {
+    console.log(`[Archive] Starting archive: ${todos.length} todos, ${notes.length} notes`);
+    
     await db.transaction('rw', db.todos, db.notes, async () => {
       if (todos.length > 0) {
+        console.log('[Archive] Archiving todos:', todos.map(t => t.text));
         await db.todos.bulkAdd(todos);
+        console.log('[Archive] Todos archived successfully');
       }
       if (notes.length > 0) {
+        console.log('[Archive] Archiving notes:', notes.map(n => n.text || '(image note)'));
         await db.notes.bulkAdd(notes);
+        console.log('[Archive] Notes archived successfully');
       }
     });
-    console.log(`${todos.length} todos and ${notes.length} notes archived.`);
-  } catch (error) {
-    console.error("Failed to archive items:", error);
+    
+    console.log(`[Archive] Archive completed: ${todos.length} todos and ${notes.length} notes archived.`);
+  } catch (error: any) {
+    console.error('[Archive] Failed to archive items:', error);
+    console.error('[Archive] Error name:', error?.name);
+    console.error('[Archive] Error message:', error?.message);
+    throw error; // Re-throw to let caller handle
   }
 };
 
