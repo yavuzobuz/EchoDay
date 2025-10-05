@@ -41,6 +41,7 @@ export const useElectronSpeechRecognition = (
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const autoStopTimerRef = useRef<number | null>(null);
+  const webSpeechRecognitionRef = useRef<any>(null);
   
   // Check if we're in Electron and MediaRecorder is available
   useEffect(() => {
@@ -130,14 +131,53 @@ export const useElectronSpeechRecognition = (
       mediaRecorder.start();
       setIsListening(true);
       
-      // NOTE: Keyword detection via Web Speech API is disabled in Electron
-      // because it causes network errors and doesn't work reliably in Electron.
-      // Users should manually click the mic button to stop recording,
-      // or the recording will auto-stop after the timeout.
-      console.log('[Electron SR] Keyword detection disabled in Electron (use manual stop or timeout)');
-      
-      // Web Speech API keyword detection is NOT used in Electron
-      // because Electron/Chromium has issues with Web Speech API network access
+      // Try to use Web Speech API in parallel for keyword detection
+      // This is experimental in Electron and may not always work
+      if (options?.stopOnKeywords && options.stopOnKeywords.length > 0) {
+        try {
+          const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+          if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'tr-TR';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            
+            recognition.onresult = (event: any) => {
+              const results = event.results;
+              for (let i = event.resultIndex; i < results.length; i++) {
+                const transcriptPart = results[i][0].transcript.toLowerCase().trim();
+                console.log('[Electron SR] Web Speech heard:', transcriptPart);
+                
+                // Check if any stop keyword is spoken
+                for (const keyword of options.stopOnKeywords) {
+                  if (transcriptPart.includes(keyword.toLowerCase())) {
+                    console.log(`[Electron SR] Stop keyword "${keyword}" detected! Stopping recording...`);
+                    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                      mediaRecorderRef.current.stop();
+                    }
+                    recognition.stop();
+                    return;
+                  }
+                }
+              }
+            };
+            
+            recognition.onerror = (event: any) => {
+              console.warn('[Electron SR] Web Speech API error (non-critical):', event.error);
+              // Don't stop MediaRecorder on Web Speech errors - it's just a helper
+            };
+            
+            recognition.start();
+            webSpeechRecognitionRef.current = recognition;
+            console.log('[Electron SR] Web Speech API started for keyword detection');
+          } else {
+            console.log('[Electron SR] Web Speech API not available for keyword detection');
+          }
+        } catch (error) {
+          console.warn('[Electron SR] Failed to start Web Speech API (non-critical):', error);
+          // Continue with just MediaRecorder
+        }
+      }
       
       // Auto-stop after 10 seconds if continuous is false
       if (!options?.continuous) {
@@ -145,6 +185,14 @@ export const useElectronSpeechRecognition = (
           if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
             console.log('[Electron SR] Auto-stopping after timeout');
             mediaRecorderRef.current.stop();
+          }
+          // Also stop Web Speech if running
+          if (webSpeechRecognitionRef.current) {
+            try {
+              webSpeechRecognitionRef.current.stop();
+            } catch (e) {
+              // Ignore
+            }
           }
         }, 10000);
       }
@@ -162,6 +210,16 @@ export const useElectronSpeechRecognition = (
     if (autoStopTimerRef.current) {
       clearTimeout(autoStopTimerRef.current);
       autoStopTimerRef.current = null;
+    }
+    
+    // Stop Web Speech Recognition if active
+    if (webSpeechRecognitionRef.current) {
+      try {
+        webSpeechRecognitionRef.current.stop();
+        webSpeechRecognitionRef.current = null;
+      } catch (e) {
+        // Ignore errors when stopping
+      }
     }
     
     // Stop media recorder
