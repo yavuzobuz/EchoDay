@@ -168,18 +168,28 @@ export const useElectronSpeechRecognition = (
             };
             
             recognition.onerror = (event: any) => {
-              console.warn('[Electron SR] Web Speech error (will use manual stop):', event.error);
+              console.error('[Electron SR] ❌ Web Speech API ERROR:', event.error);
+              if (event.error === 'network') {
+                console.error('[Electron SR] Network error - Web Speech not available in Electron');
+                console.log('[Electron SR] 💡 Please use MANUAL STOP (click microphone button) or wait 15s timeout');
+              } else if (event.error === 'not-allowed') {
+                console.error('[Electron SR] Microphone permission denied!');
+              } else if (event.error === 'no-speech') {
+                console.warn('[Electron SR] No speech detected (non-critical)');
+              }
             };
             
             recognition.start();
             webSpeechRecognitionRef.current = recognition;
             console.log('[Electron SR] ✅ Web Speech API started for keyword detection');
-            console.log('[Electron SR] 💡 Say: ' + options.stopOnKeywords.join(', '));
+            console.log('[Electron SR] 💡 Say one of these to STOP: ' + options.stopOnKeywords.join(', ').toUpperCase());
           } else {
-            console.log('[Electron SR] ⚠️ Web Speech API not available - use manual stop');
+            console.log('[Electron SR] ⚠️ Web Speech API not available');
+            console.log('[Electron SR] 👉 Use MANUAL STOP: Click microphone button or wait 15s');
           }
         } catch (error) {
-          console.warn('[Electron SR] Web Speech failed (non-critical):', error);
+          console.error('[Electron SR] ❌ Web Speech startup failed:', error);
+          console.log('[Electron SR] 👉 FALLBACK: Use manual stop (click microphone) or wait 15s timeout');
         }
       }
       
