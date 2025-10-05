@@ -17,8 +17,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   const { isListening, transcript, startListening, stopListening, hasSupport } = useSpeechRecognition(
     handleTranscript,
     { 
-      stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'ekle', 'oluştur', 'ok'],
-      continuous: false 
+      stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'ekle', 'oluştur', 'ok'], // Works in browser only
+      continuous: false // Auto-stop after 10 seconds
     }
   );
   

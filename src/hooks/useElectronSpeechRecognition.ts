@@ -12,7 +12,6 @@ export const useElectronSpeechRecognition = (
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const keywordRecognitionRef = useRef<any>(null);
   const autoStopTimerRef = useRef<number | null>(null);
   
   // Check if we're in Electron and MediaRecorder is available
@@ -101,59 +100,21 @@ export const useElectronSpeechRecognition = (
       mediaRecorder.start();
       setIsListening(true);
       
-      // Setup keyword detection using Web Speech API if available
-      const WebSpeechAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (WebSpeechAPI && options?.stopOnKeywords && options.stopOnKeywords.length > 0) {
-        try {
-          const recognition = new WebSpeechAPI();
-          recognition.continuous = true;
-          recognition.interimResults = true;
-          recognition.lang = 'tr-TR';
-          
-          recognition.onresult = (event: any) => {
-            const currentTranscript = Array.from(event.results)
-              .map((result: any) => result[0])
-              .map((result: any) => result.transcript)
-              .join('')
-              .toLowerCase()
-              .trim();
-            
-            // Check if any stop keyword is present
-            const stopKeywords = options.stopOnKeywords || [];
-            const keywordDetected = stopKeywords.some(keyword => 
-              currentTranscript.includes(keyword.toLowerCase())
-            );
-            
-            if (keywordDetected) {
-              console.log('[Electron SR] Stop keyword detected:', currentTranscript);
-              // Stop both recognition and recording
-              recognition.stop();
-              if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                mediaRecorderRef.current.stop();
-              }
-            }
-          };
-          
-          recognition.onerror = (event: any) => {
-            console.warn('[Electron SR] Keyword recognition error:', event.error);
-            // Don't stop recording on recognition errors
-          };
-          
-          recognition.start();
-          keywordRecognitionRef.current = recognition;
-        } catch (error) {
-          console.warn('[Electron SR] Could not start keyword detection:', error);
-        }
-      }
+      // NOTE: Keyword detection via Web Speech API is disabled in Electron
+      // because it causes network errors and doesn't work reliably in Electron.
+      // Users should manually click the mic button to stop recording,
+      // or the recording will auto-stop after the timeout.
+      console.log('[Electron SR] Keyword detection disabled in Electron (use manual stop or timeout)');
+      
+      // Web Speech API keyword detection is NOT used in Electron
+      // because Electron/Chromium has issues with Web Speech API network access
       
       // Auto-stop after 10 seconds if continuous is false
       if (!options?.continuous) {
         autoStopTimerRef.current = window.setTimeout(() => {
           if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+            console.log('[Electron SR] Auto-stopping after timeout');
             mediaRecorderRef.current.stop();
-          }
-          if (keywordRecognitionRef.current) {
-            keywordRecognitionRef.current.stop();
           }
         }, 10000);
       }
@@ -165,20 +126,12 @@ export const useElectronSpeechRecognition = (
   }, [hasSupport, isListening, onTranscriptReady, options?.continuous]);
   
   const stopListening = useCallback(() => {
+    console.log('[Electron SR] Manual stop requested');
+    
     // Clear auto-stop timer
     if (autoStopTimerRef.current) {
       clearTimeout(autoStopTimerRef.current);
       autoStopTimerRef.current = null;
-    }
-    
-    // Stop keyword recognition
-    if (keywordRecognitionRef.current) {
-      try {
-        keywordRecognitionRef.current.stop();
-      } catch (e) {
-        console.warn('[Electron SR] Error stopping keyword recognition:', e);
-      }
-      keywordRecognitionRef.current = null;
     }
     
     // Stop media recorder
