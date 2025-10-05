@@ -155,11 +155,83 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
         )}
 
         <main className="flex-grow p-4 overflow-y-auto space-y-4">
+          {chatHistory.length === 0 && !isLoading && (
+            <div className="max-w-xl mx-auto p-4 sm:p-5 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[var(--accent-color-500)] flex items-center justify-center text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9.5 3C7 3 5 5 5 7.5c0 1.5 0.5 2.5 0.5 4s-0.5 2-0.5 3.5c0 2 1.5 4 4 4.5" />
+                    <path d="M14.5 3C17 3 19 5 19 7.5c0 1.5-0.5 2.5-0.5 4s0.5 2 0.5 3.5c0 2-1.5 4-4 4.5" />
+                    <circle cx="7" cy="8" r="1" fill="currentColor" />
+                    <circle cx="12" cy="6" r="1" fill="currentColor" />
+                    <circle cx="17" cy="8" r="1" fill="currentColor" />
+                    <circle cx="7" cy="12" r="1" fill="currentColor" />
+                    <circle cx="12" cy="10" r="1" fill="currentColor" />
+                    <circle cx="17" cy="12" r="1" fill="currentColor" />
+                    <circle cx="7" cy="16" r="1" fill="currentColor" />
+                    <circle cx="12" cy="14" r="1" fill="currentColor" />
+                    <circle cx="17" cy="16" r="1" fill="currentColor" />
+                    <circle cx="12" cy="18" r="1" fill="currentColor" />
+                    <line x1="7" y1="8" x2="12" y2="6" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="12" y1="6" x2="17" y2="8" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="7" y1="12" x2="12" y2="10" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="12" y1="10" x2="17" y2="12" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="7" y1="16" x2="12" y2="14" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="12" y1="14" x2="17" y2="16" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="12" y1="14" x2="12" y2="18" strokeWidth="0.8" opacity="0.5" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-100">Hoş geldiniz! Ben AI asistanınız.</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mt-1">Aşağıdakileri yapabilirim:</p>
+                  <ul className="mt-2 text-xs sm:text-sm list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-200">
+                    <li>Görev ekleme ve hatırlatma: "Yarın 10:00'da doktoru ara"</li>
+                    <li>Not ekleme ve Günlük Not Defteri ile çalışma: notları özetletme, yapılacaklar çıkarma, resimden metin çıkarma</li>
+                    <li>Günün özeti ve odak önerileri: "Günün özetini ver"</li>
+                    <li>Genel sohbet ve sorular</li>
+                    <li>Sesli kullanım: mikrofon simgesine basıp konuşarak mesaj/görev ekleme</li>
+                  </ul>
+                  <div className="mt-3">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Örnek komutlar:</p>
+                    <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      <span className="text-[11px] sm:text-xs px-2 py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">Yarın 09:30'da müşteri araması ekle</span>
+                      <span className="text-[11px] sm:text-xs px-2 py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">Bunu not et: Alışveriş listesi</span>
+                      <span className="text-[11px] sm:text-xs px-2 py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">Günün özetini ver</span>
+                      <span className="text-[11px] sm:text-xs px-2 py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">Seçili notlardan yapılacaklar listesi çıkar</span>
+                      <span className="text-[11px] sm:text-xs px-2 py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">Bu notları özetle</span>
+                    </div>
+                    <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-2">İpucu: "yarın", "bugün 15:00" gibi zamanlar cihazınızın saat dilimine göre yorumlanır.</p>
+                    <p className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-400 mt-1">{hasSupport ? 'Mikrofon simgesine basıp konuşarak hızlıca mesaj gönderebilirsiniz. ActionBar’daki "Sesle Görev" düğmesiyle doğrudan görev de ekleyebilirsiniz.' : 'Bu cihazda sesli tanıma desteklenmiyor; yine de metinle tüm özellikleri kullanabilirsiniz.'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {chatHistory.map((msg, index) => (
             <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {msg.role === 'model' && (
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--accent-color-500)] flex items-center justify-center text-white">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9.5 3C7 3 5 5 5 7.5c0 1.5 0.5 2.5 0.5 4s-0.5 2-0.5 3.5c0 2 1.5 4 4 4.5" />
+                    <path d="M14.5 3C17 3 19 5 19 7.5c0 1.5-0.5 2.5-0.5 4s0.5 2 0.5 3.5c0 2-1.5 4-4 4.5" />
+                    <circle cx="7" cy="8" r="1" fill="currentColor" />
+                    <circle cx="12" cy="6" r="1" fill="currentColor" />
+                    <circle cx="17" cy="8" r="1" fill="currentColor" />
+                    <circle cx="7" cy="12" r="1" fill="currentColor" />
+                    <circle cx="12" cy="10" r="1" fill="currentColor" />
+                    <circle cx="17" cy="12" r="1" fill="currentColor" />
+                    <circle cx="7" cy="16" r="1" fill="currentColor" />
+                    <circle cx="12" cy="14" r="1" fill="currentColor" />
+                    <circle cx="17" cy="16" r="1" fill="currentColor" />
+                    <circle cx="12" cy="18" r="1" fill="currentColor" />
+                    <line x1="7" y1="8" x2="12" y2="6" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="12" y1="6" x2="17" y2="8" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="7" y1="12" x2="12" y2="10" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="12" y1="10" x2="17" y2="12" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="7" y1="16" x2="12" y2="14" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="12" y1="14" x2="17" y2="16" strokeWidth="0.8" opacity="0.5" />
+                    <line x1="12" y1="14" x2="12" y2="18" strokeWidth="0.8" opacity="0.5" />
+                  </svg>
                 </div>
               )}
               <div className={`max-w-md lg:max-w-lg p-3 rounded-lg ${msg.role === 'user' ? 'bg-[var(--accent-color-600)] text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
@@ -170,7 +242,27 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
           {isLoading && (
             <div className="flex items-end gap-2 justify-start">
                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--accent-color-500)] flex items-center justify-center text-white">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                   <path d="M9.5 3C7 3 5 5 5 7.5c0 1.5 0.5 2.5 0.5 4s-0.5 2-0.5 3.5c0 2 1.5 4 4 4.5" />
+                   <path d="M14.5 3C17 3 19 5 19 7.5c0 1.5-0.5 2.5-0.5 4s0.5 2 0.5 3.5c0 2-1.5 4-4 4.5" />
+                   <circle cx="7" cy="8" r="1" fill="currentColor" />
+                   <circle cx="12" cy="6" r="1" fill="currentColor" />
+                   <circle cx="17" cy="8" r="1" fill="currentColor" />
+                   <circle cx="7" cy="12" r="1" fill="currentColor" />
+                   <circle cx="12" cy="10" r="1" fill="currentColor" />
+                   <circle cx="17" cy="12" r="1" fill="currentColor" />
+                   <circle cx="7" cy="16" r="1" fill="currentColor" />
+                   <circle cx="12" cy="14" r="1" fill="currentColor" />
+                   <circle cx="17" cy="16" r="1" fill="currentColor" />
+                   <circle cx="12" cy="18" r="1" fill="currentColor" />
+                   <line x1="7" y1="8" x2="12" y2="6" strokeWidth="0.8" opacity="0.5" />
+                   <line x1="12" y1="6" x2="17" y2="8" strokeWidth="0.8" opacity="0.5" />
+                   <line x1="7" y1="12" x2="12" y2="10" strokeWidth="0.8" opacity="0.5" />
+                   <line x1="12" y1="10" x2="17" y2="12" strokeWidth="0.8" opacity="0.5" />
+                   <line x1="7" y1="16" x2="12" y2="14" strokeWidth="0.8" opacity="0.5" />
+                   <line x1="12" y1="14" x2="17" y2="16" strokeWidth="0.8" opacity="0.5" />
+                   <line x1="12" y1="14" x2="12" y2="18" strokeWidth="0.8" opacity="0.5" />
+                 </svg>
               </div>
               <div className="max-w-md lg:max-w-lg p-3 rounded-lg bg-gray-200 dark:bg-gray-700">
                 <div className="flex items-center gap-2">

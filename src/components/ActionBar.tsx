@@ -39,11 +39,51 @@ const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat,
           disabled={isListening}
           className={`${buttonBaseStyle} bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          <div className="flex items-center justify-center h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-white dark:bg-gray-800 text-[var(--accent-color-500)] shadow-inner">
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-8 sm:w-8" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M7.5 8.25c0-1.036.84-1.875 1.875-1.875h.375a3.75 3.75 0 013.75 3.75v1.875m0 0c0 1.036-.84 1.875-1.875 1.875h-1.5A1.875 1.875 0 018.25 14.25v-1.5" />
-                <path fillRule="evenodd" d="M3 8.25a5.25 5.25 0 015.25-5.25h6a5.25 5.25 0 015.25 5.25v7.5a5.25 5.25 0 01-5.25 5.25h-6a5.25 5.25 0 01-5.25-5.25v-7.5zM4.5 8.25a3.75 3.75 0 013.75-3.75h6a3.75 3.75 0 013.75 3.75v7.5a3.75 3.75 0 01-3.75 3.75h-6a3.75 3.75 0 01-3.75-3.75v-7.5z" clipRule="evenodd" />
-             </svg>
+          <div className="flex items-center justify-center h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-white dark:bg-gray-800 shadow-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" className="h-9 w-9 sm:h-12 sm:w-12">
+              <defs>
+                <linearGradient id="grad1-action" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style={{stopColor: 'var(--accent-color-500)'}}/>
+                  <stop offset="100%" style={{stopColor: 'var(--accent-color-600)'}}/>
+                </linearGradient>
+                <linearGradient id="grad2-action" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style={{stopColor: '#06B6D4'}}/>
+                  <stop offset="100%" style={{stopColor: '#3B82F6'}}/>
+                </linearGradient>
+              </defs>
+              <g>
+                <rect x="30" y="50" width="140" height="100" rx="25" fill="url(#grad1-action)"/>
+                <path d="M 80 150 L 70 170 L 95 150 Z" fill="url(#grad1-action)"/>
+                <line x1="55" y1="80" x2="145" y2="80" stroke="white" strokeWidth="4" strokeLinecap="round" opacity="0.9"/>
+                <line x1="55" y1="100" x2="130" y2="100" stroke="white" strokeWidth="4" strokeLinecap="round" opacity="0.7"/>
+                <line x1="55" y1="120" x2="120" y2="120" stroke="white" strokeWidth="4" strokeLinecap="round" opacity="0.5"/>
+                <circle cx="60" cy="135" r="4" fill="white" opacity="0.8"/>
+                <circle cx="75" cy="135" r="4" fill="white" opacity="0.8"/>
+                <circle cx="90" cy="135" r="4" fill="white" opacity="0.8"/>
+              </g>
+              <g transform="translate(120, 35)">
+                <circle cx="35" cy="35" r="32" fill="url(#grad2-action)" opacity="0.95"/>
+                <circle cx="35" cy="35" r="32" fill="none" stroke="white" strokeWidth="2" opacity="0.3"/>
+                <g transform="translate(15, 15)">
+                  <circle cx="10" cy="12" r="3" fill="white" opacity="0.9"/>
+                  <circle cx="30" cy="12" r="3" fill="white" opacity="0.9"/>
+                  <circle cx="20" cy="5" r="3" fill="white" opacity="0.9"/>
+                  <circle cx="20" cy="25" r="3" fill="white" opacity="0.9"/>
+                  <circle cx="5" cy="20" r="2.5" fill="white" opacity="0.8"/>
+                  <circle cx="35" cy="20" r="2.5" fill="white" opacity="0.8"/>
+                  <line x1="10" y1="12" x2="20" y2="5" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+                  <line x1="30" y1="12" x2="20" y2="5" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+                  <line x1="10" y1="12" x2="20" y2="25" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+                  <line x1="30" y1="12" x2="20" y2="25" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+                  <line x1="10" y1="12" x2="5" y2="20" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+                  <line x1="30" y1="12" x2="35" y2="20" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+                  <line x1="20" y1="25" x2="5" y2="20" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+                  <line x1="20" y1="25" x2="35" y2="20" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+                  <circle cx="20" cy="18" r="4" fill="white" opacity="0.95"/>
+                </g>
+                <text x="35" y="58" fontFamily="Arial, sans-serif" fontSize="11" fontWeight="bold" fill="white" textAnchor="middle" opacity="0.95">AI</text>
+              </g>
+            </svg>
           </div>
           <p className="mt-2 sm:mt-3 font-semibold text-sm sm:text-lg text-gray-800 dark:text-white">AI Sohbet</p>
           <p className="text-xs sm:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block">Asistanla sohbet edin.</p>
