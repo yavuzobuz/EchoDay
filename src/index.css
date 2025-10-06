@@ -2,39 +2,122 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSS Custom Properties for Accent Colors */
-:root {
-  /* Blue theme */
-  --blue-100: #dbeafe;
-  --blue-300: #93c5fd;
-  --blue-500: #3b82f6;
-  --blue-600: #2563eb;
-  --blue-700: #1d4ed8;
-  --blue-900: #1e3a8a;
+@layer base {
+  :root {
+    --background: 0 0% 8%;
+    --foreground: 0 0% 98%;
 
-  /* Green theme */
-  --green-100: #dcfce7;
-  --green-300: #86efac;
-  --green-500: #22c55e;
-  --green-600: #16a34a;
-  --green-700: #15803d;
-  --green-900: #14532d;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 98%;
 
-  /* Red theme */
-  --red-100: #fee2e2;
-  --red-300: #fca5a5;
-  --red-500: #ef4444;
-  --red-600: #dc2626;
-  --red-700: #b91c1c;
-  --red-900: #7f1d1d;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 98%;
 
-  /* Default accent color variables (blue) */
-  --accent-color-100: var(--blue-100);
-  --accent-color-300: var(--blue-300);
-  --accent-color-500: var(--blue-500);
-  --accent-color-600: var(--blue-600);
-  --accent-color-700: var(--blue-700);
-  --accent-color-900: var(--blue-900);
+    --primary: 0 85% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 85%;
+    --secondary-foreground: 0 0% 10%;
+
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 70%;
+
+    --accent: 0 85% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 0 85% 60%;
+
+    --radius: 0.75rem;
+
+    /* Gradient colors */
+    --gradient-from: 0 0% 8%;
+    --gradient-via: 0 0% 10%;
+    --gradient-to: 0 0% 12%;
+
+    /* Feature card colors */
+    --feature-bg: 0 0% 12%;
+    --feature-border: 0 0% 20%;
+
+    /* Shadow colors */
+    --shadow-primary: 0 85% 60%;
+    --shadow-glow: 0 85% 55%;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Blue theme */
+    --blue-100: #dbeafe;
+    --blue-300: #93c5fd;
+    --blue-500: #3b82f6;
+    --blue-600: #2563eb;
+    --blue-700: #1d4ed8;
+    --blue-900: #1e3a8a;
+
+    /* Green theme */
+    --green-100: #dcfce7;
+    --green-300: #86efac;
+    --green-500: #22c55e;
+    --green-600: #16a34a;
+    --green-700: #15803d;
+    --green-900: #14532d;
+
+    /* Red theme */
+    --red-100: #fee2e2;
+    --red-300: #fca5a5;
+    --red-500: #ef4444;
+    --red-600: #dc2626;
+    --red-700: #b91c1c;
+    --red-900: #7f1d1d;
+
+    /* Default accent color variables (blue) */
+    --accent-color-100: var(--blue-100);
+    --accent-color-300: var(--blue-300);
+    --accent-color-500: var(--blue-500);
+    --accent-color-600: var(--blue-600);
+    --accent-color-700: var(--blue-700);
+    --accent-color-900: var(--blue-900);
+  }
+
+  .dark {
+    --background: 0 0% 8%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 85% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 85%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 0 85% 55%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 18%;
+    --input: 0 0% 15%;
+    --ring: 0 85% 60%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
 }
 
 /* Global styles */
@@ -77,6 +160,24 @@ code {
 
 .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(75, 85, 99, 0.7);
+}
+
+@layer utilities {
+  .gradient-text {
+    @apply bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] bg-clip-text text-transparent;
+  }
+  
+  .feature-card {
+    @apply bg-[hsl(var(--feature-bg))] border border-[hsl(var(--feature-border))] rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-[hsl(var(--primary))]/20;
+  }
+  
+  .glow-primary {
+    @apply shadow-lg shadow-[hsl(var(--primary))]/40;
+  }
+  
+  .glow-accent {
+    @apply shadow-lg shadow-[hsl(var(--accent))]/30;
+  }
 }
 
 /* Welcome Page Animations */

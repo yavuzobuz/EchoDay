@@ -15,16 +15,16 @@ const Feature: React.FC<{ icon: React.ReactNode; title: string; children: React.
   
   return (
     <div 
-      className={`group flex flex-col items-center p-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-900/50 rounded-2xl text-center h-full border-2 border-transparent hover:border-[var(--accent-color-500)] transition-all duration-500 transform hover:scale-105 hover:shadow-2xl backdrop-blur-sm ${
+      className={`group feature-card text-center h-full ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
       }`}
       style={{ transitionDelay: `${delay}ms` }}
     >
-      <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-gradient-to-br from-[var(--accent-color-400)] to-[var(--accent-color-600)] text-white mb-4 transform group-hover:rotate-12 group-hover:scale-110 transition-transform duration-300 shadow-lg">
+      <div className="flex items-center justify-center h-16 w-16 rounded-2xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-[hsl(var(--primary-foreground))] mb-4 transform group-hover:rotate-12 group-hover:scale-110 transition-transform duration-300 glow-primary">
         {icon}
       </div>
-      <h3 className="text-xl font-bold mb-2 text-gray-800 dark:text-gray-100 group-hover:text-[var(--accent-color-600)] transition-colors">{title}</h3>
-      <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">{children}</p>
+      <h3 className="text-xl font-bold mb-2 text-[hsl(var(--card-foreground))] group-hover:text-[hsl(var(--primary))] transition-colors">{title}</h3>
+      <p className="text-[hsl(var(--muted-foreground))] text-sm leading-relaxed">{children}</p>
     </div>
   );
 };
@@ -146,78 +146,166 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
           </Feature>
         </div>
         
-        {/* App Preview Mockup - YENİ */}
+        {/* App Preview Mockup - MODERN TASARİM */}
         <div className={`mb-16 transform transition-all duration-1000 delay-500 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
-          <div className="relative max-w-5xl mx-auto">
-            {/* Browser/App Window */}
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border-4 border-gray-200 dark:border-gray-700">
-              {/* Window Header */}
-              <div className="bg-gray-100 dark:bg-gray-800 px-4 py-3 flex items-center gap-2 border-b border-gray-200 dark:border-gray-700">
+          <div className="relative max-w-6xl mx-auto">
+            {/* Modern App Window - Resimdeki gibi */}
+            <div className="bg-[hsl(var(--card))] rounded-2xl shadow-2xl overflow-hidden border border-[hsl(var(--border))]">
+              {/* Window Header - macOS tarzı */}
+              <div className="bg-[hsl(var(--background))] px-4 py-3 flex items-center gap-3 border-b border-[hsl(var(--border))]">
                 <div className="flex gap-2">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  <div className="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
+                  <div className="w-3 h-3 rounded-full bg-[#febc2e]"></div>
+                  <div className="w-3 h-3 rounded-full bg-[#28c840]"></div>
                 </div>
-                <div className="flex-1 text-center">
-                  <div className="inline-flex items-center gap-2 bg-white dark:bg-gray-700 px-4 py-1 rounded-lg text-sm text-gray-600 dark:text-gray-300">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                    <span className="font-medium">echoday.app</span>
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))] text-sm font-medium">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                    </svg>
+                    EchoDay
                   </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <svg className="w-5 h-5 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+                  <svg className="w-5 h-5 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 </div>
               </div>
               
-              {/* App Content Preview - SVG */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-8">
-                <svg viewBox="0 0 1200 700" className="w-full h-auto" xmlns="http://www.w3.org/2000/svg">
-                  {/* Background */}
-                  <rect width="1200" height="700" fill="currentColor" className="text-gray-100 dark:text-gray-900"/>
-                  
-                  {/* Header */}
-                  <rect x="20" y="20" width="1160" height="60" rx="12" fill="currentColor" className="text-white dark:text-gray-800" opacity="0.8"/>
-                  <circle cx="60" cy="50" r="15" fill="currentColor" className="text-blue-500" opacity="0.9"/>
-                  <rect x="90" y="40" width="120" height="20" rx="4" fill="currentColor" className="text-gray-300 dark:text-gray-700" opacity="0.6"/>
-                  
-                  {/* Action Buttons */}
-                  <circle cx="300" cy="120" r="35" fill="currentColor" className="text-blue-500" opacity="0.9"/>
-                  <circle cx="400" cy="120" r="35" fill="currentColor" className="text-purple-500" opacity="0.9"/>
-                  <circle cx="500" cy="120" r="35" fill="currentColor" className="text-pink-500" opacity="0.9"/>
-                  
-                  {/* Task List - Left Side */}
-                  <g transform="translate(20, 180)">
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <g key={i} transform={`translate(0, ${i * 90})`}>
-                        <rect width="550" height="70" rx="12" fill="currentColor" className="text-white dark:text-gray-800" opacity="0.9"/>
-                        <circle cx="35" cy="35" r="12" fill="currentColor" className="text-green-500" opacity="0.8"/>
-                        <rect x="60" y="20" width="300" height="12" rx="6" fill="currentColor" className="text-gray-400 dark:text-gray-600" opacity="0.7"/>
-                        <rect x="60" y="40" width="200" height="8" rx="4" fill="currentColor" className="text-gray-300 dark:text-gray-700" opacity="0.5"/>
-                        <rect x="450" y="25" width="80" height="20" rx="10" fill="currentColor" className="text-blue-200 dark:text-blue-900" opacity="0.6"/>
-                      </g>
-                    ))}
-                  </g>
-                  
-                  {/* Notes - Right Side */}
-                  <g transform="translate(610, 180)">
-                    <rect width="570" height="480" rx="12" fill="currentColor" className="text-white dark:text-gray-800" opacity="0.9"/>
-                    <rect x="20" y="20" width="200" height="16" rx="8" fill="currentColor" className="text-gray-400 dark:text-gray-600" opacity="0.7"/>
-                    
-                    {[0, 1, 2].map((i) => (
-                      <g key={i} transform={`translate(20, ${60 + i * 130})`}>
-                        <rect width="530" height="110" rx="8" fill="currentColor" className="text-gray-100 dark:text-gray-900" opacity="0.6"/>
-                        <rect x="15" y="15" width="250" height="10" rx="5" fill="currentColor" className="text-gray-400 dark:text-gray-600" opacity="0.7"/>
-                        <rect x="15" y="35" width="400" height="8" rx="4" fill="currentColor" className="text-gray-300 dark:text-gray-700" opacity="0.5"/>
-                        <rect x="15" y="50" width="350" height="8" rx="4" fill="currentColor" className="text-gray-300 dark:text-gray-700" opacity="0.5"/>
-                      </g>
-                    ))}
-                  </g>
-                  
-                  {/* Floating AI Badge */}
-                  <g transform="translate(900, 30)">
-                    <rect width="120" height="40" rx="20" fill="currentColor" className="text-purple-500" opacity="0.9"/>
-                    <text x="60" y="25" textAnchor="middle" fill="white" fontSize="18" fontWeight="bold">🤖 AI</text>
-                  </g>
-                </svg>
+              {/* App Content - Resimdeki layout */}
+              <div className="p-6 space-y-6">
+                {/* Top Action Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Sesli Görev Ekle Card */}
+                  <div className="bg-[hsl(var(--muted))] rounded-xl p-6 flex flex-col items-center justify-center gap-3 hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
+                    <div className="w-14 h-14 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center">
+                      <svg className="w-7 h-7 text-[hsl(var(--primary-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                    </div>
+                    <div className="text-center">
+                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">Sesle Görev</h3>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">Sesli komutla hızlıca ekle</p>
+                    </div>
+                  </div>
+
+                  {/* AI Sohbet Card */}
+                  <div className="bg-[hsl(var(--muted))] rounded-xl p-6 flex flex-col items-center justify-center gap-3 hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
+                    <div className="w-14 h-14 rounded-full bg-[hsl(var(--accent))] flex items-center justify-center">
+                      <svg className="w-7 h-7 text-[hsl(var(--accent-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                    </div>
+                    <div className="text-center">
+                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">AI Sohbet</h3>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">Asistanınızla sohbet edin.</p>
+                    </div>
+                  </div>
+
+                  {/* Resimle Card */}
+                  <div className="bg-[hsl(var(--muted))] rounded-xl p-6 flex flex-col items-center justify-center gap-3 hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
+                    <div className="w-14 h-14 rounded-full bg-[hsl(var(--destructive))] flex items-center justify-center">
+                      <svg className="w-7 h-7 text-[hsl(var(--destructive-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    </div>
+                    <div className="text-center">
+                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">Resimle</h3>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">Fotoğraftan otomatik görev oluştur</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Görevlerim Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
+                      ⭐ Görevlerim
+                      <span className="text-xs bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-2 py-0.5 rounded-full">Bugün</span>
+                    </h2>
+                    <button className="text-sm text-[hsl(var(--primary))] font-semibold flex items-center gap-1">
+                      Liste 
+                      <span className="text-xs">Zaman Sırası</span>
+                    </button>
+                  </div>
+
+                  {/* Task Items */}
+                  <div className="space-y-2">
+                    {/* Task 1 - Red border */}
+                    <div className="bg-[hsl(var(--muted))] rounded-lg p-4 border-l-4 border-[hsl(var(--primary))]">
+                      <div className="flex items-start gap-3">
+                        <input type="checkbox" className="mt-1 w-4 h-4 rounded" />
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-[hsl(var(--foreground))]">Proje sunumunu hazırla ve ekibe gönder - Kategori: Önemli</h3>
+                          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Zaman: Bugün 14:30</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Task 2 */}
+                    <div className="bg-[hsl(var(--muted))] rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <input type="checkbox" className="mt-1 w-4 h-4 rounded" />
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-[hsl(var(--foreground))]">Doktor randevusu - Diş kontrolü - Kategori: Sağlık</h3>
+                          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Zaman: Yarın 10:00</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Günlük Not Defterim Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
+                      📝 Günlük Not Defterim
+                    </h2>
+                    <div className="flex gap-2">
+                      <button className="px-3 py-1 text-xs bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg">Basit</button>
+                      <button className="px-3 py-1 text-xs bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))] rounded-lg">Tarih Asc</button>
+                      <select className="px-3 py-1 text-xs bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg border-none">
+                        <option>Liste</option>
+                        <option>Tümü</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-2">
+                    {/* Note 1 */}
+                    <div className="bg-[hsl(var(--muted))] rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 text-xs bg-[hsl(var(--background))] text-[hsl(var(--foreground))] rounded">💼 İş</span>
+                        <span className="px-2 py-0.5 text-xs bg-[hsl(var(--background))] text-[hsl(var(--foreground))] rounded">💡 Fikir</span>
+                      </div>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">Yeni proje için kullanıcı arayüzü tasarımı üzerinde çalışmayı unutma. Renk paletini modern ve minimal tutmak önemli.</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2">Bugün 09:15</p>
+                    </div>
+
+                    {/* Note 2 */}
+                    <div className="bg-[hsl(var(--muted))] rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="px-2 py-0.5 text-xs bg-[hsl(var(--background))] text-[hsl(var(--foreground))] rounded">🎓 Eğitim</span>
+                        <span className="px-2 py-0.5 text-xs bg-[hsl(var(--background))] text-[hsl(var(--foreground))] rounded">📚 Kitap</span>
+                      </div>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">React ve TypeScript hakkında yeni kurs izlemeye devam et. Bugün 3. bölümü tamamladım, hook'lar çok ilginç.</p>
+                      <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2">Dün 18:45</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Input Area */}
+                <div className="flex gap-2 pt-4 border-t border-[hsl(var(--border))]">
+                  <input 
+                    type="text" 
+                    placeholder="Yeni not ekle veya sesli görev yarat..."
+                    className="flex-1 px-4 py-3 bg-[hsl(var(--input))] text-[hsl(var(--foreground))] rounded-lg border border-[hsl(var(--border))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))]" 
+                  />
+                  <button className="px-4 py-3 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg font-semibold hover:bg-[hsl(var(--primary)_/_0.9)] transition-colors flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                    Ekle
+                  </button>
+                  <button className="px-4 py-3 bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  </button>
+                </div>
               </div>
             </div>
             
@@ -282,7 +370,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
         }`}>
           <button
             onClick={onGetStarted}
-            className="group inline-flex items-center gap-3 px-12 py-6 bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] text-white text-xl font-bold rounded-2xl shadow-2xl hover:shadow-[var(--accent-color-500)]/50 transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
+            className="group inline-flex items-center gap-3 px-12 py-6 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)_/_0.9)] text-[hsl(var(--primary-foreground))] text-xl font-bold rounded-2xl glow-primary hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
           >
             <svg className="w-6 h-6 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
