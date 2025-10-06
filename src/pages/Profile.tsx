@@ -3,6 +3,7 @@ import { AccentColor } from '../App';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { archiveService } from '../services/archiveService';
 import { DayStat } from '../types';
+import { getCurrentUser, signIn, signOut, signUp } from '../services/authService';
 
 interface ProfileProps {
   theme: 'light' | 'dark';
@@ -24,6 +25,78 @@ const accentColors: { name: AccentColor, className: string }[] = [
     { name: 'green', className: 'bg-green-500' },
     { name: 'red', className: 'bg-red-500' },
 ];
+
+const SupabaseAuthPanel: React.FC = () => {
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [message, setMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const user = await getCurrentUser();
+        setUserEmail(user?.email || null);
+        if (user?.id) localStorage.setItem('supabase-user-id', user.id);
+      } catch {}
+    })();
+  }, []);
+
+  const doSignIn = async () => {
+    try {
+      const user = await signIn(email, password);
+      setUserEmail(user?.email || null);
+      if (user?.id) localStorage.setItem('supabase-user-id', user.id);
+      setMessage('Giriş başarılı.');
+      setTimeout(() => setMessage(null), 3000);
+    } catch (e: any) {
+      setMessage(e.message || 'Giriş başarısız.');
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const doSignUp = async () => {
+    try {
+      const user = await signUp(email, password);
+      setUserEmail(user?.email || null);
+      setMessage('Kayıt başarılı. Lütfen e-postanızı doğrulayın.');
+      setTimeout(() => setMessage(null), 4000);
+    } catch (e: any) {
+      setMessage(e.message || 'Kayıt başarısız.');
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const doSignOut = async () => {
+    await signOut();
+    setUserEmail(null);
+    setMessage('Çıkış yapıldı.');
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  if (userEmail) {
+    return (
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-300">Oturum: {userEmail}</p>
+        </div>
+        <button onClick={doSignOut} className="px-3 py-1.5 rounded-md bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/70 text-sm">Çıkış</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <input type="email" placeholder="E-posta" value={email} onChange={(e)=>setEmail(e.target.value)} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+      <input type="password" placeholder="Şifre" value={password} onChange={(e)=>setPassword(e.target.value)} className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
+      <div className="flex gap-2">
+        <button onClick={doSignIn} className="px-3 py-2 rounded-md bg-[var(--accent-color-600)] text-white text-sm hover:bg-[var(--accent-color-700)]">Giriş</button>
+        <button onClick={doSignUp} className="px-3 py-2 rounded-md bg-gray-200 dark:bg-gray-600 text-sm hover:bg-gray-300 dark:hover:bg-gray-500">Kayıt</button>
+      </div>
+      {message && <p className="sm:col-span-3 text-xs text-gray-500 dark:text-gray-400">{message}</p>}
+    </div>
+  );
+};
 
 const Profile: React.FC<ProfileProps> = ({ 
   theme, setTheme, accentColor, setAccentColor, 
@@ -248,19 +321,11 @@ const Profile: React.FC<ProfileProps> = ({
                 )}
             </div>
 
-            {/* Supabase (Geçici) Kullanıcı ID */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-3">
+            {/* Supabase Auth */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Senkronizasyon</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Supabase senkronu için geçici kullanıcı ID girin (gerçek oturum açma sonraki adımda eklenecek).</p>
-                <div className="flex gap-2">
-                    <input
-                        type="text"
-                        defaultValue={localStorage.getItem('supabase-user-id') || ''}
-                        onChange={(e) => localStorage.setItem('supabase-user-id', e.target.value)}
-                        placeholder="user_abc123"
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Supabase ile oturum açarak tüm cihazlarda senkronizasyon yapın.</p>
+                <SupabaseAuthPanel />
             </div>
 
             {/* Data Backup & Import */}
