@@ -87,6 +87,63 @@ export interface DashboardStats {
   last7Days: DayStat[];
 }
 
+// ==================== ADVANCED ANALYTICS ====================
+
+// Kategori bazlı performans
+export interface CategoryStats {
+  category: string;
+  totalTasks: number;
+  completedTasks: number;
+  completionRate: number; // 0-1
+  averageCompletionTime: number; // Dakika
+  totalTimeSpent: number; // Dakika
+  lastTaskDate: string;
+}
+
+// Zaman analizi
+export interface TimeAnalysis {
+  averageCompletionTime: number; // Ortalama tamamlanma süresi (dakika)
+  fastestTask: {
+    id: string;
+    text: string;
+    completionTime: number; // Dakika
+    category?: string;
+  } | null;
+  slowestTask: {
+    id: string;
+    text: string;
+    completionTime: number; // Dakika
+    category?: string;
+  } | null;
+  categoryAverages: { [category: string]: number }; // Kategori başına ortalama süre
+  timeDistribution: {
+    under15min: number;
+    between15and60min: number;
+    between1and3hours: number;
+    over3hours: number;
+  };
+}
+
+// Periyodik rapor
+export interface PeriodicReport {
+  period: 'week' | 'month';
+  startDate: string;
+  endDate: string;
+  totalTasks: number;
+  completedTasks: number;
+  completionRate: number;
+  categoryBreakdown: CategoryStats[];
+  timeAnalysis: TimeAnalysis;
+  topCategories: string[]; // En çok kullanılan kategoriler
+  productivityScore: number; // 0-100
+  insights: string[]; // AI destekli öngörüler
+  comparisonToPrevious?: {
+    tasksChange: number; // Yüzde değişim
+    completionRateChange: number;
+    productivityChange: number;
+  };
+}
+
 export interface DailyBriefing {
     summary: string;
     focus: string[];

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { MobileModal, ModalSection, ModalActions } from './MobileModal';
 
 interface ImageTaskModalProps {
   isOpen: boolean;
@@ -41,51 +42,123 @@ const ImageTaskModal: React.FC<ImageTaskModalProps> = ({ isOpen, onClose, onAddT
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg p-6">
-        <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Resimle Görev Oluştur</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="font-semibold text-gray-700 dark:text-gray-300 mb-2 block">1. Bir Resim Yükleyin</label>
-            <input type="file" accept="image/*" onChange={handleImageChange} ref={fileInputRef} className="hidden" />
-            <div onClick={() => fileInputRef.current?.click()} className="cursor-pointer border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center hover:border-[var(--accent-color-500)] hover:bg-gray-50 dark:hover:bg-gray-700/50">
-              {image ? (
-                <img src={image.url} alt="Yüklenen görsel" className="max-h-48 mx-auto rounded-md" />
-              ) : (
-                <div>
-                  <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Resim seçmek için tıklayın</p>
+    <MobileModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Resimle Görev Oluştur"
+      fullScreen={false}
+      swipeToClose={true}
+    >
+      <form onSubmit={handleSubmit}>
+        <ModalSection title="1. Bir Resim Yükleyin">
+          <input 
+            type="file" 
+            accept="image/*" 
+            onChange={handleImageChange} 
+            ref={fileInputRef} 
+            className="hidden" 
+          />
+          <div 
+            onClick={() => fileInputRef.current?.click()} 
+            className="
+              cursor-pointer border-2 border-dashed 
+              border-gray-300 dark:border-gray-600 
+              rounded-xl p-6 md:p-4 text-center 
+              hover:border-[var(--accent-color-500)] 
+              hover:bg-gray-50 dark:hover:bg-gray-700/50
+              active:scale-[0.98]
+              transition-all duration-150
+              min-h-[200px] flex items-center justify-center
+            "
+          >
+            {image ? (
+              <div className="w-full">
+                <img 
+                  src={image.url} 
+                  alt="Yüklenen görsel" 
+                  className="max-h-56 md:max-h-48 mx-auto rounded-lg shadow-md" 
+                />
+                <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
+                  Değiştirmek için tıklayın
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="w-16 h-16 md:w-12 md:h-12 mx-auto rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 md:h-6 md:w-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
                 </div>
-              )}
-            </div>
+                <div>
+                  <p className="text-base md:text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Resim seçmek için tıklayın
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    PNG, JPG, HEIC desteklenir
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
+        </ModalSection>
 
-          <div>
-            <label htmlFor="img-task-desc" className="font-semibold text-gray-700 dark:text-gray-300 mb-2 block">2. AI'ya Ne Yapmasını İstediğinizi Söyleyin</label>
-            <textarea
-              id="img-task-desc"
-              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Örn: Bu faturanın son ödeme tarihini görev olarak ekle."
-            />
-          </div>
-          
-          <div className="mt-6 flex justify-end gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">
-              İptal
-            </button>
-            <button type="submit" className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50" disabled={!image || !description.trim()}>
-              Görev Oluştur
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <ModalSection title="2. AI'ya Ne Yapmasını İstediğinizi Söyleyin">
+          <textarea
+            id="img-task-desc"
+            className="
+              w-full p-4 md:p-3
+              border border-gray-300 dark:border-gray-600 rounded-lg
+              bg-white dark:bg-gray-700
+              text-gray-900 dark:text-white
+              text-base md:text-sm
+              focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none
+              transition-colors duration-300
+              min-h-[100px]
+            "
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Örn: Bu faturanın son ödeme tarihini görev olarak ekle."
+          />
+        </ModalSection>
+
+        <ModalActions>
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="
+              flex-1 px-4 py-3 md:py-2
+              bg-gray-200 dark:bg-gray-600
+              text-gray-800 dark:text-gray-200
+              rounded-lg font-medium
+              hover:bg-gray-300 dark:hover:bg-gray-500
+              active:scale-95
+              transition-all duration-150
+              min-h-[48px] md:min-h-[44px]
+            "
+          >
+            İptal
+          </button>
+          <button 
+            type="submit" 
+            className="
+              flex-1 px-4 py-3 md:py-2
+              bg-[var(--accent-color-600)] text-white
+              rounded-lg font-medium
+              hover:bg-[var(--accent-color-700)]
+              disabled:opacity-50 disabled:cursor-not-allowed
+              active:scale-95
+              transition-all duration-150
+              min-h-[48px] md:min-h-[44px]
+            " 
+            disabled={!image || !description.trim()}
+          >
+            Görev Oluştur
+          </button>
+        </ModalActions>
+      </form>
+    </MobileModal>
   );
 };
 

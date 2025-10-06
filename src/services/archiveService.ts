@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { Todo, Note, DashboardStats, DayStat } from '../types';
+import { Todo, Note, DashboardStats, DayStat, CategoryStats, TimeAnalysis, PeriodicReport } from '../types';
 
 export const db = new Dexie('SmartTodoArchive') as Dexie & {
   todos: Table<Todo, string>;
@@ -409,6 +409,319 @@ const importArchive = async (jsonData: string): Promise<{ todosImported: number;
   }
 };
 
+// ==================== GELİŞMİŞ ANALİTİK METODLARI ====================
+
+/**
+ * Kategori bazlı istatistikleri hesaplar
+ */
+const getCategoryStats = async (currentTodos: Todo[]): Promise<CategoryStats[]> => {
+  try {
+    console.log('[Archive] Calculating category stats...');
+    
+    // Arşivdeki tüm todoları al
+    const archivedTodos = await db.todos.toArray();
+    const allTodos = [...currentTodos, ...archivedTodos];
+    
+    // Kategorilere göre grupla
+    const categoryMap = new Map<string, {
+      todos: Todo[];
+      completed: Todo[];
+    }>();
+    
+    allTodos.forEach(todo => {
+      const category = todo.aiMetadata?.category || 'Kategorizsyız';
+      
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, { todos: [], completed: [] });
+      }
+      
+      const catData = categoryMap.get(category)!;
+      catData.todos.push(todo);
+      if (todo.completed) {
+        catData.completed.push(todo);
+      }
+    });
+    
+    // Her kategori için istatistikleri hesapla
+    const stats: CategoryStats[] = [];
+    
+    categoryMap.forEach((data, category) => {
+      const totalTasks = data.todos.length;
+      const completedTasks = data.completed.length;
+      const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0;
+      
+      // Tamamlanma sürelerini hesapla
+      let totalTimeSpent = 0;
+      let taskCount = 0;
+      
+      data.completed.forEach(todo => {
+        if (todo.datetime && todo.createdAt) {
+          const created = new Date(todo.createdAt);
+          const scheduled = new Date(todo.datetime);
+          const timeDiff = Math.abs(scheduled.getTime() - created.getTime()) / (1000 * 60); // Dakika
+          
+          // Makul bir süre aralığında ise hesaba kat (0-7 gün)
+          if (timeDiff <= 10080) {
+            totalTimeSpent += timeDiff;
+            taskCount++;
+          }
+        }
+      });
+      
+      const averageCompletionTime = taskCount > 0 ? totalTimeSpent / taskCount : 0;
+      
+      // Son görev tarihi
+      const lastTaskDate = data.todos.length > 0
+        ? data.todos.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
+        : new Date().toISOString();
+      
+      stats.push({
+        category,
+        totalTasks,
+        completedTasks,
+        completionRate,
+        averageCompletionTime,
+        totalTimeSpent,
+        lastTaskDate
+      });
+    });
+    
+    // Toplam görev sayısına göre sırala
+    stats.sort((a, b) => b.totalTasks - a.totalTasks);
+    
+    console.log('[Archive] Category stats calculated:', stats.length, 'categories');
+    return stats;
+  } catch (error) {
+    console.error('[Archive] Failed to calculate category stats:', error);
+    return [];
+  }
+};
+
+/**
+ * Zaman analizi yapar
+ */
+const getTimeAnalysis = async (currentTodos: Todo[]): Promise<TimeAnalysis> => {
+  try {
+    console.log('[Archive] Analyzing time data...');
+    
+    const archivedTodos = await db.todos.toArray();
+    const allCompletedTodos = [...currentTodos, ...archivedTodos].filter(t => t.completed);
+    
+    const completionTimes: { todo: Todo; time: number }[] = [];
+    const categoryTimes = new Map<string, number[]>();
+    
+    let under15min = 0;
+    let between15and60min = 0;
+    let between1and3hours = 0;
+    let over3hours = 0;
+    
+    allCompletedTodos.forEach(todo => {
+      if (todo.datetime && todo.createdAt) {
+        const created = new Date(todo.createdAt);
+        const scheduled = new Date(todo.datetime);
+        const timeDiff = Math.abs(scheduled.getTime() - created.getTime()) / (1000 * 60);
+        
+        // Makul aralıkta ise hesaba kat (0-7 gün)
+        if (timeDiff <= 10080) {
+          completionTimes.push({ todo, time: timeDiff });
+          
+          // Kategori ortalaması
+          const category = todo.aiMetadata?.category || 'Kategorizsyz';
+          if (!categoryTimes.has(category)) {
+            categoryTimes.set(category, []);
+          }
+          categoryTimes.get(category)!.push(timeDiff);
+          
+          // Zaman dağılımı
+          if (timeDiff < 15) under15min++;
+          else if (timeDiff < 60) between15and60min++;
+          else if (timeDiff < 180) between1and3hours++;
+          else over3hours++;
+        }
+      }
+    });
+    
+    // Ortalama tamamlanma süresi
+    const averageCompletionTime = completionTimes.length > 0
+      ? completionTimes.reduce((sum, ct) => sum + ct.time, 0) / completionTimes.length
+      : 0;
+    
+    // En hızlı ve en yavaş görevler
+    const sorted = [...completionTimes].sort((a, b) => a.time - b.time);
+    const fastestTask = sorted.length > 0
+      ? {
+          id: sorted[0].todo.id,
+          text: sorted[0].todo.text,
+          completionTime: sorted[0].time,
+          category: sorted[0].todo.aiMetadata?.category
+        }
+      : null;
+    
+    const slowestTask = sorted.length > 0
+      ? {
+          id: sorted[sorted.length - 1].todo.id,
+          text: sorted[sorted.length - 1].todo.text,
+          completionTime: sorted[sorted.length - 1].time,
+          category: sorted[sorted.length - 1].todo.aiMetadata?.category
+        }
+      : null;
+    
+    // Kategori ortalamaları
+    const categoryAverages: { [category: string]: number } = {};
+    categoryTimes.forEach((times, category) => {
+      categoryAverages[category] = times.reduce((sum, t) => sum + t, 0) / times.length;
+    });
+    
+    console.log('[Archive] Time analysis completed');
+    return {
+      averageCompletionTime,
+      fastestTask,
+      slowestTask,
+      categoryAverages,
+      timeDistribution: {
+        under15min,
+        between15and60min,
+        between1and3hours,
+        over3hours
+      }
+    };
+  } catch (error) {
+    console.error('[Archive] Failed to analyze time:', error);
+    return {
+      averageCompletionTime: 0,
+      fastestTask: null,
+      slowestTask: null,
+      categoryAverages: {},
+      timeDistribution: {
+        under15min: 0,
+        between15and60min: 0,
+        between1and3hours: 0,
+        over3hours: 0
+      }
+    };
+  }
+};
+
+/**
+ * Periyodik rapor oluşturur (haftalık veya aylık)
+ */
+const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[]): Promise<PeriodicReport> => {
+  try {
+    console.log(`[Archive] Generating ${period} report...`);
+    
+    // Tarih aralığını belirle
+    const endDate = new Date();
+    const startDate = new Date();
+    
+    if (period === 'week') {
+      startDate.setDate(endDate.getDate() - 7);
+    } else {
+      startDate.setMonth(endDate.getMonth() - 1);
+    }
+    
+    const startISO = startDate.toISOString();
+    const endISO = endDate.toISOString();
+    
+    // Belirtilen periyot içindeki todoları al
+    const archivedTodos = await db.todos
+      .where('createdAt')
+      .between(startISO, endISO, true, true)
+      .toArray();
+    
+    const periodTodos = [
+      ...currentTodos.filter(t => t.createdAt >= startISO && t.createdAt <= endISO),
+      ...archivedTodos
+    ];
+    
+    const totalTasks = periodTodos.length;
+    const completedTasks = periodTodos.filter(t => t.completed).length;
+    const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0;
+    
+    // Kategori analizi
+    const categoryBreakdown = await getCategoryStats(periodTodos);
+    
+    // Zaman analizi
+    const timeAnalysis = await getTimeAnalysis(periodTodos);
+    
+    // En çok kullanılan kategoriler
+    const topCategories = categoryBreakdown
+      .sort((a, b) => b.totalTasks - a.totalTasks)
+      .slice(0, 5)
+      .map(c => c.category);
+    
+    // Verimlilik skoru (0-100)
+    const productivityScore = Math.round(
+      completionRate * 40 + // Tamamlanma oranı %40
+      Math.min((completedTasks / (period === 'week' ? 7 : 30)) * 20, 20) + // Günlük ortalama %20
+      Math.min((categoryBreakdown.length / 5) * 20, 20) + // Kategori çeşitliliği %20
+      (timeAnalysis.averageCompletionTime > 0 && timeAnalysis.averageCompletionTime < 1440 ? 20 : 10) // Zaman yönetimi %20
+    );
+    
+    // AI öngörüleri
+    const insights: string[] = [];
+    
+    if (completionRate > 0.8) {
+      insights.push('🎉 Mükemmel tamamlanma oranı! Çok başarılısınız.');
+    } else if (completionRate < 0.5) {
+      insights.push('⚠️ Tamamlanma oranınız düşük. Daha küçük hedefler belirlemeyi deneyin.');
+    }
+    
+    if (timeAnalysis.averageCompletionTime < 60) {
+      insights.push('⏱️ Görevlerinizi hızlı tamamlıyorsunuz. Harika zaman yönetimi!');
+    }
+    
+    if (categoryBreakdown.length > 5) {
+      insights.push('🎯 Gününüzü çeşitli alanlarda dengeli geçiriyorsunuz.');
+    }
+    
+    if (topCategories.length > 0) {
+      insights.push(`🔥 En aktif kategoriniz: ${topCategories[0]}`);
+    }
+    
+    console.log('[Archive] Periodic report generated');
+    return {
+      period,
+      startDate: startISO,
+      endDate: endISO,
+      totalTasks,
+      completedTasks,
+      completionRate,
+      categoryBreakdown,
+      timeAnalysis,
+      topCategories,
+      productivityScore,
+      insights
+    };
+  } catch (error) {
+    console.error('[Archive] Failed to generate periodic report:', error);
+    // Varsayılan boş rapor
+    return {
+      period,
+      startDate: new Date().toISOString(),
+      endDate: new Date().toISOString(),
+      totalTasks: 0,
+      completedTasks: 0,
+      completionRate: 0,
+      categoryBreakdown: [],
+      timeAnalysis: {
+        averageCompletionTime: 0,
+        fastestTask: null,
+        slowestTask: null,
+        categoryAverages: {},
+        timeDistribution: {
+          under15min: 0,
+          between15and60min: 0,
+          between1and3hours: 0,
+          over3hours: 0
+        }
+      },
+      topCategories: [],
+      productivityScore: 0,
+      insights: []
+    };
+  }
+};
+
 export const archiveService = {
   archiveItems,
   getArchivedItemsForDate,
@@ -422,4 +735,8 @@ export const archiveService = {
   checkDatabaseHealth,
   exportArchive,
   importArchive,
+  // Yeni analitik metodlar
+  getCategoryStats,
+  getTimeAnalysis,
+  getPeriodicReport,
 };

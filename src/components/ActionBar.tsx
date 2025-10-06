@@ -8,11 +8,12 @@ interface ActionBarProps {
 }
 
 const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat, onImageTask, isListening }) => {
-  const buttonBaseStyle = "flex flex-col items-center justify-center p-3 sm:p-4 rounded-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-900 h-full";
+  // Mobil için minimum 44x44px touch area (Apple HIG standardı)
+  const buttonBaseStyle = "flex flex-col items-center justify-center p-4 sm:p-4 rounded-xl sm:rounded-lg transition-all duration-300 active:scale-95 sm:hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-900 h-full min-h-[120px] sm:min-h-0";
 
   return (
-    <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow-md mb-4 sm:mb-6">
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+    <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-xl sm:rounded-lg shadow-md mb-4 sm:mb-6">
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
         
         {/* Simple Voice Command Button */}
         <button
@@ -23,14 +24,14 @@ const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat,
             ${isListening ? 'bg-red-200 dark:bg-red-900/50 cursor-not-allowed' : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}
           `}
         >
-          <div className={`relative flex items-center justify-center h-12 w-12 sm:h-16 sm:w-16 rounded-full ${isListening ? 'bg-red-500' : 'bg-[var(--accent-color-600)]'} text-white shadow-lg`}>
+          <div className={`relative flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-full ${isListening ? 'bg-red-500' : 'bg-[var(--accent-color-600)]'} text-white shadow-lg`}>
             {isListening && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>}
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-8 sm:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-8 sm:w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
           </div>
-          <p className="mt-2 sm:mt-3 font-semibold text-sm sm:text-lg text-gray-800 dark:text-white">Sesle Görev</p>
-          <p className="text-xs sm:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block">Sadece konuşun, biz not alalım.</p>
+          <p className="mt-2 sm:mt-3 font-semibold text-xs sm:text-lg text-gray-800 dark:text-white">Sesle Görev</p>
+          <p className="text-[10px] sm:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block">Sadece konuşun, biz not alalım.</p>
         </button>
 
         {/* AI Chat Button */}
@@ -39,7 +40,7 @@ const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat,
           disabled={isListening}
           className={`${buttonBaseStyle} bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          <div className="flex items-center justify-center h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-white dark:bg-gray-800 shadow-inner">
+          <div className="flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white dark:bg-gray-800 shadow-inner">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" className="h-9 w-9 sm:h-12 sm:w-12">
               <defs>
                 <linearGradient id="grad1-action" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -85,8 +86,8 @@ const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat,
               </g>
             </svg>
           </div>
-          <p className="mt-2 sm:mt-3 font-semibold text-sm sm:text-lg text-gray-800 dark:text-white">AI Sohbet</p>
-          <p className="text-xs sm:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block">Asistanla sohbet edin.</p>
+          <p className="mt-2 sm:mt-3 font-semibold text-xs sm:text-lg text-gray-800 dark:text-white">AI Sohbet</p>
+          <p className="text-[10px] sm:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block">Asistanla sohbet edin.</p>
         </button>
 
         {/* New Image Task Button */}
@@ -95,13 +96,13 @@ const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat,
           disabled={isListening}
           className={`${buttonBaseStyle} bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          <div className="flex items-center justify-center h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-white dark:bg-gray-800 text-[var(--accent-color-500)] shadow-inner">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-8 sm:w-8" viewBox="0 0 24 24" fill="currentColor">
+          <div className="flex items-center justify-center h-14 w-14 sm:h-16 sm:w-16 rounded-full bg-white dark:bg-gray-800 text-[var(--accent-color-500)] shadow-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 sm:h-8 sm:w-8" viewBox="0 0 24 24" fill="currentColor">
               <path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 012.25-2.25h16.5A2.25 2.25 0 0122.5 6v12a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 18V6zM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0021 18v-1.94l-2.69-2.689a1.5 1.5 0 00-2.12 0l-.88.879.97.97a.75.75 0 11-1.06 1.06l-5.16-5.159a1.5 1.5 0 00-2.12 0L3 16.061zm10.125-7.81a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0z" clipRule="evenodd" />
             </svg>
           </div>
-          <p className="mt-2 sm:mt-3 font-semibold text-sm sm:text-lg text-gray-800 dark:text-white">Resimle</p>
-          <p className="text-xs sm:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block">Resimden akıllı görev yaratın.</p>
+          <p className="mt-2 sm:mt-3 font-semibold text-xs sm:text-lg text-gray-800 dark:text-white">Resimle</p>
+          <p className="text-[10px] sm:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block">Resimden akıllı görev yaratın.</p>
         </button>
 
       </div>

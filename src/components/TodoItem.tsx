@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Todo, Priority } from '../types';
+import { Todo, Priority, ReminderConfig } from '../types';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
+import ReminderSetupModal from './ReminderSetupModal';
 
 interface TodoItemProps {
   todo: Todo;
@@ -9,6 +10,7 @@ interface TodoItemProps {
   onGetDirections: (todo: Todo) => void;
   onEdit: (id: string, newText: string) => void;
   onShare: (todo: Todo) => void;
+  onUpdateReminders?: (id: string, reminders: ReminderConfig[]) => void;
 }
 
 const priorityClasses = {
@@ -37,10 +39,12 @@ const RouteStep: React.FC<{ line: string }> = ({ line }) => {
     );
 };
 
-const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDirections, onEdit, onShare }) => {
+const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDirections, onEdit, onShare, onUpdateReminders }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(todo.text);
+  const [showReminderBadge, setShowReminderBadge] = useState(false);
+  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const { isSpeaking, speak, cancel, hasSupport } = useTextToSpeech();
 
@@ -93,6 +97,31 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
   const hasAIMetadata = todo.aiMetadata && Object.values(todo.aiMetadata).some(v => v !== undefined && v !== null && (!Array.isArray(v) || v.length > 0));
   const isConflict = todo.aiMetadata?.isConflict;
   const conflictClass = isConflict ? 'border-orange-500 ring-2 ring-orange-500/20 dark:ring-orange-500/30' : priorityClasses[todo.priority];
+  
+  const activeRemindersCount = todo.reminders?.filter(r => !r.triggered).length || 0;
+  
+  const formatReminderDisplay = (reminder: ReminderConfig): string => {
+    if (reminder.type === 'relative' && reminder.minutesBefore) {
+      if (reminder.minutesBefore < 60) {
+        return `${reminder.minutesBefore} dakika önce`;
+      } else if (reminder.minutesBefore < 1440) {
+        const hours = Math.floor(reminder.minutesBefore / 60);
+        return `${hours} saat önce`;
+      } else {
+        const days = Math.floor(reminder.minutesBefore / 1440);
+        return `${days} gün önce`;
+      }
+    } else if (reminder.type === 'absolute' && reminder.absoluteTime) {
+      const date = new Date(reminder.absoluteTime);
+      return date.toLocaleString('tr-TR', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+    return 'Bilinmeyen';
+  };
 
   return (
     <div className={`bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow-md border-l-4 ${conflictClass} transition-all duration-300 ${todo.completed ? 'opacity-60 saturate-50' : ''}`}>
@@ -140,12 +169,50 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                     <span className="font-semibold hidden sm:inline">Zaman:</span> {new Date(todo.datetime).toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'short', day: 'numeric' })}
                   </p>
                 )}
+                {activeRemindersCount > 0 && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                      </svg>
+                      {activeRemindersCount} hatırlatma aktif
+                    </span>
+                    <button
+                      onClick={() => setShowReminderBadge(!showReminderBadge)}
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      {showReminderBadge ? 'Gizle' : 'Göster'}
+                    </button>
+                  </div>
+                )}
+                {showReminderBadge && todo.reminders && todo.reminders.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {todo.reminders.filter(r => !r.triggered).map(reminder => (
+                      <div key={reminder.id} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                        <span>{formatReminderDisplay(reminder)}</span>
+                        {reminder.snoozedCount && reminder.snoozedCount > 0 && (
+                          <span className="text-orange-500">(⚠️ {reminder.snoozedCount}x ertelendi)</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             )}
           </div>
         </div>
         {!isEditing && (
           <div className="flex items-center gap-0 sm:gap-1 flex-shrink-0 ml-1 sm:ml-2">
+            {onUpdateReminders && (
+              <button onClick={() => setIsReminderModalOpen(true)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" aria-label="Hatırlatma ayarla">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                </svg>
+              </button>
+            )}
             {hasAIMetadata && (
               <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Detayları gör">
                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 sm:h-5 sm:w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
@@ -223,6 +290,17 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
             </button>
           )}
         </div>
+      )}
+      
+      {/* Reminder Setup Modal */}
+      {onUpdateReminders && (
+        <ReminderSetupModal
+          isOpen={isReminderModalOpen}
+          onClose={() => setIsReminderModalOpen(false)}
+          taskDateTime={todo.datetime}
+          existingReminders={todo.reminders || []}
+          onSave={(reminders) => onUpdateReminders(todo.id, reminders)}
+        />
       )}
     </div>
   );

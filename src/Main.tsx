@@ -21,18 +21,20 @@ import InfoBanner from './components/InfoBanner';
 import ShareModal from './components/ShareModal';
 import ContextInsightsPanel from './components/ContextInsightsPanel';
 import ProactiveSuggestionsModal from './components/ProactiveSuggestionsModal';
+import MobileBottomNav from './components/MobileBottomNav';
 
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSpeechRecognition } from './hooks/useSpeechRecognitionUnified';
 import { geminiService } from './services/geminiService';
 import { archiveService } from './services/archiveService';
 import { contextMemoryService } from './services/contextMemoryService';
+import { reminderService, ActiveReminder } from './services/reminderService';
 // import { smartPriorityService } from './services/smartPriorityService';
 // import { proactiveSuggestionsService } from './services/proactiveSuggestionsService';
 // import { taskTemplatesService } from './services/taskTemplatesService';
 
 // FIX: Import the new AnalyzedTaskData type.
-import { Todo, Priority, ChatMessage, Note, DailyBriefing, AnalyzedTaskData, UserContext, ProactiveSuggestion } from './types';
+import { Todo, Priority, ChatMessage, Note, DailyBriefing, AnalyzedTaskData, UserContext, ProactiveSuggestion, ReminderConfig } from './types';
 import { AccentColor } from './App';
 
 interface MainProps {
@@ -67,8 +69,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const [loadingMessage, setLoadingMessage] = useState('AI Düşünüyor...');
     const [aiMessage, setAiMessage] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-    const [activeReminders, setActiveReminders] = useState<string[]>([]);
-    const [notifiedTaskIds, setNotifiedTaskIds] = useState<string[]>([]);
+    const [activeReminders, setActiveReminders] = useState<ActiveReminder[]>([]);
     
     // Modal State
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -465,54 +466,23 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         }
     }, []);
 
+    // New reminder system with reminderService
     useEffect(() => {
-        // Function to check reminders
         const checkReminders = () => {
-            const now = new Date();
-            console.log('[Reminder Check] Current time:', now.toISOString());
-            console.log('[Reminder Check] Total todos:', todos.length);
-            console.log('[Reminder Check] Notified task IDs:', notifiedTaskIds);
+            const activeRems = reminderService.checkReminders(todos);
             
-            const upcomingTodos = todos.filter(todo => {
-                if (!todo.datetime || todo.completed) return false;
-                const todoTime = new Date(todo.datetime);
-                const diffMinutes = (todoTime.getTime() - now.getTime()) / (1000 * 60);
+            if (activeRems.length > 0) {
+                // Update active reminders state
+                setActiveReminders(prev => {
+                    const existingIds = new Set(prev.map(r => `${r.taskId}_${r.reminderId}`));
+                    const newReminders = activeRems.filter(r => !existingIds.has(`${r.taskId}_${r.reminderId}`));
+                    return [...prev, ...newReminders];
+                });
                 
-                console.log(`[Reminder Check] Task: "${todo.text}"`);
-                console.log(`  - datetime: ${todo.datetime}`);
-                console.log(`  - todoTime: ${todoTime.toISOString()}`);
-                console.log(`  - diffMinutes: ${diffMinutes.toFixed(2)}`);
-                console.log(`  - notified: ${notifiedTaskIds.includes(todo.id)}`);
-                
-                // Remind if task is within 15 mins and we haven't reminded for it yet
-                return diffMinutes > 0 && diffMinutes <= 15 && !notifiedTaskIds.includes(todo.id);
-            });
-
-            console.log('[Reminder Check] Upcoming todos count:', upcomingTodos.length);
-
-            if (upcomingTodos.length > 0) {
-                const newReminderIds = upcomingTodos.map(t => t.id);
-                console.log('[Reminder Check] Triggering reminders for:', newReminderIds);
-                
-                // Add to notified list so we don't show it again
-                setNotifiedTaskIds(prev => [...new Set([...prev, ...newReminderIds])]);
-                // Add to active reminders to show the popup
-                setActiveReminders(prev => [...new Set([...prev, ...newReminderIds])]);
-                
-                // Send browser notifications if permission granted
-                if ('Notification' in window && Notification.permission === 'granted') {
-                    upcomingTodos.forEach(todo => {
-                        const todoTime = new Date(todo.datetime!);
-                        const diffMinutes = Math.round((todoTime.getTime() - now.getTime()) / (1000 * 60));
-                        new Notification('EchoDay Hatırlatma', {
-                            body: `${diffMinutes} dakika içinde: ${todo.text}`,
-                            icon: '/icon-192.png',
-                            badge: '/icon-192.png',
-                            tag: todo.id,
-                            requireInteraction: false
-                        });
-                    });
-                }
+                // Send browser notifications
+                activeRems.forEach(reminder => {
+                    reminderService.sendBrowserNotification(reminder);
+                });
             }
         };
         
@@ -523,21 +493,70 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         const interval = setInterval(checkReminders, 60 * 1000);
 
         return () => clearInterval(interval);
-    }, [todos, notifiedTaskIds]);
+    }, [todos]);
+    
+    const handleSnoozeReminder = useCallback((taskId: string, reminderId: string, minutes: number) => {
+        console.log('[Main] Snoozing reminder:', taskId, reminderId, minutes);
+        const updatedTodos = reminderService.snoozeReminder(todos, taskId, reminderId, minutes);
+        setTodos(updatedTodos);
+        
+        // Remove from active reminders
+        setActiveReminders(prev => prev.filter(r => !(r.taskId === taskId && r.reminderId === reminderId)));
+        
+        // Clear notification tracking so it can trigger again
+        reminderService.clearNotification(taskId, reminderId);
+        
+        setNotification({ message: `Hatırlatma ${minutes} dakika ertelendi`, type: 'success' });
+    }, [todos, setTodos]);
+    
+    const handleCloseReminder = useCallback((taskId: string, reminderId: string) => {
+        console.log('[Main] Closing reminder:', taskId, reminderId);
+        // Mark reminder as triggered
+        const updatedTodos = reminderService.markReminderTriggered(todos, taskId, reminderId);
+        setTodos(updatedTodos);
+        
+        // Remove from active reminders
+        setActiveReminders(prev => prev.filter(r => !(r.taskId === taskId && r.reminderId === reminderId)));
+    }, [todos, setTodos]);
+    
+    const handleUpdateReminders = useCallback((todoId: string, reminders: ReminderConfig[]) => {
+        console.log('[Main] Updating reminders for todo:', todoId);
+        setTodos(prev => prev.map(todo => 
+            todo.id === todoId ? { ...todo, reminders } : todo
+        ));
+        setNotification({ message: 'Hatırlatmalar güncellendi', type: 'success' });
+    }, [setTodos]);
 
 
     return (
         <div className="min-h-screen overflow-x-hidden bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
             {isLoading && <Loader message={loadingMessage} />}
             {notification && <NotificationPopup message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
-            {activeReminders.map(id => {
-                 const todo = todos.find(t => t.id === id);
-                 return todo ? <ReminderPopup key={id} message={`Yaklaşan Görev: ${todo.text}`} onClose={() => setActiveReminders(r => r.filter(rid => rid !== id))} /> : null;
-            })}
+            
+            {/* Mobile Bottom Navigation */}
+            <MobileBottomNav
+                onVoiceCommand={() => { if(checkApiKey()) setIsTaskModalOpen(true); }}
+                onOpenChat={handleOpenChat}
+                onImageTask={() => { if(checkApiKey()) setIsImageTaskModalOpen(true); }}
+                onShowArchive={() => setIsArchiveModalOpen(true)}
+                onShowProfile={onNavigateToProfile}
+                isListening={mainCommandListener.isListening}
+            />
+            {activeReminders.map(reminder => (
+                <ReminderPopup 
+                    key={`${reminder.taskId}_${reminder.reminderId}`}
+                    message={reminder.message}
+                    priority={reminder.priority}
+                    taskId={reminder.taskId}
+                    reminderId={reminder.reminderId}
+                    onClose={() => handleCloseReminder(reminder.taskId, reminder.reminderId)}
+                    onSnooze={(minutes) => handleSnoozeReminder(reminder.taskId, reminder.reminderId, minutes)}
+                />
+            ))}
 
             <Header theme={theme} setTheme={setTheme} accentColor={accentColor} setAccentColor={setAccentColor} onNavigateToProfile={onNavigateToProfile} onShowWelcome={onShowWelcome} />
             
-            <main className="container mx-auto p-4 sm:p-6 lg:p-8">
+            <main className="container mx-auto p-4 sm:p-6 lg:p-8 pb-20 md:pb-8">
                 {showInfoBanner && <InfoBanner assistantName={assistantName} onClose={() => setShowInfoBanner(false)} />}
                 <ActionBar
                     onSimpleVoiceCommand={() => { if(checkApiKey()) setIsTaskModalOpen(true); }}
@@ -591,6 +610,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                                 onGetDirections={handleGetDirections}
                                 onEdit={handleEditTodo}
                                 onShare={(todo) => { setShareType('todo'); setShareItem(todo); setIsShareModalOpen(true); }}
+                                onUpdateReminders={handleUpdateReminders}
                             />
                         ) : (
                             <TimelineView todos={todos} />
