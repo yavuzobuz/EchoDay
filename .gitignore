@@ -28,3 +28,6 @@ dist-electron
 *.njsproj
 *.sln
 *.sw?
+
+# Release archives
+*.zip

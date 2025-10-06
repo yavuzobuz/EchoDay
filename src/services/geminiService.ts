@@ -126,6 +126,12 @@ ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
    - Yerel zaman: 2025-10-07T15:00:00 (${tz})
    - UTC'ye çevrilmiş: 2025-10-07T12:00:00.000Z (15 - 3 = 12)
 
+TEXT ALANI FORMATLAMA:
+- Eğer görevde belirli bir tarih varsa (örn: duruşma, fatura ödemesi vb.), text alanında TARİHİ de BELİRT.
+- Örnek: "Duruşmaya Katıl" yerine "Duruşmaya Katıl - 15 Ocak 2025 Saat 14:30"
+- Örnek: "Elektrik faturası ödemesi" yerine "Elektrik faturası ödemesi - Son Ödeme: 20 Ocak 2025"
+- Kategori "Duruşma", "Mahkeme", "Ödeme" veya "Fatura" ise mutlaka tarihi text'e ekle.
+
 Görev: "${description}"`
         
         const result = await model.generateContent(prompt);
@@ -178,6 +184,12 @@ ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
 4. Örnek: Kullanıcı "yarın saat 15:00" derse ve yarın 2025-10-07 ise:
    - Yerel zaman: 2025-10-07T15:00:00 (${tz})
    - UTC'ye çevrilmiş: 2025-10-07T12:00:00.000Z (15 - 3 = 12)
+
+TEXT ALANI FORMATLAMA:
+- Eğer görevde belirli bir tarih varsa (örn: duruşma, fatura ödemesi vb.), text alanında TARİHİ de BELİRT.
+- Örnek: "Duruşmaya Katıl" yerine "Duruşmaya Katıl - 15 Ocak 2025 Saat 14:30"
+- Örnek: "Elektrik faturası ödemesi" yerine "Elektrik faturası ödemesi - Son Ödeme: 20 Ocak 2025"
+- Kategori "Duruşma", "Mahkeme", "Ödeme" veya "Fatura" ise mutlaka tarihi text'e ekle.
 
 Kullanıcı isteği: "${prompt}"`
         
@@ -637,7 +649,7 @@ Referans için şu anın UTC zamanı: ${nowISO}
 Her randevu/etkinlik için:
 [
   {
-    "text": "Randevu/etkinlik adı",
+    "text": "Randevu/etkinlik adı - TARİH VE SAAT BİLGİSİ DAHİL",
     "priority": "high" | "medium",
     "datetime": "ISO 8601 UTC formatında tarih-saat",
     "category": "Randevu",
@@ -647,7 +659,10 @@ Her randevu/etkinlik için:
   }
 ]
 
-Sadece JSON array döndür, başka birşey yazma.`;
+ÖNEMLİ: text alanında randevunun TARİH ve SAATİNİ mutlaka belirt.
+Örnek: "Diş Doktoru Randevusu - 15 Ocak 2025 Saat 14:30"
+
+Sadece JSON array döndür, başka birşey yazma.`
         
         const result = await model.generateContent([prompt, imagePart]);
         const response = await result.response;
@@ -690,10 +705,14 @@ Faturadan çıkaracakların:
 - Son ödeme tarihi
 - Fatura numarası (varsa)
 
-Görev metnini şöyle oluştur: "[Firma adı] - [Tutar] TL fatura ödemesi"
+Görev metnini şöyle oluştur: "[Firma adı] - [Tutar] TL fatura ödemesi - Son Ödeme: [Tarih]"
+Örnek: "Elektrik Faturası - 350 TL - Son Ödeme: 20 Ocak 2025"
+
+ÖNEMLİ: Son ödeme tarihi varsa MUTLAKA text alanına ekle!
+
 Son ödeme tarihi varsa datetime'a ekle.
 Kategori: "Ödeme" veya "Fatura"
-Priority: Tarihe yakınsa "high", değilse "medium"`;
+Priority: Tarihe yakınsa "high", değilse "medium"`
         
         const result = await model.generateContent([prompt, imagePart]);
         const response = await result.response;
@@ -778,6 +797,241 @@ const speechToText = async (apiKey: string, audioBase64: string, mimeType: strin
     }
 };
 
+/**
+ * PDF Belgesi Analizi - Görev ve not çıkarma
+ */
+interface PdfAnalysisResult {
+  summary: string;
+  documentType: string;
+  suggestedTasks: Array<{
+    title: string;
+    description?: string;
+    dueDate?: string;
+    category?: string;
+    priority?: 'low' | 'medium' | 'high';
+    metadata?: Record<string, any> | string;
+  }>;
+  suggestedNotes: Array<{
+    title: string;
+    content: string;
+    tags?: string[];
+  }>;
+  entities: {
+    dates?: string[];
+    people?: string[];
+    organizations?: string[];
+    locations?: string[];
+    amounts?: string[];
+  };
+}
+
+const analyzePdfDocument = async (
+  apiKey: string,
+  base64Data: string,
+  _fileName: string,
+  userPrompt?: string
+): Promise<PdfAnalysisResult | null> => {
+  try {
+    const pdfAnalysisSchema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        summary: { type: SchemaType.STRING },
+        documentType: { type: SchemaType.STRING },
+        suggestedTasks: {
+          type: SchemaType.ARRAY,
+          items: {
+            type: SchemaType.OBJECT,
+            properties: {
+              title: { type: SchemaType.STRING },
+              description: { type: SchemaType.STRING, nullable: true },
+              dueDate: { type: SchemaType.STRING, nullable: true },
+              category: { type: SchemaType.STRING, nullable: true },
+              priority: { type: SchemaType.STRING, enum: ['low', 'medium', 'high'] },
+              // Use STRING to allow arbitrary JSON serialized metadata. OBJECT with empty properties is rejected by the API.
+              metadata: { type: SchemaType.STRING, nullable: true },
+            },
+            required: ['title', 'priority']
+          }
+        },
+        suggestedNotes: {
+          type: SchemaType.ARRAY,
+          items: {
+            type: SchemaType.OBJECT,
+            properties: {
+              title: { type: SchemaType.STRING },
+              content: { type: SchemaType.STRING },
+              tags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true },
+            },
+            required: ['title', 'content']
+          }
+        },
+        entities: {
+          type: SchemaType.OBJECT,
+          properties: {
+            dates: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true },
+            people: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true },
+            organizations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true },
+            locations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true },
+            amounts: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true },
+          }
+        },
+      },
+      required: ['summary', 'documentType', 'suggestedTasks', 'suggestedNotes', 'entities']
+    };
+
+    const model = getAI(apiKey).getGenerativeModel({
+      model: modelName,
+      generationConfig: {
+        temperature: 0.1, // Düşük temperature daha tutarlı dil kullanımı için
+        responseMimeType: 'application/json',
+        responseSchema: pdfAnalysisSchema as any,
+      },
+      systemInstruction: 'You are a multilingual document analyzer. CRITICAL RULE: Always respond in the SAME LANGUAGE as the input document. Never translate. If the PDF is in Turkish, respond in Turkish. If it is in English, respond in English. Preserve the original language at all times.',
+    });
+
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
+    const now = new Date();
+    const nowISO = now.toISOString();
+    const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
+    const offsetMinutes = -now.getTimezoneOffset();
+    const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
+
+    const prompt = userPrompt || `‼️ ABSOLUTE RULE - LANGUAGE PRESERVATION ‼️
+You MUST respond in the EXACT SAME LANGUAGE as the PDF document.
+- If PDF is in TURKISH → ALL output in TURKISH (title, description, content, summary)
+- If PDF is in ENGLISH → ALL output in ENGLISH
+- If PDF is in GERMAN → ALL output in GERMAN
+DO NOT TRANSLATE. DO NOT MIX LANGUAGES. USE ONLY THE PDF'S ORIGINAL LANGUAGE.
+
+This is the #1 priority rule. Analyze this PDF document and extract important information.
+
+=== TURKISH VERSION (if PDF is Turkish) ===
+Bu PDF belgesini analiz et ve önemli bilgileri çıkar. SADECE JSON FORMATINDA YANIT VER.
+
+**MUTLAK KURAL - DİL:**
+- PDF Türkçe ise TÜM çıktı (title, description, content, summary) TÜRKÇE olmalı
+- İngilizceye ÇEVİRME, orijinal Türkçe metni kullan
+- Kelime kelime aynı dilde yanıt ver
+
+**ZAMAN BİLGİSİ:**
+- Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours})
+- Kullanıcının şu anki tarihi ve saati: ${nowLocal}
+- Referans için şu anın UTC zamanı: ${nowISO}
+
+**ANALİZ KURALLARI:**
+1. **Belge Türünü Tespit Et**: (court_document, invoice, report, contract, memo, meeting_notes, academic, other)
+2. **Önemli Tarih ve Saatleri Çıkar**: Belgedeki tüm tarih/saatleri tespit et
+3. **Kişi ve Kurumları Belirle**: Belgedeki önemli isimler
+4. **Eylemli Görevler**: Kullanıcının yapması gereken işleri tespit et
+5. **Önemli Bilgiler**: Not olarak kaydedilmesi gereken kritik bilgiler
+
+**GÖREV METNİ FORMATLAMA:**
+- Görev başlığında (title) MUTLAKA tarihi belirt
+- Duruşma: "Duruşmaya katıl - [Tarih] Saat [Saat]"
+- Fatura: "[Firma] faturası ödemesi - Son Ödeme: [Tarih]"
+- Randevu: "[Randevu türü] - [Tarih] Saat [Saat]"
+- Toplantı: "[Toplantı adı] - [Tarih] Saat [Saat]"
+
+**ZAMAN DÖNÜŞTÜRMESİ:**
+- Belgedeki tarihleri kullanıcının yerel saatinde yorumla
+- ISO 8601 UTC formatına çevir: YYYY-MM-DDTHH:mm:00.000Z
+- Örnek: "15 Kasım 2024 saat 10:00" → "2024-11-15T07:00:00.000Z" (yerel 10:00 - 3 = UTC 07:00)
+
+**OUTPUT FORMAT (JSON) - LANGUAGE EXAMPLES:**
+‼️ CRITICAL: Use the SAME language as the PDF! Do not translate! ‼️
+
+Example 1 - TURKISH PDF (use Turkish in ALL fields):
+{
+  "summary": "Belgenin kısa özeti (1-2 cümle)",
+  "documentType": "court_document",
+  "suggestedTasks": [
+    {
+      "title": "Duruşmaya katıl - 15 Kasım 2024 Saat 10:00",
+      "description": "Ankara 5. Ağır Ceza Mahkemesi - Tanık dinlemesi",
+      "dueDate": "2024-11-15T07:00:00.000Z",
+      "category": "Hukuk",
+      "priority": "high"
+    }
+  ],
+  "suggestedNotes": [
+    {
+      "title": "Duruşma Detayları",
+      "content": "Önceki duruşmada eksik belgeler talep edildi...",
+      "tags": ["hukuk", "duruşma"]
+    }
+  ],
+  "entities": {
+    "dates": ["2024-11-15 10:00"],
+    "people": ["Av. Mehmet Yılmaz"],
+    "organizations": ["Ankara 5. Ağır Ceza Mahkemesi"],
+    "locations": ["Ankara Adalet Sarayı"],
+    "amounts": []
+  }
+}
+
+Example 2 - ENGLISH PDF (use English in ALL fields):
+{
+  "summary": "Brief summary of the document (1-2 sentences)",
+  "documentType": "invoice",
+  "suggestedTasks": [
+    {
+      "title": "Pay invoice by due date",
+      "description": "Total amount due: $500",
+      "dueDate": "2024-11-15T07:00:00.000Z",
+      "category": "Finance",
+      "priority": "high"
+    }
+  ],
+  "suggestedNotes": [
+    {
+      "title": "Invoice Details",
+      "content": "Invoice #12345. Payment terms: Net 30...",
+      "tags": ["finance", "invoice"]
+    }
+  ],
+  "entities": {
+    "dates": ["2024-11-15"],
+    "people": ["John Smith"],
+    "organizations": ["ABC Corporation"],
+    "locations": ["New York"],
+    "amounts": ["$500"]
+  }
+}
+
+**IMPORTANT RULES:**
+1. ‼️ LANGUAGE: Write title, description, content, summary in PDF's ORIGINAL language
+   - Turkish PDF → Turkish output ("Duruşmaya katıl", "Ankara Mahkemesi")
+   - English PDF → English output ("Attend hearing", "Court of Law")
+   - DO NOT translate, DO NOT mix languages
+2. Priority: Urgent dates = high, Normal = medium, Optional = low
+3. Category: Based on document type (Legal/Hukuk, Finance/Finans, Work/İş, Personal/Kişisel)
+4. Metadata: Add document-specific extra information
+
+**CRITICAL - FINAL CHECK BEFORE RESPONDING:**
+✅ Did I check the PDF's language?
+✅ Are ALL text fields (title, description, content, summary) in the PDF's ORIGINAL language?
+✅ Did I avoid translating to English if the PDF is in another language?
+
+ONLY return JSON in the format above. No other text, explanation, or comments!`;
+
+    const pdfPart = {
+      inlineData: {
+        mimeType: 'application/pdf',
+        data: base64Data.split(',')[1] || base64Data, // Remove data:application/pdf;base64, prefix if exists
+      },
+    };
+
+    const result = await model.generateContent([prompt, pdfPart]);
+    const response = await result.response;
+    const text = response.text();
+
+    return safelyParseJSON<PdfAnalysisResult>(text);
+  } catch (error) {
+    console.error('Error analyzing PDF document:', error);
+    return null;
+  }
+};
+
 export const geminiService = {
     analyzeTask,
     analyzeImageForTask,
@@ -797,4 +1051,9 @@ export const geminiService = {
     extractTasksFromCalendarImage,
     createTaskFromInvoice,
     digitizeHandwriting,
+    // PDF Analysis
+    analyzePdfDocument,
 };
+
+// Export PdfAnalysisResult type
+export type { PdfAnalysisResult };

@@ -5,6 +5,8 @@ import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { archiveService } from '../services/archiveService';
 import { DayStat } from '../types';
 import { useAuth } from '../contexts/AuthContext';
+import { getUserProfile, updateUserProfile, getUserStats, createDefaultProfile, createDefaultStats } from '../services/profileService';
+import { UserProfile, UserStats, DEFAULT_AVATARS } from '../types/profile';
 
 interface ProfileProps {
   theme: 'light' | 'dark';
@@ -39,6 +41,7 @@ const Profile: React.FC<ProfileProps> = ({
 }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const userId = user?.id || 'guest';
   
   const [localApiKey, setLocalApiKey] = useState(apiKey);
   const [isEditingApiKey, setIsEditingApiKey] = useState(!apiKey);
@@ -46,6 +49,16 @@ const Profile: React.FC<ProfileProps> = ({
   const [localAssistantName, setLocalAssistantName] = useState(assistantName);
   const [notification, setNotification] = useState<string | null>(null);
   const tts = useTextToSpeech();
+
+  // Profile state
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileStats, setProfileStats] = useState<UserStats | null>(null);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [localName, setLocalName] = useState('');
+  const [localBio, setLocalBio] = useState('');
+  const [localAvatar, setLocalAvatar] = useState('😊');
+  const [profileLoading, setProfileLoading] = useState(true);
 
   const handleSignOut = async () => {
     if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
@@ -67,11 +80,86 @@ const Profile: React.FC<ProfileProps> = ({
   const [topCategories, setTopCategories] = useState<string[]>([]);
   const [last7Days, setLast7Days] = useState<DayStat[]>([]);
 
+  // Load profile data
+  useEffect(() => {
+    loadProfileData();
+  }, [userId]);
+
+  const loadProfileData = async () => {
+    setProfileLoading(true);
+    try {
+      const [profileData, statsData] = await Promise.all([
+        getUserProfile(userId),
+        getUserStats(userId)
+      ]);
+      
+      const finalProfile = profileData || createDefaultProfile(userId);
+      const finalStats = statsData || createDefaultStats();
+      
+      setProfile(finalProfile);
+      setProfileStats(finalStats);
+      setLocalName(finalProfile.name);
+      setLocalBio(finalProfile.bio);
+      setLocalAvatar(finalProfile.avatar);
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleEditProfile = () => {
+    setIsEditingProfile(true);
+    if (profile) {
+      setLocalName(profile.name);
+      setLocalBio(profile.bio);
+      setLocalAvatar(profile.avatar);
+    }
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!localName.trim()) {
+      setNotification('İsim boş olamaz!');
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+
+    const success = await updateUserProfile(userId, {
+      name: localName.trim(),
+      bio: localBio.trim(),
+      avatar: localAvatar,
+    });
+
+    if (success) {
+      await loadProfileData();
+      setIsEditingProfile(false);
+      setNotification('Profil başarıyla güncellendi!');
+      setTimeout(() => setNotification(null), 3000);
+    } else {
+      setNotification('Profil güncellenirken hata oluştu!');
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const handleSelectAvatar = (avatar: string) => {
+    setLocalAvatar(avatar);
+    setShowAvatarPicker(false);
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('tr-TR', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
   useEffect(() => {
     const loadStats = async () => {
       try {
         // Use user-specific localStorage key
-        const userId = user?.id || 'guest';
         const currentTodos = JSON.parse(localStorage.getItem(`todos_${userId}`) || '[]');
         const today = new Date();
         const dateStr = today.toISOString().split('T')[0];
@@ -144,6 +232,146 @@ const Profile: React.FC<ProfileProps> = ({
       </header>
       <main className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-2xl">
         <div className="space-y-8">
+            {/* User Profile Section */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Kullanıcı Profili</h2>
+                
+                {profileLoading ? (
+                    <div className="flex justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--accent-color-500)]"></div>
+                    </div>
+                ) : isEditingProfile ? (
+                    <form onSubmit={handleSaveProfile} className="space-y-4">
+                        {/* Avatar Picker */}
+                        <div>
+                            <label className="font-semibold text-lg block mb-2">Avatar</label>
+                            <div className="flex items-center gap-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAvatarPicker(!showAvatarPicker)}
+                                    className="text-6xl hover:scale-110 transition-transform"
+                                >
+                                    {localAvatar}
+                                </button>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">Avatar seçmek için tıklayın</span>
+                            </div>
+                            {showAvatarPicker && (
+                                <div className="mt-3 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                                    <div className="grid grid-cols-8 gap-2">
+                                        {DEFAULT_AVATARS.map((avatar) => (
+                                            <button
+                                                key={avatar}
+                                                type="button"
+                                                onClick={() => handleSelectAvatar(avatar)}
+                                                className={`text-3xl p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                                                    localAvatar === avatar ? 'ring-2 ring-[var(--accent-color-500)] bg-gray-200 dark:bg-gray-600' : ''
+                                                }`}
+                                            >
+                                                {avatar}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Name Input */}
+                        <div>
+                            <label htmlFor="profileName" className="font-semibold text-lg block mb-2">İsim</label>
+                            <input
+                                id="profileName"
+                                type="text"
+                                value={localName}
+                                onChange={(e) => setLocalName(e.target.value)}
+                                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
+                                placeholder="İsminizi girin"
+                                required
+                            />
+                        </div>
+
+                        {/* Bio Input */}
+                        <div>
+                            <label htmlFor="profileBio" className="font-semibold text-lg block mb-2">Biyografi</label>
+                            <textarea
+                                id="profileBio"
+                                value={localBio}
+                                onChange={(e) => setLocalBio(e.target.value)}
+                                rows={3}
+                                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none resize-none"
+                                placeholder="Kendiniz hakkında kısa bir açıklama..."
+                            />
+                        </div>
+
+                        <div className="flex gap-2">
+                            <button type="submit" className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)]">Kaydet</button>
+                            <button type="button" onClick={() => setIsEditingProfile(false)} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">İptal</button>
+                        </div>
+                    </form>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="flex items-start gap-4">
+                            <div className="text-6xl">{profile?.avatar || '😊'}</div>
+                            <div className="flex-1">
+                                <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{profile?.name || 'Kullanıcı'}</h3>
+                                {profile?.bio && (
+                                    <p className="text-gray-600 dark:text-gray-400 mt-2">{profile.bio}</p>
+                                )}
+                                <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+                                    Üyelik tarihi: {profile?.createdAt ? formatDate(profile.createdAt) : '-'}
+                                </p>
+                            </div>
+                            <button 
+                                onClick={handleEditProfile}
+                                className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500"
+                            >
+                                Düzenle
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Profile Statistics */}
+            {!profileLoading && profileStats && (
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Profil İstatistikleri</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
+                            <div className="text-3xl font-bold text-[var(--accent-color-600)]">{profileStats?.totalTodos || 0}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Toplam Görev</div>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
+                            <div className="text-3xl font-bold text-green-600 dark:text-green-400">{profileStats?.completedTodos || 0}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Tamamlanan Görev</div>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
+                            <div className="text-3xl font-bold text-[var(--accent-color-600)]">{profileStats?.totalNotes || 0}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Toplam Not</div>
+                        </div>
+                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
+                            <div className="text-3xl font-bold text-[var(--accent-color-600)]">{profileStats?.daysActive || 0}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Aktif Gün</div>
+                        </div>
+                    </div>
+                    {profileStats && profileStats.completedTodos > 0 && profileStats.totalTodos > 0 && (
+                        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-semibold">Tamamlanma Oranı</span>
+                                <span className="text-sm font-bold text-[var(--accent-color-600)]">
+                                    {Math.round((profileStats.completedTodos / profileStats.totalTodos) * 100)}%
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
+                                <div 
+                                    className="bg-[var(--accent-color-600)] h-2.5 rounded-full transition-all duration-300"
+                                    style={{ width: `${(profileStats.completedTodos / profileStats.totalTodos) * 100}%` }}
+                                ></div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* User Info & Sign Out */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600 mb-4">Hesap Bilgileri</h2>

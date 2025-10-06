@@ -57,6 +57,15 @@ export interface RecurrenceRule {
   occurrencesDone?: number; // iç sayaç
 }
 
+// PDF Kaynak Metadata
+export interface PdfSourceMetadata {
+  fileName: string;
+  uploadedAt: string;
+  documentType?: string; // court_document, invoice, report, contract, etc.
+  pageReference?: number;
+  extractedData?: Record<string, any>; // Özel alanlar (mahkeme adı, dosya no, vb.)
+}
+
 export interface Todo {
   id: string;
   text: string;
@@ -69,6 +78,7 @@ export interface Todo {
   recurrence?: RecurrenceRule; // yinelenen görev
   parentId?: string; // ilk görevin id'si
   userId?: string; // Kullanıcıya özel veri için
+  pdfSource?: PdfSourceMetadata; // PDF'den oluşturulan görevler için
 }
 
 export interface Note {
@@ -83,6 +93,7 @@ export interface Note {
   color?: 'yellow' | 'blue' | 'green' | 'red' | 'purple' | 'gray';
   updatedAt?: string;
   userId?: string; // Kullanıcıya özel veri için
+  pdfSource?: PdfSourceMetadata; // PDF'den oluşturulan notlar için
 }
 
 export interface ChatMessage {

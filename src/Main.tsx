@@ -26,6 +26,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSpeechRecognition } from './hooks/useSpeechRecognitionUnified';
 import { geminiService } from './services/geminiService';
+import { pdfService } from './services/pdfService';
 import { archiveService } from './services/archiveService';
 import { contextMemoryService } from './services/contextMemoryService';
 import { reminderService, ActiveReminder } from './services/reminderService';
@@ -391,7 +392,110 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         setIsLoading(false);
     };
 
-    const handleAnalyzeImageNote = async (noteId: string) => {
+    // PDF Analysis Handler
+    const handleAnalyzePdf = useCallback(async (pdfFile: File, customPrompt?: string) => {
+        if (!checkApiKey()) return;
+        
+        setIsLoading(true);
+        setLoadingMessage('PDF analiz ediliyor...');
+        
+        try {
+            // Convert PDF to base64
+            const base64Data = await pdfService.convertToBase64(pdfFile);
+            
+            // Analyze with Gemini
+            const analysisResult = await geminiService.analyzePdfDocument(
+                apiKey,
+                base64Data,
+                pdfFile.name,
+                customPrompt
+            );
+            
+            if (analysisResult) {
+                // Ensure arrays exist
+                const suggestedTasks = Array.isArray(analysisResult.suggestedTasks) 
+                    ? analysisResult.suggestedTasks 
+                    : [];
+                const suggestedNotes = Array.isArray(analysisResult.suggestedNotes) 
+                    ? analysisResult.suggestedNotes 
+                    : [];
+
+                // Add suggested tasks
+                const newTasks: Todo[] = suggestedTasks.map(task => {
+                    // Destructure pdfSource to exclude it from DB sync
+                    const { pdfSource: _, ...todoData } = {
+                        id: uuidv4(),
+                        text: task.title + (task.description ? ` - ${task.description}` : ''),
+                        priority: task.priority === 'high' ? Priority.High : Priority.Medium,
+                        datetime: task.dueDate || null,
+                        completed: false,
+                        createdAt: new Date().toISOString(),
+                        userId: userId,
+                        aiMetadata: {
+                            category: task.category,
+                        },
+                    } as Todo;
+                    return todoData;
+                });
+                
+                if (newTasks.length > 0) {
+                    setTodos(prev => [...newTasks, ...prev]);
+                }
+
+                // Add suggested notes
+                const newNotes: Note[] = suggestedNotes.map(note => {
+                    // Destructure pdfSource to exclude it from DB sync
+                    const { pdfSource: _, ...noteData } = {
+                        id: uuidv4(),
+                        text: `**${note.title}**\n\n${note.content}`,
+                        createdAt: new Date().toISOString(),
+                        userId: userId,
+                        tags: note.tags,
+                    } as Note;
+                    return noteData;
+                });
+                
+                if (newNotes.length > 0) {
+                    setNotes(prev => [...newNotes, ...prev]);
+                }
+
+                // Add to chat history
+                const userMessage = customPrompt || `PDF analizi: ${pdfFile.name}`;
+                const aiResponse = `📝 **${pdfFile.name}** analiz edildi.\n\n` +
+                    `**Belge Türü:** ${analysisResult.documentType}\n\n` +
+                    `**Özet:** ${analysisResult.summary}\n\n` +
+                    `**Tespit Edilen:**\n` +
+                    `- 📅 Tarihler: ${analysisResult.entities?.dates?.join(', ') || 'Yok'}\n` +
+                    `- 👥 Kişiler: ${analysisResult.entities?.people?.join(', ') || 'Yok'}\n` +
+                    `- 🏛️ Kurumlar: ${analysisResult.entities?.organizations?.join(', ') || 'Yok'}\n\n` +
+                    `✅ **${newTasks.length} görev** görev listesine eklendi.\n` +
+                    `✅ **${newNotes.length} not** not defterine eklendi.`;
+                
+                setChatHistory(prev => [
+                    ...prev,
+                    { role: 'user', text: userMessage },
+                    { role: 'model', text: aiResponse }
+                ]);
+                
+                setNotification({ 
+                    message: `✅ ${newTasks.length} görev ve ${newNotes.length} not eklendi!`, 
+                    type: 'success' 
+                });
+            } else {
+                throw new Error('PDF analizi başarısız');
+            }
+        } catch (error: any) {
+            console.error('PDF analysis error:', error);
+            setNotification({ 
+                message: `PDF analizi başarısız: ${error.message || 'Bilinmeyen hata'}`, 
+                type: 'error' 
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    }, [apiKey, checkApiKey, setChatHistory, setNotification, userId, setTodos, setNotes]);
+
+    const handleAnalyzeImageNote = useCallback(async (noteId: string) => {
         if (!checkApiKey()) return;
         const note = notes.find(n => n.id === noteId);
         if (!note || !note.imageUrl) return;
@@ -408,7 +512,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         } else {
             setNotification({ message: 'Resimden metin çıkarılamadı.', type: 'error' });
         }
-    };
+    }, [checkApiKey, notes, apiKey, setNotification]);
     
     // --- Daily Briefing ---
     const handleGetDailyBriefing = async () => {
@@ -765,6 +869,8 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                            onAnalyzeImage={handleAnalyzeImageNote}
                            onShareNote={(note) => { setShareType('note'); setShareItem(note); setIsShareModalOpen(true); }}
                            setNotification={setNotification}
+                           onAnalyzePdf={handleAnalyzePdf}
+                           onAddTask={handleAddTask}
                        />
                     </div>
                 </div>
@@ -781,6 +887,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                 isLoading={isLoading && isChatOpen}
                 notes={notes}
                 onProcessNotes={handleAnalyzeNotes}
+                onAnalyzePdf={handleAnalyzePdf}
             />
             <ImageTaskModal isOpen={isImageTaskModalOpen} onClose={() => setIsImageTaskModalOpen(false)} onAddTask={handleAddTask} />
             <LocationPromptModal isOpen={isLocationPromptOpen} onClose={() => setIsLocationPromptOpen(false)} onSubmit={handleLocationSubmit} destination={todoForDirections?.aiMetadata?.destination || ''} />

@@ -17,4 +17,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   platform: process.platform,
   getAppVersion: () => ipcRenderer.invoke('app-version'),
   getPlatform: () => ipcRenderer.invoke('platform'),
+  
+  // Profile API
+  getProfile: (userId) => ipcRenderer.invoke('profile:get', userId),
+  updateProfile: (userId, updates) => ipcRenderer.invoke('profile:update', userId, updates),
+  
+  // Stats API
+  getStats: (userId) => ipcRenderer.invoke('stats:get', userId),
+  updateStats: (userId, updates) => ipcRenderer.invoke('stats:update', userId, updates),
+  
+  // PDF API
+  selectPdfFile: () => ipcRenderer.invoke('pdf:selectFile'),
 });

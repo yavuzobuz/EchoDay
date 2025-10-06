@@ -19,12 +19,19 @@ class ReminderService {
     const activeReminders: ActiveReminder[] = [];
     
     console.log('[ReminderService] Checking reminders at:', now.toISOString());
+    console.log('[ReminderService] Local time:', now.toLocaleString('tr-TR'));
+    console.log('[ReminderService] Timezone offset (minutes):', now.getTimezoneOffset());
     console.log('[ReminderService] Total todos:', todos.length);
     
     todos.forEach(todo => {
       if (todo.completed || !todo.datetime) return;
       
       const taskTime = new Date(todo.datetime);
+      
+      // Debug: log task time details
+      console.log(`[ReminderService] Task: ${todo.text}`);
+      console.log(`[ReminderService] Task datetime (UTC): ${todo.datetime}`);
+      console.log(`[ReminderService] Task time (local): ${taskTime.toLocaleString('tr-TR')}`);
       
       // Check built-in reminder (for backward compatibility - 15 mins before)
       const diffMinutes = (taskTime.getTime() - now.getTime()) / (1000 * 60);

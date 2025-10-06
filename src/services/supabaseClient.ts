@@ -22,17 +22,86 @@ export function onAuthStateChange(cb: (userId: string | null) => void) {
 export async function upsertTodos(userId: string, todos: any[]) {
   if (!supabase) return;
   const now = new Date().toISOString();
-  await supabase.from('todos').upsert(
-    todos.map(t => ({ ...t, user_id: userId, updated_at: now }))
-  );
+  // Map app fields (camelCase) to DB columns (snake_case) and whitelist known columns only
+  const payload = todos.map((t) => {
+    const {
+      id,
+      text,
+      priority,
+      datetime,
+      completed,
+      createdAt,
+      aiMetadata,
+      recurrence,
+      parentId,
+      reminders,
+      // Strip fields not stored in DB
+      userId: _userId,
+      pdfSource: _pdfSource,
+      updatedAt: _updatedAt,
+    } = t;
+
+    return {
+      id,
+      text,
+      priority,
+      datetime,
+      completed: completed ?? false,
+      created_at: createdAt || now,
+      updated_at: now,
+      user_id: userId,
+      ai_metadata: aiMetadata || null,
+      recurrence: recurrence || null,
+      parent_id: parentId || null,
+      reminders: reminders || null,
+    };
+  });
+
+  const { data, error } = await supabase.from('todos').upsert(payload);
+  if (error) {
+    console.error('Supabase upsertTodos error:', error);
+    throw error;
+  }
+  return data;
 }
 
 export async function upsertNotes(userId: string, notes: any[]) {
   if (!supabase) return;
   const now = new Date().toISOString();
-  await supabase.from('notes').upsert(
-    notes.map(n => ({ ...n, user_id: userId, updated_at: now }))
-  );
+  // Map to actual DB columns - after adding id and user_id columns to notes table
+  const payload = notes.map((n) => {
+    const {
+      id,
+      text,
+      imageUrl,
+      createdAt,
+      // Strip fields that don't exist in DB
+      userId: _userId,
+      pdfSource: _pdfSource,
+      updatedAt: _updatedAt,
+      pinned: _pinned,
+      favorite: _favorite,
+      tags: _tags,
+      color: _color,
+    } = n;
+
+    return {
+      id: id || undefined, // Let DB generate if not provided
+      text: text || '',
+      image_url: imageUrl || null,
+      audio_url: null,
+      created_at: createdAt || now,
+      updated_at: now,
+      user_id: userId, // Add user_id for multi-user support
+    };
+  });
+
+  const { data, error } = await supabase.from('notes').upsert(payload);
+  if (error) {
+    console.error('Supabase upsertNotes error:', error);
+    throw error;
+  }
+  return data;
 }
 
 export async function fetchAll(userId: string) {
@@ -41,7 +110,24 @@ export async function fetchAll(userId: string) {
     supabase.from('todos').select('*').eq('user_id', userId),
     supabase.from('notes').select('*').eq('user_id', userId)
   ]);
-  return { todos: tRes.data || [], notes: nRes.data || [] };
+
+  const todos = (tRes.data || []).map((row: any) => ({
+    ...row,
+    createdAt: row.created_at ?? row.createdAt,
+    updatedAt: row.updated_at ?? row.updatedAt,
+    userId: row.user_id ?? row.userId,
+    aiMetadata: row.ai_metadata ?? row.aiMetadata,
+  }));
+
+  const notes = (nRes.data || []).map((row: any) => ({
+    ...row,
+    createdAt: row.created_at ?? row.createdAt,
+    updatedAt: row.updated_at ?? row.updatedAt,
+    userId: row.user_id ?? row.userId,
+    imageUrl: row.image_url ?? row.imageUrl,
+  }));
+
+  return { todos, notes };
 }
 
 export function subscribeToChanges(userId: string, onTodo: (record: any, type: string) => void, onNote: (record: any, type: string) => void) {

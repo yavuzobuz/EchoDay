@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
+import DOMPurify from 'dompurify';
 
 interface AiAssistantMessageProps {
   message: string;
@@ -66,7 +67,7 @@ const AiAssistantMessage: React.FC<AiAssistantMessageProps> = ({ message, onClos
                 {tableHtml && (
                     <div
                         className="text-sm overflow-x-auto [&_table]:w-full [&_table]:border-collapse [&_th]:p-2 [&_th]:border [&_th]:border-gray-300 [&_th]:dark:border-gray-600 [&_th]:bg-gray-100 [&_th]:dark:bg-gray-700 [&_th]:font-semibold [&_td]:p-2 [&_td]:border [&_td]:border-gray-200 [&_td]:dark:border-gray-700"
-                        dangerouslySetInnerHTML={{ __html: tableHtml }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(tableHtml, { ALLOWED_TAGS: ['table', 'thead', 'tbody', 'tr', 'th', 'td'], ALLOWED_ATTR: [] }) }}
                     />
                 )}
                </>

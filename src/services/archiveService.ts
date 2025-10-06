@@ -27,7 +27,7 @@ db.version(2).stores({
 db.version(3).stores({
   todos: 'id, createdAt, text, completed, userId',
   notes: 'id, createdAt, text, userId',
-}).upgrade(async trans => {
+}).upgrade(async _trans => {
   // Migration: Add userId to existing data
   console.log('[Archive Migration] Migrating to version 3 - adding userId field');
   // Existing data will be kept, userId field will be undefined until set
@@ -51,7 +51,7 @@ const initDB = async (): Promise<boolean> => {
 initDB();
 
 // Helper: Get current user ID from AuthContext or localStorage
-const getCurrentUserId = (): string | null => {
+const getCurrentUserId = (): string => {
   // Try to get from Supabase session first
   try {
     const supabaseUser = localStorage.getItem('sb-sdtntnqcdyjhzlhgbofp-auth-token');
@@ -63,7 +63,7 @@ const getCurrentUserId = (): string | null => {
     console.warn('[Archive] Could not parse Supabase auth token');
   }
   
-  // Fallback to localStorage or 'guest'
+  // Fallback to 'guest'
   return 'guest';
 };
 

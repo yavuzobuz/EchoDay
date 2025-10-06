@@ -2,6 +2,21 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ChatMessage, Note } from '../types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognitionUnified';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
+import { pdfService } from '../services/pdfService';
+
+// Convert a base64 data URL to a Blob without performing any network request
+function dataURLToBlob(dataUrl: string): Blob {
+  const [header, data] = dataUrl.split(',');
+  const match = header.match(/data:(.*?);base64/);
+  const mime = match?.[1] || 'application/octet-stream';
+  const byteString = atob(data);
+  const len = byteString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = byteString.charCodeAt(i);
+  }
+  return new Blob([bytes], { type: mime });
+}
 
 interface ChatModalProps {
   isOpen: boolean;
@@ -11,14 +26,18 @@ interface ChatModalProps {
   isLoading: boolean;
   notes?: Note[];
   onProcessNotes?: (selectedNotes: Note[], prompt: string) => void;
+  onAnalyzePdf?: (pdfFile: File, prompt?: string) => void;
 }
 
-const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onSendMessage, isLoading, notes = [], onProcessNotes }) => {
+const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onSendMessage, isLoading, notes = [], onProcessNotes, onAnalyzePdf }) => {
   const [userInput, setUserInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showNoteProcessor, setShowNoteProcessor] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [notePrompt, setNotePrompt] = useState('');
+  const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
+  const [pdfError, setPdfError] = useState<string>('');
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const [isElectron] = useState(() => {
     return !!(window as any).isElectron || !!(window as any).electronAPI;
   });
@@ -116,6 +135,66 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
       setSelectedNoteIds([]);
       setNotePrompt('');
     }
+  };
+
+  const handlePdfFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPdfError('');
+    const validation = pdfService.validatePdf(file, 15, 10);
+    
+    if (!validation.valid) {
+      setPdfError(validation.error || 'Geçersiz PDF dosyası');
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+      return;
+    }
+
+    setSelectedPdfFile(file);
+  };
+
+  // Electron native file picker
+  const handleElectronPdfPicker = async () => {
+    console.log('[ChatModal] Electron PDF picker clicked');
+    try {
+      const pdfData = await pdfService.selectPdfFile();
+      console.log('[ChatModal] PDF data received:', pdfData ? 'File selected' : 'No file');
+      if (!pdfData) return; // Kullanıcı iptal etti
+
+      setPdfError('');
+      
+      // Validation
+      if (pdfData.size > 10 * 1024 * 1024) {
+        setPdfError('Dosya boyutu 10MB\'dan küçük olmalıdır.');
+        return;
+      }
+
+      // File objesi oluştur (Electron'dan gelen veriyle) - data: URL'i doğrudan Blob'a çevir (CSP ihlali olmadan)
+      const blob = dataURLToBlob(pdfData.dataUrl);
+      const file = new File([blob], pdfData.name, { type: pdfData.type || 'application/pdf' });
+      console.log('[ChatModal] PDF file created:', file.name, file.size, 'bytes');
+      setSelectedPdfFile(file);
+    } catch (error) {
+      console.error('[ChatModal] Error selecting PDF:', error);
+      setPdfError('PDF dosyası seçilirken hata oluştu.');
+    }
+  };
+
+  const handleSendPdfAnalysis = () => {
+    if (selectedPdfFile && onAnalyzePdf) {
+      const prompt = userInput.trim() || 'Bu PDF belgesini analiz et ve önemli bilgileri çıkar.';
+      onAnalyzePdf(selectedPdfFile, prompt);
+      setSelectedPdfFile(null);
+      setUserInput('');
+      setPdfError('');
+      if (pdfInputRef.current) pdfInputRef.current.value = '';
+    }
+  };
+
+  const handleRemovePdf = () => {
+    setSelectedPdfFile(null);
+    setPdfError('');
+    if (pdfInputRef.current) pdfInputRef.current.value = '';
   };
 
   if (!isOpen) return null;
@@ -337,30 +416,119 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
               </p>
             </div>
           )}
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <input
-              type="text"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              placeholder={isListening ? 'Dinleniyor...' : 'Mesajınızı yazın...'}
-              className="flex-grow p-2 sm:p-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
-              disabled={isLoading || isListening}
-            />
-             {hasSupport && (
-              <button
-                type="button"
-                onClick={handleMicClick}
-                className={`p-3 rounded-md transition-colors duration-200 flex items-center justify-center ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
-                disabled={isLoading}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-              </button>
-            )}
-            <button type="submit" className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 flex items-center justify-center" disabled={isLoading || (isListening ? false : !userInput.trim())}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-            </button>
+          
+          {/* PDF Preview */}
+          {selectedPdfFile && (
+            <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md border border-gray-200 dark:border-gray-600">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-600 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{selectedPdfFile.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{pdfService.formatFileSize(selectedPdfFile.size)}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleRemovePdf}
+                  className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 flex-shrink-0"
+                  title="PDF'i kaldır"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                🤖 PDF analiz edilecek. İsteğe bağlı olarak anlatım ekleyebilirsiniz.
+              </p>
+            </div>
+          )}
+
+          {/* PDF Error */}
+          {pdfError && (
+            <div className="mb-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+              <p className="text-xs text-red-700 dark:text-red-300">⚠️ {pdfError}</p>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                placeholder={selectedPdfFile ? 'PDF hakkında soru sorun (isteğe bağlı)...' : isListening ? 'Dinleniyor...' : 'Mesajınızı yazın...'}
+                className="flex-grow p-2 sm:p-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
+                disabled={isLoading || isListening}
+              />
+              {hasSupport && !selectedPdfFile && (
+                <button
+                  type="button"
+                  onClick={handleMicClick}
+                  className={`p-3 rounded-md transition-colors duration-200 flex items-center justify-center ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
+                  disabled={isLoading}
+                  title="Sesli mesaj"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                  </svg>
+                </button>
+              )}
+              
+              {/* PDF Upload Button */}
+              {onAnalyzePdf && !selectedPdfFile && (
+                <>
+                  {!isElectron && (
+                    <input
+                      ref={pdfInputRef}
+                      type="file"
+                      accept="application/pdf"
+                      onChange={handlePdfFileChange}
+                      className="hidden"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={isElectron ? handleElectronPdfPicker : () => pdfInputRef.current?.click()}
+                    className="p-3 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center justify-center"
+                    disabled={isLoading || isListening}
+                    title={isElectron ? 'PDF seç ve analiz et' : 'PDF yükle ve analiz et'}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </>
+              )}
+
+              {/* Send Button */}
+              {selectedPdfFile ? (
+                <button
+                  type="button"
+                  onClick={handleSendPdfAnalysis}
+                  className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 flex items-center justify-center gap-2"
+                  disabled={isLoading}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                    <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                  </svg>
+                  <span className="hidden sm:inline">Analiz Et</span>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 flex items-center justify-center"
+                  disabled={isLoading || (isListening ? false : !userInput.trim())}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
+              )}
+            </div>
           </form>
         </footer>
       </div>

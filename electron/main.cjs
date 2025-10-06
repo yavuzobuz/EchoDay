@@ -1,7 +1,42 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const os = require('os');
+const fs = require('fs');
 const isDev = process.env.NODE_ENV === 'development';
+
+// Basit JSON depolama sistemi
+const dataPath = path.join(os.homedir(), 'AppData', 'Roaming', 'SesliGunlukPlanlayici');
+const profilesFile = path.join(dataPath, 'profiles.json');
+const statsFile = path.join(dataPath, 'stats.json');
+
+// Dizini oluştur
+if (!fs.existsSync(dataPath)) {
+  fs.mkdirSync(dataPath, { recursive: true });
+}
+
+// JSON okuma fonksiyonu
+function readJSON(filePath) {
+  try {
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error(`Error reading ${filePath}:`, error);
+  }
+  return {};
+}
+
+// JSON yazma fonksiyonu
+function writeJSON(filePath, data) {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (error) {
+    console.error(`Error writing ${filePath}:`, error);
+    return false;
+  }
+}
 
 let mainWindow;
 
@@ -132,4 +167,147 @@ ipcMain.handle('app-version', () => {
 
 ipcMain.handle('platform', () => {
   return process.platform;
+});
+
+// ============ Profile IPC Handlers ============
+
+// Profil al
+ipcMain.handle('profile:get', (event, userId) => {
+  try {
+    const profiles = readJSON(profilesFile);
+    const profile = profiles[userId];
+    
+    if (!profile) {
+      // Varsayılan profil oluştur
+      const defaultProfile = {
+        id: userId,
+        name: 'Kullanıcı',
+        avatar: '😊',
+        bio: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      profiles[userId] = defaultProfile;
+      writeJSON(profilesFile, profiles);
+      return defaultProfile;
+    }
+    return profile;
+  } catch (error) {
+    console.error('Error getting profile:', error);
+    return null;
+  }
+});
+
+// Profil güncelle
+ipcMain.handle('profile:update', (event, userId, updates) => {
+  try {
+    const profiles = readJSON(profilesFile);
+    const existing = profiles[userId] || {
+      id: userId,
+      name: 'Kullanıcı',
+      avatar: '😊',
+      bio: '',
+      createdAt: new Date().toISOString(),
+    };
+    const updated = {
+      ...existing,
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    profiles[userId] = updated;
+    writeJSON(profilesFile, profiles);
+    return updated;
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    throw error;
+  }
+});
+
+// İstatistikleri al
+ipcMain.handle('stats:get', (event, userId) => {
+  try {
+    const stats = readJSON(statsFile);
+    const userStats = stats[userId];
+    
+    if (!userStats) {
+      // Varsayılan istatistikler oluştur
+      const defaultStats = {
+        totalTodos: 0,
+        completedTodos: 0,
+        totalNotes: 0,
+        daysActive: 0,
+        lastActiveDate: new Date().toISOString(),
+      };
+      stats[userId] = defaultStats;
+      writeJSON(statsFile, stats);
+      return defaultStats;
+    }
+    return userStats;
+  } catch (error) {
+    console.error('Error getting stats:', error);
+    return null;
+  }
+});
+
+// İstatistikleri güncelle
+ipcMain.handle('stats:update', (event, userId, updates) => {
+  try {
+    const stats = readJSON(statsFile);
+    const existing = stats[userId] || {
+      totalTodos: 0,
+      completedTodos: 0,
+      totalNotes: 0,
+      daysActive: 0,
+      lastActiveDate: new Date().toISOString(),
+    };
+    const updated = {
+      ...existing,
+      ...updates,
+    };
+    stats[userId] = updated;
+    writeJSON(statsFile, stats);
+    return updated;
+  } catch (error) {
+    console.error('Error updating stats:', error);
+    throw error;
+  }
+});
+
+// ============ PDF Handlers ============
+
+// PDF Dosyası Seç (Native Dialog)
+ipcMain.handle('pdf:selectFile', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'PDF Dosyası Seçin',
+      filters: [
+        { name: 'PDF Dosyaları', extensions: ['pdf'] }
+      ],
+      properties: ['openFile']
+    });
+
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+      return null;
+    }
+
+    const filePath = result.filePaths[0];
+    const fileBuffer = fs.readFileSync(filePath);
+    const fileName = path.basename(filePath);
+    const fileSize = fs.statSync(filePath).size;
+
+    // Base64'e çevir
+    const base64 = fileBuffer.toString('base64');
+    const dataUrl = `data:application/pdf;base64,${base64}`;
+
+    return {
+      name: fileName,
+      size: fileSize,
+      type: 'application/pdf',
+      dataUrl: dataUrl,
+      buffer: base64
+    };
+  } catch (error) {
+    console.error('Error selecting PDF file:', error);
+    throw error;
+  }
 });
