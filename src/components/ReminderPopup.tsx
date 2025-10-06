@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { useTextToSpeech } from '../hooks/useTextToSpeech';
 
 interface ReminderPopupProps {
   message: string;
@@ -6,10 +7,24 @@ interface ReminderPopupProps {
 }
 
 const ReminderPopup: React.FC<ReminderPopupProps> = ({ message, onClose }) => {
+  const tts = useTextToSpeech();
+  const hasSpokenRef = useRef(false);
+  
   useEffect(() => {
+    // Auto-speak reminder if TTS is enabled and hasn't spoken yet
+    if (tts.settings.enabled && tts.hasSupport && !hasSpokenRef.current) {
+      hasSpokenRef.current = true;
+      tts.speak(message);
+    }
+    
     const timer = setTimeout(onClose, 10000); // Stays on screen for 10 seconds
-    return () => clearTimeout(timer);
-  }, [onClose]);
+    return () => {
+      clearTimeout(timer);
+      if (tts.isSpeaking) {
+        tts.cancel();
+      }
+    };
+  }, [onClose, tts, message]);
 
   const baseClasses = "fixed bottom-5 left-5 z-50 p-4 rounded-lg shadow-lg flex items-center max-w-sm animate-fade-in-up";
   const typeClasses = 'bg-blue-100 dark:bg-blue-900/80 backdrop-blur-sm text-blue-800 dark:text-blue-200 border-l-4 border-blue-500';

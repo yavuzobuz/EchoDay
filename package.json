@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "electron:dev": "concurrently \"cross-env NODE_ENV=development vite\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
-    "electron:build": "cross-env CSC_FOR_CURRENT_BUILD=true npm run build && electron-builder",
+    "electron:build": "npm run build && CSC_EXPERIMENTAL_FORCE_SYMLINK_CREATION=true electron-builder",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "sync": "npm run build && npx cap sync"
@@ -25,7 +25,7 @@
     "win": {
       "target": [
         {
-          "target": "nsis",
+          "target": "portable",
           "arch": ["x64"]
         }
       ],
@@ -36,7 +36,6 @@
       "allowToChangeInstallationDirectory": true,
       "installerIcon": "public/icon.png",
       "uninstallerIcon": "public/icon.png",
-      "license": "LICENSE",
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },

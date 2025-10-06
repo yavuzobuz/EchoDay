@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { DailyBriefing } from '../types';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 
@@ -9,20 +9,26 @@ interface DailyBriefingModalProps {
 }
 
 const SuggestionsModal: React.FC<DailyBriefingModalProps> = ({ isOpen, onClose, briefing }) => {
+  const tts = useTextToSpeech();
+  
+  useEffect(() => {
+    if (!isOpen && tts.isSpeaking) {
+      tts.cancel();
+    }
+  }, [isOpen, tts]);
+  
   if (!isOpen || !briefing) return null;
 
-  const { isSpeaking, speak, cancel, hasSupport } = useTextToSpeech();
-
   const handleSpeakClick = () => {
-    if (isSpeaking) {
-      cancel();
+    if (tts.isSpeaking) {
+      tts.cancel();
     } else {
       const fullBriefingText = `
         ${briefing.summary}.
         Bugünkü odak alanlarınız: ${briefing.focus.join(', ')}.
         Plan analizi: ${briefing.conflicts}.
       `;
-      speak(fullBriefingText);
+      tts.speak(fullBriefingText);
     }
   };
 
@@ -41,14 +47,14 @@ const SuggestionsModal: React.FC<DailyBriefingModalProps> = ({ isOpen, onClose, 
                 <p className="text-sm text-gray-500 dark:text-gray-400">AI asistanınız güne başlamanıza yardımcı oluyor.</p>
               </div>
             </div>
-            {hasSupport && (
+            {tts.hasSupport && tts.settings.enabled && (
                 <button
                     onClick={handleSpeakClick}
                     className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 flex-shrink-0"
-                    aria-label={isSpeaking ? "Okumayı durdur" : "Özeti sesli oku"}
-                    title={isSpeaking ? "Okumayı durdur" : "Özeti sesli oku"}
+                    aria-label={tts.isSpeaking ? "Okumayı durdur" : "Özeti sesli oku"}
+                    title={tts.isSpeaking ? "Okumayı durdur" : "Özeti sesli oku"}
                 >
-                    {isSpeaking ? (
+                    {tts.isSpeaking ? (
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-500 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>

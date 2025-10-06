@@ -29,6 +29,24 @@ export interface AnalyzedTaskData {
   isConflict?: boolean;
 }
 
+// ==================== REMINDER SYSTEM ====================
+
+export type ReminderType = 'relative' | 'absolute';
+
+export interface ReminderConfig {
+  id: string;
+  type: ReminderType;
+  // For relative: minutes before the task datetime
+  minutesBefore?: number;
+  // For absolute: specific datetime for the reminder
+  absoluteTime?: string;
+  // Track if this reminder was triggered
+  triggered: boolean;
+  // Track snooze information
+  snoozedUntil?: string;
+  snoozedCount?: number;
+}
+
 export interface Todo {
   id: string;
   text: string;
@@ -37,6 +55,7 @@ export interface Todo {
   completed: boolean;
   createdAt: string;
   aiMetadata?: AIMetadata;
+  reminders?: ReminderConfig[];
 }
 
 export interface Note {

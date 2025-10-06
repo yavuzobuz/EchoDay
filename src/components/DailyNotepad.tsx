@@ -11,9 +11,10 @@ interface DailyNotepadProps {
   onOpenAiModal: () => void;
   onAnalyzeImage: (noteId: string) => void;
   onShareNote: (note: Note) => void;
+  setNotification?: (notification: { message: string; type: 'success' | 'error' } | null) => void;
 }
 
-const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiModal, onAnalyzeImage, onShareNote }) => {
+const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiModal, onAnalyzeImage, onShareNote, setNotification }) => {
   // Sorting and filtering state
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [filterTag, setFilterTag] = useState<string>('');
@@ -131,18 +132,28 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
     if (toArchive.length === 0) return;
     try {
       await archiveService.archiveItems([], toArchive);
-    } catch (e) {
+      // Save for undo
+      setUndoState({ type: 'archive', notes: toArchive });
+      // Remove from current list
+      setNotes(notes.filter(n => !selectedNoteIds.includes(n.id)));
+      setSelectionMode(false);
+      setSelectedNoteIds([]);
+      // Timer
+      if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = window.setTimeout(() => setUndoState(null), 6000);
+      
+      if (setNotification) {
+        setNotification({ message: `${toArchive.length} not arşivlendi`, type: 'success' });
+      }
+    } catch (e: any) {
       console.error('Archive failed:', e);
+      if (setNotification) {
+        setNotification({ 
+          message: e.message || 'Notlar arşivlenemedi. Lütfen tekrar deneyin.', 
+          type: 'error' 
+        });
+      }
     }
-    // Save for undo
-    setUndoState({ type: 'archive', notes: toArchive });
-    // Remove from current list
-    setNotes(notes.filter(n => !selectedNoteIds.includes(n.id)));
-    setSelectionMode(false);
-    setSelectedNoteIds([]);
-    // Timer
-    if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
-    undoTimerRef.current = window.setTimeout(() => setUndoState(null), 6000);
   };
 
   const handleBulkShare = async (visible: Note[]) => {
@@ -164,14 +175,34 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
   const handleUndo = async () => {
     if (!undoState) return;
     const items = undoState.notes;
+    
     if (undoState.type === 'delete') {
       // Restore notes (prepend)
       setNotes(prev => [...items, ...prev]);
+      if (setNotification) {
+        setNotification({ message: `${items.length} not geri yüklendi`, type: 'success' });
+      }
     } else if (undoState.type === 'archive') {
       // Remove from archive DB then restore
-      try { await archiveService.removeNotes(items.map(n => n.id)); } catch {}
-      setNotes(prev => [...items, ...prev]);
+      try {
+        await archiveService.removeNotes(items.map(n => n.id));
+        setNotes(prev => [...items, ...prev]);
+        if (setNotification) {
+          setNotification({ message: `${items.length} not arşivden geri yüklendi`, type: 'success' });
+        }
+      } catch (error: any) {
+        console.error('[Undo] Failed to restore from archive:', error);
+        if (setNotification) {
+          setNotification({ 
+            message: 'Notlar arşivden kaldırılamadı. Yine de UI\'da gösterilecek.', 
+            type: 'error' 
+          });
+        }
+        // Still restore in UI even if DB removal fails
+        setNotes(prev => [...items, ...prev]);
+      }
     }
+    
     setUndoState(null);
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
   };

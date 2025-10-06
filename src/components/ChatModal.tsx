@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChatMessage, Note } from '../types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognitionUnified';
+import { useTextToSpeech } from '../hooks/useTextToSpeech';
 
 interface ChatModalProps {
   isOpen: boolean;
@@ -37,6 +38,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
     handleTranscriptReady,
     speechRecognitionOptions
   );
+  
+  const tts = useTextToSpeech();
+  const [speakingMessageIndex, setSpeakingMessageIndex] = useState<number | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -51,12 +55,33 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
           if (isListening) {
             stopListening();
           }
+          if (tts.isSpeaking) {
+            tts.cancel();
+          }
           setUserInput('');
           setShowNoteProcessor(false);
           setSelectedNoteIds([]);
           setNotePrompt('');
+          setSpeakingMessageIndex(null);
       }
-  }, [isOpen, isListening, stopListening]);
+  }, [isOpen, isListening, stopListening, tts]);
+  
+  const handleSpeakMessage = useCallback((text: string, index: number) => {
+    if (speakingMessageIndex === index) {
+      tts.cancel();
+      setSpeakingMessageIndex(null);
+    } else {
+      setSpeakingMessageIndex(index);
+      tts.speak(text);
+    }
+  }, [tts, speakingMessageIndex]);
+  
+  // Reset speaking index when TTS finishes
+  useEffect(() => {
+    if (!tts.isSpeaking && speakingMessageIndex !== null) {
+      setSpeakingMessageIndex(null);
+    }
+  }, [tts.isSpeaking, speakingMessageIndex]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -237,8 +262,33 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                   </svg>
                 </div>
               )}
-              <div className={`max-w-md lg:max-w-lg p-3 rounded-lg ${msg.role === 'user' ? 'bg-[var(--accent-color-600)] text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
-                <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
+              <div className="flex flex-col gap-1">
+                <div className={`max-w-md lg:max-w-lg p-3 rounded-lg ${msg.role === 'user' ? 'bg-[var(--accent-color-600)] text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
+                  <p className="text-sm whitespace-pre-wrap break-words">{msg.text}</p>
+                </div>
+                {msg.role === 'model' && tts.hasSupport && tts.settings.enabled && (
+                  <button
+                    onClick={() => handleSpeakMessage(msg.text, index)}
+                    className="self-start flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-[var(--accent-color-600)] dark:hover:text-[var(--accent-color-400)] transition-colors rounded"
+                    title={speakingMessageIndex === index ? 'Okumayı durdur' : 'Sesli oku'}
+                  >
+                    {speakingMessageIndex === index ? (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Durdur
+                      </>
+                    ) : (
+                      <>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                        </svg>
+                        Sesli oku
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           ))}

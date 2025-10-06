@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AccentColor } from '../App';
+import { useTextToSpeech } from '../hooks/useTextToSpeech';
 
 interface ProfileProps {
   theme: 'light' | 'dark';
@@ -33,6 +34,7 @@ const Profile: React.FC<ProfileProps> = ({
   const [showApiKey, setShowApiKey] = useState(false);
   const [localAssistantName, setLocalAssistantName] = useState(assistantName);
   const [notification, setNotification] = useState<string | null>(null);
+  const tts = useTextToSpeech();
 
   const handleSaveApiKey = (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,6 +206,159 @@ const Profile: React.FC<ProfileProps> = ({
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">Bu isim, asistanı sesli olarak aktive etmek için "uyandırma kelimesi" olarak kullanılır.</p>
                 </form>
+            </div>
+
+            {/* TTS Settings */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
+                <div className="flex items-center justify-between border-b pb-2 dark:border-gray-600">
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">Sesli Yanıtlar (TTS)</h2>
+                    <button
+                        onClick={() => {
+                            tts.updateSettings({ enabled: !tts.settings.enabled });
+                            setNotification(tts.settings.enabled ? 'Sesli yanıtlar devre dışı!' : 'Sesli yanıtlar aktif!');
+                            setTimeout(() => setNotification(null), 3000);
+                        }}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                            tts.settings.enabled
+                                ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                                : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
+                        }`}
+                    >
+                        {tts.settings.enabled ? '✓ Aktif' : 'Devre Dışı'}
+                    </button>
+                </div>
+
+                {tts.hasSupport ? (
+                    <div className="space-y-5">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            AI asistanın yanıtlarını, günlük özetleri ve hatırlatmaları sesli olarak dinleyebilirsiniz.
+                        </p>
+
+                        {/* Speech Rate */}
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <label className="font-semibold text-sm">Konuşma Hızı</label>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">{tts.settings.rate.toFixed(1)}x</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0.5"
+                                max="2.0"
+                                step="0.1"
+                                value={tts.settings.rate}
+                                onChange={(e) => tts.updateSettings({ rate: parseFloat(e.target.value) })}
+                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent-color-500)]"
+                                disabled={!tts.settings.enabled}
+                            />
+                            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                                <span>Yavaş</span>
+                                <span>Normal</span>
+                                <span>Hızlı</span>
+                            </div>
+                        </div>
+
+                        {/* Speech Pitch */}
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <label className="font-semibold text-sm">Ses Tonu</label>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">{tts.settings.pitch.toFixed(1)}</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0.5"
+                                max="2.0"
+                                step="0.1"
+                                value={tts.settings.pitch}
+                                onChange={(e) => tts.updateSettings({ pitch: parseFloat(e.target.value) })}
+                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent-color-500)]"
+                                disabled={!tts.settings.enabled}
+                            />
+                            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                                <span>Pes</span>
+                                <span>Normal</span>
+                                <span>Tiz</span>
+                            </div>
+                        </div>
+
+                        {/* Volume */}
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                                <label className="font-semibold text-sm">Ses Seviyesi</label>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">{Math.round(tts.settings.volume * 100)}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.1"
+                                value={tts.settings.volume}
+                                onChange={(e) => tts.updateSettings({ volume: parseFloat(e.target.value) })}
+                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent-color-500)]"
+                                disabled={!tts.settings.enabled}
+                            />
+                        </div>
+
+                        {/* Voice Selection */}
+                        {tts.availableVoices.length > 0 && (
+                            <div className="space-y-2">
+                                <label className="font-semibold text-sm block">Ses Seçimi</label>
+                                <select
+                                    value={tts.settings.voice || ''}
+                                    onChange={(e) => tts.updateSettings({ voice: e.target.value || undefined })}
+                                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none text-sm"
+                                    disabled={!tts.settings.enabled}
+                                >
+                                    <option value="">Varsayılan Ses</option>
+                                    {tts.availableVoices.map(voice => (
+                                        <option key={voice.name} value={voice.name}>
+                                            {voice.name} ({voice.lang})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {/* Test Button */}
+                        <div className="pt-3 border-t dark:border-gray-700">
+                            <button
+                                onClick={() => tts.speak('Merhaba! Ben senin yapay zeka asistanın. Sesli yanıtlar şimdi aktif.')}
+                                disabled={!tts.settings.enabled || tts.isSpeaking}
+                                className="w-full px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center justify-center gap-2"
+                            >
+                                {tts.isSpeaking ? (
+                                    <>
+                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Konuşuyor...
+                                    </>
+                                ) : (
+                                    <>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                                        </svg>
+                                        Sesli Testi Yap
+                                    </>
+                                )}
+                            </button>
+                            {tts.isSpeaking && (
+                                <button
+                                    onClick={tts.cancel}
+                                    className="w-full mt-2 px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-900/80 text-sm font-medium"
+                                >
+                                    Durdur
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                        <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                            Tarayıcınız sesli yanıtları desteklemiyor.
+                        </p>
+                    </div>
+                )}
             </div>
             
             {/* Notification */}

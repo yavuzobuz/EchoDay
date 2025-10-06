@@ -430,15 +430,25 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             midnight.setHours(24, 0, 0, 0);
             const timeToMidnight = midnight.getTime() - Date.now();
             
-            const timer = setTimeout(() => {
+            const timer = setTimeout(async () => {
                 const completedTodos = todos.filter(t => t.completed);
                 if (completedTodos.length > 0 || notes.length > 0) {
-                    archiveService.archiveItems(completedTodos, notes).then(() => {
+                    try {
+                        await archiveService.archiveItems(completedTodos, notes);
                         setTodos(todos.filter(t => !t.completed));
                         setNotes([]);
                         setLastArchiveDate(todayStr);
-                        setNotification({ message: 'Tamamlanan görevler ve notlar arşivlendi.', type: 'success' });
-                    });
+                        setNotification({ 
+                            message: `${completedTodos.length} görev ve ${notes.length} not arşivlendi.`, 
+                            type: 'success' 
+                        });
+                    } catch (error: any) {
+                        console.error('[Main] Auto-archive failed:', error);
+                        setNotification({ 
+                            message: error.message || 'Otomatik arşivleme başarısız oldu.', 
+                            type: 'error' 
+                        });
+                    }
                 } else {
                      setLastArchiveDate(todayStr);
                 }
@@ -593,6 +603,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                            onOpenAiModal={() => { if(checkApiKey()) setIsNotepadAiModalOpen(true); }}
                            onAnalyzeImage={handleAnalyzeImageNote}
                            onShareNote={(note) => { setShareType('note'); setShareItem(note); setIsShareModalOpen(true); }}
+                           setNotification={setNotification}
                        />
                     </div>
                 </div>

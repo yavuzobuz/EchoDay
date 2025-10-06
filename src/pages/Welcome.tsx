@@ -585,14 +585,16 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
           </button>
 
           <a
-            href="https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/Sesli.Gunluk.Planlayici.exe"
-            className="group inline-flex items-center gap-3 px-12 py-6 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xl font-bold rounded-2xl shadow-2xl hover:shadow-gray-700/50 transition-all duration-300 transform hover:scale-105 border-2 border-gray-700 dark:border-gray-600 hover:border-gray-600"
+            href="https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/EchoDay-v1.0.0-Windows-Portable.zip"
+            className="group inline-flex flex-col items-center gap-2 px-12 py-6 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xl font-bold rounded-2xl shadow-2xl hover:shadow-gray-700/50 transition-all duration-300 transform hover:scale-105 border-2 border-gray-700 dark:border-gray-600 hover:border-gray-600"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-y-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            <span>Windows İçin İndir</span>
-            <span className="text-sm font-normal opacity-75">(201 MB)</span>
+            <div className="flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-y-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              <span>Windows İçin İndir</span>
+            </div>
+            <span className="text-xs font-normal opacity-75">ZIP dosyasını çıkartıp .exe'yi çalıştırın (122 MB)</span>
           </a>
         </div>
 
