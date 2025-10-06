@@ -23,6 +23,16 @@ db.version(2).stores({
   // Data is automatically re-indexed by Dexie
 });
 
+// Schema version 3: Added 'userId' for user-specific data
+db.version(3).stores({
+  todos: 'id, createdAt, text, completed, userId',
+  notes: 'id, createdAt, text, userId',
+}).upgrade(async trans => {
+  // Migration: Add userId to existing data
+  console.log('[Archive Migration] Migrating to version 3 - adding userId field');
+  // Existing data will be kept, userId field will be undefined until set
+});
+
 // Test database initialization
 const initDB = async (): Promise<boolean> => {
   try {
@@ -40,20 +50,41 @@ const initDB = async (): Promise<boolean> => {
 // Initialize on load
 initDB();
 
-
-const archiveItems = async (todos: Todo[], notes: Note[]): Promise<void> => {
+// Helper: Get current user ID from AuthContext or localStorage
+const getCurrentUserId = (): string | null => {
+  // Try to get from Supabase session first
   try {
-    console.log(`[Archive] Starting archive: ${todos.length} todos, ${notes.length} notes`);
+    const supabaseUser = localStorage.getItem('sb-sdtntnqcdyjhzlhgbofp-auth-token');
+    if (supabaseUser) {
+      const userData = JSON.parse(supabaseUser);
+      if (userData?.user?.id) return userData.user.id;
+    }
+  } catch (e) {
+    console.warn('[Archive] Could not parse Supabase auth token');
+  }
+  
+  // Fallback to localStorage or 'guest'
+  return 'guest';
+};
+
+const archiveItems = async (todos: Todo[], notes: Note[], userId?: string): Promise<void> => {
+  try {
+    const currentUserId = userId || getCurrentUserId();
+    console.log(`[Archive] Starting archive for user ${currentUserId}: ${todos.length} todos, ${notes.length} notes`);
     
     await db.transaction('rw', db.todos, db.notes, async () => {
       if (todos.length > 0) {
         console.log('[Archive] Archiving todos:', todos.map(t => t.text));
-        await db.todos.bulkPut(todos); // ✅ Changed from bulkAdd to bulkPut for upsert
+        // Add userId to each todo
+        const todosWithUserId = todos.map(t => ({ ...t, userId: currentUserId }));
+        await db.todos.bulkPut(todosWithUserId);
         console.log('[Archive] Todos archived successfully');
       }
       if (notes.length > 0) {
         console.log('[Archive] Archiving notes:', notes.map(n => n.text || '(image note)'));
-        await db.notes.bulkPut(notes); // ✅ Changed from bulkAdd to bulkPut for upsert
+        // Add userId to each note
+        const notesWithUserId = notes.map(n => ({ ...n, userId: currentUserId }));
+        await db.notes.bulkPut(notesWithUserId);
         console.log('[Archive] Notes archived successfully');
       }
     });
@@ -76,7 +107,8 @@ const archiveItems = async (todos: Todo[], notes: Note[]): Promise<void> => {
   }
 };
 
-const getArchivedItemsForDate = async (date: string): Promise<{ todos: Todo[], notes: Note[] }> => {
+const getArchivedItemsForDate = async (date: string, userId?: string): Promise<{ todos: Todo[], notes: Note[] }> => {
+    const currentUserId = userId || getCurrentUserId();
     // ✅ Use local timezone for date range to match how items are archived
     const startDate = new Date(date);
     startDate.setHours(0, 0, 0, 0);
@@ -87,16 +119,18 @@ const getArchivedItemsForDate = async (date: string): Promise<{ todos: Todo[], n
     const startISO = startDate.toISOString();
     const endISO = endDate.toISOString();
     
-    console.log(`[Archive] Searching for date range: ${startISO} to ${endISO}`);
+    console.log(`[Archive] Searching for date range: ${startISO} to ${endISO} for user ${currentUserId}`);
 
     const todos = await db.todos
         .where('createdAt')
         .between(startISO, endISO, true, true)
+        .filter(t => t.userId === currentUserId)
         .toArray();
         
     const notes = await db.notes
         .where('createdAt')
         .between(startISO, endISO, true, true)
+        .filter(n => n.userId === currentUserId)
         .toArray();
     
     console.log(`[Archive] Found ${todos.length} todos and ${notes.length} notes for date ${date}`);
@@ -112,15 +146,16 @@ const getArchivedItemsForDate = async (date: string): Promise<{ todos: Todo[], n
     return { todos, notes };
 };
 
-const searchArchive = async (query: string): Promise<{ todos: Todo[], notes: Note[] }> => {
+const searchArchive = async (query: string, userId?: string): Promise<{ todos: Todo[], notes: Note[] }> => {
     if (!query.trim()) return { todos: [], notes: [] };
 
+    const currentUserId = userId || getCurrentUserId();
     const lowerCaseQuery = query.toLowerCase();
     
     // ✅ Improved search: Full-text search instead of just prefix match
     const [allTodos, allNotes] = await Promise.all([
-        db.todos.toArray(),
-        db.notes.toArray()
+        db.todos.where('userId').equals(currentUserId).toArray(),
+        db.notes.where('userId').equals(currentUserId).toArray()
     ]);
 
     const todos = allTodos.filter(t => 
@@ -184,12 +219,14 @@ const deleteArchivedItems = async (todoIds: string[], noteIds: string[]): Promis
   }
 };
 
-const getDashboardStats = async (currentTodos: Todo[]): Promise<DashboardStats> => {
+const getDashboardStats = async (currentTodos: Todo[], userId?: string): Promise<DashboardStats> => {
   try {
+    const currentUserId = userId || getCurrentUserId();
     // ✅ Optimized: Only fetch completed todos from archive using index
     const completedArchived = await db.todos
       .where('completed')
       .equals(1)
+      .filter(t => t.userId === currentUserId)
       .toArray();
     
     const currentCompleted = currentTodos.filter(t => t.completed);
@@ -247,11 +284,12 @@ const getDashboardStats = async (currentTodos: Todo[]): Promise<DashboardStats> 
   }
 };
 
-const getAllArchivedItems = async (): Promise<{ todos: Todo[], notes: Note[] }> => {
+const getAllArchivedItems = async (userId?: string): Promise<{ todos: Todo[], notes: Note[] }> => {
   try {
+    const currentUserId = userId || getCurrentUserId();
     const [todos, notes] = await Promise.all([
-      db.todos.toArray(),
-      db.notes.toArray()
+      db.todos.where('userId').equals(currentUserId).toArray(),
+      db.notes.where('userId').equals(currentUserId).toArray()
     ]);
     
     console.log(`[Archive] Total archived items: ${todos.length} todos, ${notes.length} notes`);
@@ -414,12 +452,13 @@ const importArchive = async (jsonData: string): Promise<{ todosImported: number;
 /**
  * Kategori bazlı istatistikleri hesaplar
  */
-const getCategoryStats = async (currentTodos: Todo[]): Promise<CategoryStats[]> => {
+const getCategoryStats = async (currentTodos: Todo[], userId?: string): Promise<CategoryStats[]> => {
   try {
-    console.log('[Archive] Calculating category stats...');
+    const currentUserId = userId || getCurrentUserId();
+    console.log(`[Archive] Calculating category stats for user ${currentUserId}...`);
     
-    // Arşivdeki tüm todoları al
-    const archivedTodos = await db.todos.toArray();
+    // Arşivdeki tüm todoları al (kullanıcıya özel)
+    const archivedTodos = await db.todos.where('userId').equals(currentUserId).toArray();
     const allTodos = [...currentTodos, ...archivedTodos];
     
     // Kategorilere göre grupla
@@ -500,11 +539,12 @@ const getCategoryStats = async (currentTodos: Todo[]): Promise<CategoryStats[]> 
 /**
  * Zaman analizi yapar
  */
-const getTimeAnalysis = async (currentTodos: Todo[]): Promise<TimeAnalysis> => {
+const getTimeAnalysis = async (currentTodos: Todo[], userId?: string): Promise<TimeAnalysis> => {
   try {
-    console.log('[Archive] Analyzing time data...');
+    const currentUserId = userId || getCurrentUserId();
+    console.log(`[Archive] Analyzing time data for user ${currentUserId}...`);
     
-    const archivedTodos = await db.todos.toArray();
+    const archivedTodos = await db.todos.where('userId').equals(currentUserId).toArray();
     const allCompletedTodos = [...currentTodos, ...archivedTodos].filter(t => t.completed);
     
     const completionTimes: { todo: Todo; time: number }[] = [];
@@ -605,9 +645,10 @@ const getTimeAnalysis = async (currentTodos: Todo[]): Promise<TimeAnalysis> => {
 /**
  * Periyodik rapor oluşturur (haftalık veya aylık)
  */
-const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[]): Promise<PeriodicReport> => {
+const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[], userId?: string): Promise<PeriodicReport> => {
   try {
-    console.log(`[Archive] Generating ${period} report...`);
+    const currentUserId = userId || getCurrentUserId();
+    console.log(`[Archive] Generating ${period} report for user ${currentUserId}...`);
     
     // Tarih aralığını belirle
     const endDate = new Date();
@@ -622,10 +663,11 @@ const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[])
     const startISO = startDate.toISOString();
     const endISO = endDate.toISOString();
     
-    // Belirtilen periyot içindeki todoları al
+    // Belirtilen periyot içindeki todoları al (kullanıcıya özel)
     const archivedTodos = await db.todos
       .where('createdAt')
       .between(startISO, endISO, true, true)
+      .filter(t => t.userId === currentUserId)
       .toArray();
     
     const periodTodos = [
@@ -638,10 +680,10 @@ const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[])
     const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0;
     
     // Kategori analizi
-    const categoryBreakdown = await getCategoryStats(periodTodos);
+    const categoryBreakdown = await getCategoryStats(periodTodos, currentUserId);
     
     // Zaman analizi
-    const timeAnalysis = await getTimeAnalysis(periodTodos);
+    const timeAnalysis = await getTimeAnalysis(periodTodos, currentUserId);
     
     // En çok kullanılan kategoriler
     const topCategories = categoryBreakdown

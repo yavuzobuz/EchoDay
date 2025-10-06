@@ -499,11 +499,11 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                 const completedTodos = todos.filter(t => t.completed);
                 if (completedTodos.length > 0 || notes.length > 0) {
                     try {
-                        await archiveService.archiveItems(completedTodos, notes);
+                        await archiveService.archiveItems(completedTodos, notes, userId);
                         setTodos(todos.filter(t => !t.completed));
                         setNotes([]);
                         setLastArchiveDate(todayStr);
-                        setNotification({ 
+                        setNotification({
                             message: `${completedTodos.length} görev ve ${notes.length} not arşivlendi.`, 
                             type: 'success' 
                         });

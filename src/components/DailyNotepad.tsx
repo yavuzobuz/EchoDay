@@ -610,7 +610,7 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
       </div>
 
       <form onSubmit={handleFormSubmit} className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
-        <div className="bg-white/60 dark:bg-gray-800/60 border border-gray-300 dark:border-gray-700/60 rounded-lg focus-within:ring-2 focus-within:ring-[var(--accent-color-500)] transition-all">
+        <div className="bg-white/60 dark:bg-gray-800/60 border border-gray-300 dark:border-gray-700/60 rounded-lg focus-within:ring-2 focus-within:ring-[var(--accent-color-500)] transition-all relative">
          {newNoteImage && (
              <div className="relative p-2">
                 <img src={newNoteImage} alt="Yeni not önizlemesi" className="max-h-28 w-auto rounded-md"/>
@@ -624,22 +624,23 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
           onChange={(e) => setNewNoteText(e.target.value)}
           onPaste={handlePaste}
           placeholder="Yeni not ekle veya resim yapıştır..."
-          className="w-full p-3 sm:p-4 bg-transparent focus:outline-none resize-none text-base sm:text-sm text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 min-h-[100px] sm:min-h-[120px]"
+          className="w-full p-3 sm:p-4 pb-12 bg-transparent focus:outline-none resize-none text-base sm:text-sm text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 min-h-[100px] sm:min-h-[120px]"
           rows={4}
         />
-        </div>
-        <div className="flex justify-between items-center mt-2">
-            <div className="flex gap-1">
-                <input type="file" accept="image/*" onChange={handleImageChange} ref={fileInputRef} className="hidden"/>
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400" aria-label="Resim Ekle" title="Resim Ekle">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>
+        {/* İkonlar textarea içinde */}
+        <div className="absolute bottom-2 left-2 flex gap-1">
+            <input type="file" accept="image/*" onChange={handleImageChange} ref={fileInputRef} className="hidden"/>
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 transition-colors" aria-label="Resim Ekle" title="Resim Ekle">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>
+            </button>
+             {hasSupport && (
+                <button type="button" onClick={isListening ? stopListening : startListening} className={`p-1.5 rounded-full transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400'}`} aria-label={isListening ? 'Dinlemeyi Durdur' : 'Sesli Not Ekle'} title={isListening ? 'Dinlemeyi Durdur' : 'Sesli Not Ekle'}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                 </button>
-                 {hasSupport && (
-                    <button type="button" onClick={isListening ? stopListening : startListening} className={`p-2 rounded-full transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400'}`} aria-label={isListening ? 'Dinlemeyi Durdur' : 'Sesli Not Ekle'} title={isListening ? 'Dinlemeyi Durdur' : 'Sesli Not Ekle'}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-                    </button>
-                )}
-            </div>
+            )}
+        </div>
+        </div>
+        <div className="flex justify-end items-center mt-2">
             <button type="submit" className="px-4 py-1.5 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 text-sm font-semibold shadow-sm hover:shadow-md transition-all" disabled={!newNoteText.trim() && !newNoteImage}>
                 Ekle
             </button>

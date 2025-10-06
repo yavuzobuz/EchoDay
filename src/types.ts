@@ -67,7 +67,8 @@ export interface Todo {
   aiMetadata?: AIMetadata;
   reminders?: ReminderConfig[];
   recurrence?: RecurrenceRule; // yinelenen görev
-  parentId?: string; // ilk görevin id’si
+  parentId?: string; // ilk görevin id'si
+  userId?: string; // Kullanıcıya özel veri için
 }
 
 export interface Note {
@@ -81,6 +82,7 @@ export interface Note {
   tags?: string[];
   color?: 'yellow' | 'blue' | 'green' | 'red' | 'purple' | 'gray';
   updatedAt?: string;
+  userId?: string; // Kullanıcıya özel veri için
 }
 
 export interface ChatMessage {

@@ -76,13 +76,13 @@ const Profile: React.FC<ProfileProps> = ({
         const today = new Date();
         const dateStr = today.toISOString().split('T')[0];
         const todaysCurrent = currentTodos.filter((t: any) => new Date(t.createdAt).toISOString().startsWith(dateStr));
-        const { todos: archivedToday } = await archiveService.getArchivedItemsForDate(dateStr);
+        const { todos: archivedToday } = await archiveService.getArchivedItemsForDate(dateStr, userId);
         const allToday = [...todaysCurrent, ...archivedToday];
         const todayTotal = allToday.length;
         const todayCompleted = allToday.filter((t: any) => t.completed).length;
 
-        const weekly = await archiveService.getPeriodicReport('week', currentTodos);
-        const dashboard = await archiveService.getDashboardStats(currentTodos);
+        const weekly = await archiveService.getPeriodicReport('week', currentTodos, userId);
+        const dashboard = await archiveService.getDashboardStats(currentTodos, userId);
         setStats({
           todayTotal,
           todayCompleted,
