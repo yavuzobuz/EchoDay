@@ -36,7 +36,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentScene, setCurrentScene] = useState(0);
   
-  const scenes = 3; // Toplam sahne sayısı
+  const scenes = 4; // Toplam sahne sayısı
 
   useEffect(() => {
     setIsLoaded(true);
@@ -145,7 +145,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
         </p>
 
         {/* Features Grid with stagger animation */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-16">
           <Feature
             icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>}
             title="Sesle Yönetim"
@@ -173,6 +173,13 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
             delay={400}
           >
             AI <strong>alışkanlıklarınızı öğrenir</strong> ve size <strong>özel öneriler</strong> sunar.
+          </Feature>
+          <Feature
+            icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>}
+            title="PDF'den Görev"
+            delay={500}
+          >
+            <strong>PDF belgelerinizi</strong> yükleyin, AI <strong>otomatik görev ve not çıkarsın</strong> - Çok dilli destek!
           </Feature>
         </div>
         
@@ -503,12 +510,95 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
                 </div>
                   </>
                 )}
+
+                {/* SAHNE 4: PDF Analizi */}
+                {currentScene === 3 && (
+                  <>
+                {/* PDF Upload Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
+                      📝 PDF Analizi
+                      <span className="text-xs bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white px-3 py-1 rounded-full animate-pulse">YENİ!</span>
+                    </h2>
+                  </div>
+
+                  {/* Upload Area */}
+                  <div className="border-2 border-dashed border-[hsl(var(--border))] rounded-xl p-8 bg-[hsl(var(--muted))]/30 hover:bg-[hsl(var(--muted))]/50 transition-colors">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--accent))] flex items-center justify-center">
+                        <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                      </div>
+                      <div className="text-center">
+                        <h3 className="text-lg font-bold text-[hsl(var(--foreground))] mb-2">PDF Belgenizi Yükleyin</h3>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))] mb-3">Mahkeme celbi, fatura, toplantı notları... AI otomatik analiz edecek!</p>
+                        <div className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg font-semibold">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                          PDF Seç
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Analysis Result */}
+                  <div className="bg-gradient-to-r from-[hsl(var(--primary))]/10 to-[hsl(var(--accent))]/10 border border-[hsl(var(--primary))]/30 rounded-xl p-6">
+                    <div className="flex items-start gap-4 mb-4">
+                      <div className="w-12 h-12 rounded-lg bg-[hsl(var(--primary))] flex items-center justify-center flex-shrink-0">
+                        <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M13 7H7v6h6V7z" />
+                          <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-bold text-[hsl(var(--foreground))]">Mahkeme_Celbi_2024.pdf</h3>
+                          <span className="text-xs bg-green-500 text-white px-2 py-1 rounded">✓ Analiz Tamamlandı</span>
+                        </div>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))]">Belge Türü: <strong>Mahkeme Belgesi</strong> | Dil: <strong>Türkçe</strong></p>
+                      </div>
+                    </div>
+
+                    {/* Extracted Tasks */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-[hsl(var(--foreground))]">
+                        <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
+                        3 Görev Çıkarıldı (Türkçe)
+                      </div>
+                      <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3 text-sm">
+                        <div className="font-semibold text-[hsl(var(--foreground))] mb-1">• Duruşmaya katıl</div>
+                        <div className="text-[hsl(var(--muted-foreground))] text-xs">Ankara 5. Ağır Ceza Mahkemesi - 15 Kasım 2024, 10:00</div>
+                      </div>
+                      <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3 text-sm">
+                        <div className="font-semibold text-[hsl(var(--foreground))] mb-1">• Tanık listesi hazırla</div>
+                        <div className="text-[hsl(var(--muted-foreground))] text-xs">Duruşma öncesi hazırlık - 14 Kasım 2024</div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm font-semibold text-[hsl(var(--foreground))] mt-3">
+                        <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
+                        2 Not Eklendi (Türkçe)
+                      </div>
+                      <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3 text-sm">
+                        <div className="font-semibold text-[hsl(var(--foreground))] mb-1">Dosya Bilgileri</div>
+                        <div className="text-[hsl(var(--muted-foreground))] text-xs">Dosya No: 2024/123 Esas | Mahkeme: Ankara 5. AGM</div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 p-3 bg-[hsl(var(--primary))]/10 rounded-lg border border-[hsl(var(--primary))]/30">
+                      <div className="flex items-center gap-2 text-xs text-[hsl(var(--foreground))]">
+                        <svg className="w-4 h-4 text-[hsl(var(--primary))]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+                        <span><strong>Çok Dilli Destek:</strong> PDF Türkçe, İngilizce, Almanca veya başka dilde olabilir - AI aynı dilde yanıt verir!</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                  </>
+                )}
               </div>
             </div>
             
             {/* Scene Indicator Dots */}
             <div className="flex justify-center gap-2 mt-6">
-              {[0, 1, 2].map((scene) => (
+              {[0, 1, 2, 3].map((scene) => (
                 <button
                   key={scene}
                   onClick={() => setCurrentScene(scene)}
