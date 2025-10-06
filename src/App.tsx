@@ -1,20 +1,45 @@
 import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import useLocalStorage from './hooks/useLocalStorage';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Welcome from './pages/Welcome';
 import Main from './Main';
 import Profile from './pages/Profile';
-import Auth from './pages/Auth';
+import Login from './pages/Login';
+import Register from './pages/Register';
 
 export type AccentColor = 'blue' | 'green' | 'red';
-type View = 'welcome' | 'main' | 'profile' | 'auth';
 
-const App: React.FC = () => {
-  const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'dark');
-  const [accentColor, setAccentColor] = useLocalStorage<AccentColor>('accent-color', 'blue');
-  const [view, setView] = useLocalStorage<View>('view', 'welcome');
-  const [apiKey, setApiKey] = useLocalStorage<string>('gemini-api-key', '');
-  const [assistantName, setAssistantName] = useLocalStorage<string>('assistant-name', 'ATO');
-  const [followSystemTheme, setFollowSystemTheme] = useLocalStorage<boolean>('theme-follow-system', false);
+// Protected Route Component
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function AppContent() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const userId = user?.id || 'guest';
+  
+  // User-specific settings
+  const [theme, setTheme] = useLocalStorage<'light' | 'dark'>(`theme_${userId}`, 'dark');
+  const [accentColor, setAccentColor] = useLocalStorage<AccentColor>(`accent-color_${userId}`, 'blue');
+  const [apiKey, setApiKey] = useLocalStorage<string>(`gemini-api-key_${userId}`, '');
+  const [assistantName, setAssistantName] = useLocalStorage<string>(`assistant-name_${userId}`, 'ATO');
+  const [followSystemTheme, setFollowSystemTheme] = useLocalStorage<boolean>(`theme-follow-system_${userId}`, false);
 
 
   // Apply theme class to HTML
@@ -70,54 +95,82 @@ const App: React.FC = () => {
     root.style.setProperty('--accent-color-700', `var(--${currentTheme}-700)`);
     root.style.setProperty('--accent-color-900', `var(--${currentTheme}-900)`);
   }, [accentColor]);
-  
-  const handleGetStarted = () => {
-    setView('main');
-  };
 
-  const renderView = () => {
-    switch(view) {
-      case 'welcome':
-        return <Welcome onGetStarted={handleGetStarted} onNavigateToAuth={() => setView('auth')} />;
-      case 'profile':
-        return (
-          <Profile
-            theme={theme}
-            setTheme={setTheme}
-            accentColor={accentColor}
-            setAccentColor={setAccentColor}
-            apiKey={apiKey}
-            setApiKey={setApiKey}
-            assistantName={assistantName}
-            setAssistantName={setAssistantName}
-            followSystemTheme={followSystemTheme}
-            setFollowSystemTheme={setFollowSystemTheme}
-            onNavigateBack={() => setView('main')}
-            onShowWelcome={() => setView('welcome')}
-          />
-        );
-      case 'auth':
-        return (
-          <Auth onNavigateBack={() => setView('welcome')} onAuthSuccess={() => setView('main')} />
-        );
-      case 'main':
-      default:
-        return (
-          <Main
-            theme={theme}
-            setTheme={setTheme}
-            accentColor={accentColor}
-            setAccentColor={setAccentColor}
-            apiKey={apiKey}
-            assistantName={assistantName}
-            onNavigateToProfile={() => setView('profile')}
-            onShowWelcome={() => setView('welcome')}
-          />
-        );
-    }
-  };
+  return (
+    <div className="app">
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route
+          path="/welcome"
+          element={
+            <ProtectedRoute>
+              <Welcome
+                onGetStarted={() => navigate('/app')}
+                onNavigateToAuth={() => navigate('/login')}
+              />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/app"
+          element={
+            <ProtectedRoute>
+              <Main
+                theme={theme}
+                setTheme={setTheme}
+                accentColor={accentColor}
+                setAccentColor={setAccentColor}
+                apiKey={apiKey}
+                assistantName={assistantName}
+                onNavigateToProfile={() => navigate('/profile')}
+                onShowWelcome={() => navigate('/welcome')}
+              />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Navigate to="/app" replace />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile
+                theme={theme}
+                setTheme={setTheme}
+                accentColor={accentColor}
+                setAccentColor={setAccentColor}
+                apiKey={apiKey}
+                setApiKey={setApiKey}
+                assistantName={assistantName}
+                setAssistantName={setAssistantName}
+                followSystemTheme={followSystemTheme}
+                setFollowSystemTheme={setFollowSystemTheme}
+                onNavigateBack={() => navigate('/app')}
+                onShowWelcome={() => navigate('/welcome')}
+              />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </div>
+  );
+}
 
-  return <div className="app">{renderView()}</div>;
+const App: React.FC = () => {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </BrowserRouter>
+  );
 };
 
 export default App;

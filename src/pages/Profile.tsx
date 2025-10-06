@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AccentColor } from '../App';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { archiveService } from '../services/archiveService';
 import { DayStat } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ProfileProps {
   theme: 'light' | 'dark';
@@ -35,6 +37,8 @@ const Profile: React.FC<ProfileProps> = ({
   followSystemTheme,
   setFollowSystemTheme
 }) => {
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
   
   const [localApiKey, setLocalApiKey] = useState(apiKey);
   const [isEditingApiKey, setIsEditingApiKey] = useState(!apiKey);
@@ -42,6 +46,13 @@ const Profile: React.FC<ProfileProps> = ({
   const [localAssistantName, setLocalAssistantName] = useState(assistantName);
   const [notification, setNotification] = useState<string | null>(null);
   const tts = useTextToSpeech();
+
+  const handleSignOut = async () => {
+    if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
+      await signOut();
+      navigate('/login');
+    }
+  };
 
   // Follow system theme toggle (stored in localStorage)
   const [followSystem, setFollowSystem] = useState<boolean>(followSystemTheme);
@@ -59,7 +70,9 @@ const Profile: React.FC<ProfileProps> = ({
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const currentTodos = JSON.parse(localStorage.getItem('todos') || '[]');
+        // Use user-specific localStorage key
+        const userId = user?.id || 'guest';
+        const currentTodos = JSON.parse(localStorage.getItem(`todos_${userId}`) || '[]');
         const today = new Date();
         const dateStr = today.toISOString().split('T')[0];
         const todaysCurrent = currentTodos.filter((t: any) => new Date(t.createdAt).toISOString().startsWith(dateStr));
@@ -83,7 +96,7 @@ const Profile: React.FC<ProfileProps> = ({
       }
     };
     loadStats();
-  }, []);
+  }, [user]);
 
   const handleSaveApiKey = (e: React.FormEvent) => {
     e.preventDefault();
@@ -131,6 +144,24 @@ const Profile: React.FC<ProfileProps> = ({
       </header>
       <main className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-2xl">
         <div className="space-y-8">
+            {/* User Info & Sign Out */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600 mb-4">Hesap Bilgileri</h2>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Giriş Yapılmış Hesap</p>
+                        <p className="font-semibold text-lg text-gray-800 dark:text-gray-200">{user?.email}</p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Kullanıcı ID: {user?.id.substring(0, 8)}...</p>
+                    </div>
+                    <button
+                        onClick={handleSignOut}
+                        className="px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-900/70 font-medium"
+                    >
+                        Çıkış Yap
+                    </button>
+                </div>
+            </div>
+
             {/* General Settings */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Genel Ayarlar</h2>
@@ -148,8 +179,8 @@ const Profile: React.FC<ProfileProps> = ({
                     <label className="font-semibold text-lg">Gün Başı Özeti Saati</label>
                     <input
                         type="time"
-                        defaultValue={localStorage.getItem('daily-summary-time') || '08:00'}
-                        onChange={(e) => localStorage.setItem('daily-summary-time', e.target.value || '08:00')}
+                        defaultValue={localStorage.getItem(`daily-summary-time_${user?.id}`) || '08:00'}
+                        onChange={(e) => localStorage.setItem(`daily-summary-time_${user?.id}`, e.target.value || '08:00')}
                         className="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                 </div>
@@ -282,14 +313,15 @@ const Profile: React.FC<ProfileProps> = ({
                     <button
                         onClick={() => {
                             try {
+                                const userId = user?.id || 'guest';
                                 const payload = {
                                     exportedAt: new Date().toISOString(),
                                     theme,
                                     accentColor,
                                     assistantName,
-                                    todos: JSON.parse(localStorage.getItem('todos') || '[]'),
-                                    notes: JSON.parse(localStorage.getItem('notes') || '[]'),
-                                    chatHistory: JSON.parse(localStorage.getItem('chatHistory') || '[]'),
+                                    todos: JSON.parse(localStorage.getItem(`todos_${userId}`) || '[]'),
+                                    notes: JSON.parse(localStorage.getItem(`notes_${userId}`) || '[]'),
+                                    chatHistory: JSON.parse(localStorage.getItem(`chatHistory_${userId}`) || '[]'),
                                 };
                                 const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
                                 const url = URL.createObjectURL(blob);
@@ -322,10 +354,11 @@ const Profile: React.FC<ProfileProps> = ({
                                 const reader = new FileReader();
                                 reader.onload = () => {
                                     try {
+                                        const userId = user?.id || 'guest';
                                         const data = JSON.parse(reader.result as string);
-                                        if (Array.isArray(data.todos)) localStorage.setItem('todos', JSON.stringify(data.todos));
-                                        if (Array.isArray(data.notes)) localStorage.setItem('notes', JSON.stringify(data.notes));
-                                        if (Array.isArray(data.chatHistory)) localStorage.setItem('chatHistory', JSON.stringify(data.chatHistory));
+                                        if (Array.isArray(data.todos)) localStorage.setItem(`todos_${userId}`, JSON.stringify(data.todos));
+                                        if (Array.isArray(data.notes)) localStorage.setItem(`notes_${userId}`, JSON.stringify(data.notes));
+                                        if (Array.isArray(data.chatHistory)) localStorage.setItem(`chatHistory_${userId}`, JSON.stringify(data.chatHistory));
                                         setNotification('Veriler içe aktarıldı. Ana sayfada görüntüleyebilirsiniz.');
                                         setTimeout(() => setNotification(null), 3000);
                                     } catch {
@@ -341,9 +374,10 @@ const Profile: React.FC<ProfileProps> = ({
                     <button
                         onClick={() => {
                             if (confirm('Tüm görevleri, notları ve sohbet geçmişini temizlemek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
-                                localStorage.removeItem('todos');
-                                localStorage.removeItem('notes');
-                                localStorage.removeItem('chatHistory');
+                                const userId = user?.id || 'guest';
+                                localStorage.removeItem(`todos_${userId}`);
+                                localStorage.removeItem(`notes_${userId}`);
+                                localStorage.removeItem(`chatHistory_${userId}`);
                                 setNotification('Veriler temizlendi.');
                                 setTimeout(() => setNotification(null), 3000);
                             }
@@ -456,28 +490,28 @@ const Profile: React.FC<ProfileProps> = ({
                             <input
                                 type="radio"
                                 name="reminderSound"
-                                defaultChecked={(localStorage.getItem('reminderSound') || 'tts') === 'tts'}
-                                onChange={() => localStorage.setItem('reminderSound', 'tts')}
+                                defaultChecked={(localStorage.getItem(`reminderSound_${user?.id}`) || 'tts') === 'tts'}
+                                onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'tts')}
                             />
                             <span>Sesli hatırlatma (TTS)</span>
                         </label>
                         <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
                             <label className="flex items-center gap-2 flex-1">
-                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem('reminderSound') === 'alarm1'} onChange={() => localStorage.setItem('reminderSound', 'alarm1')} />
+                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem(`reminderSound_${user?.id}`) === 'alarm1'} onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'alarm1')} />
                                 <span>Alarm 1</span>
                             </label>
                             <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm1'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
                         </div>
                         <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
                             <label className="flex items-center gap-2 flex-1">
-                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem('reminderSound') === 'alarm2'} onChange={() => localStorage.setItem('reminderSound', 'alarm2')} />
+                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem(`reminderSound_${user?.id}`) === 'alarm2'} onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'alarm2')} />
                                 <span>Alarm 2</span>
                             </label>
                             <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm2'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
                         </div>
                         <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
                             <label className="flex items-center gap-2 flex-1">
-                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem('reminderSound') === 'alarm3'} onChange={() => localStorage.setItem('reminderSound', 'alarm3')} />
+                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem(`reminderSound_${user?.id}`) === 'alarm3'} onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'alarm3')} />
                                 <span>Alarm 3</span>
                             </label>
                             <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm3'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>

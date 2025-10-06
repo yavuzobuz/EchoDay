@@ -29,6 +29,7 @@ import { geminiService } from './services/geminiService';
 import { archiveService } from './services/archiveService';
 import { contextMemoryService } from './services/contextMemoryService';
 import { reminderService, ActiveReminder } from './services/reminderService';
+import { useAuth } from './contexts/AuthContext';
 // import { smartPriorityService } from './services/smartPriorityService';
 // import { proactiveSuggestionsService } from './services/proactiveSuggestionsService';
 // import { taskTemplatesService } from './services/taskTemplatesService';
@@ -51,13 +52,16 @@ interface MainProps {
 type ViewMode = 'list' | 'timeline';
 
 const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, onNavigateToProfile, onShowWelcome }) => {
-    const [todos, setTodos] = useLocalStorage<Todo[]>('todos', []);
-    const [notes, setNotes] = useLocalStorage<Note[]>('notes', []);
-
-    // Supabase sync (optional)
-    const supabaseUserId = React.useMemo(() => localStorage.getItem('supabase-user-id') || '', []);
-    const [chatHistory, setChatHistory] = useLocalStorage<ChatMessage[]>('chatHistory', []);
-    const [showInfoBanner, setShowInfoBanner] = useLocalStorage<boolean>('show-info-banner', true);
+    // Get authenticated user
+    const { user } = useAuth();
+    const userId = user?.id || 'guest';
+    
+    // User-specific localStorage keys
+    const [todos, setTodos] = useLocalStorage<Todo[]>(`todos_${userId}`, []);
+    const [notes, setNotes] = useLocalStorage<Note[]>(`notes_${userId}`, []);
+    const [chatHistory, setChatHistory] = useLocalStorage<ChatMessage[]>(`chatHistory_${userId}`, []);
+    const [showInfoBanner, setShowInfoBanner] = useLocalStorage<boolean>(`show-info-banner_${userId}`, true);
+    const [lastArchiveDate, setLastArchiveDate] = useLocalStorage<string>(`lastArchiveDate_${userId}`, '');
     
     // New AI Features State
     const [userContext, setUserContext] = useState<UserContext>(contextMemoryService.getUserContext());
@@ -483,9 +487,6 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     }, []);
     
     // ==================== END NEW AI FEATURES ====================
-    
-    // --- Reminders & Archive ---
-    const [lastArchiveDate, setLastArchiveDate] = useLocalStorage<string>('lastArchiveDate', '');
 
     useEffect(() => {
         const todayStr = new Date().toISOString().split('T')[0];
@@ -524,12 +525,12 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
     // Daily summary notifier
     useEffect(() => {
-        const getSetting = () => (localStorage.getItem('daily-summary-time') || '08:00');
+        const getSetting = () => (localStorage.getItem(`daily-summary-time_${userId}`) || '08:00');
         const check = () => {
             const time = getSetting();
             const [hh, mm] = time.split(':').map(Number);
             const now = new Date();
-            const key = 'daily-summary-last';
+            const key = `daily-summary-last_${userId}`;
             const today = now.toISOString().split('T')[0];
             const last = localStorage.getItem(key);
             if (last === today) return;
@@ -543,27 +544,34 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         const interval = setInterval(check, 60 * 1000);
         check();
         return () => clearInterval(interval);
-    }, [todos]);
+    }, [todos, userId]);
 
     // Push todos/notes to Supabase on change (if configured)
     useEffect(() => {
         (async () => {
             try {
                 const { supabase, upsertTodos, upsertNotes } = await import('./services/supabaseClient');
-                if (!supabase || !supabaseUserId) return;
-                await upsertTodos(supabaseUserId, todos);
-                await upsertNotes(supabaseUserId, notes);
-            } catch {}
+                if (!supabase || !userId || userId === 'guest') return;
+                await upsertTodos(userId, todos);
+                await upsertNotes(userId, notes);
+            } catch (error) {
+                console.error('[Main] Supabase sync error:', error);
+            }
         })();
-    }, [todos, notes, supabaseUserId]);
+    }, [todos, notes, userId]);
 
     // Supabase initial fetch (if configured)
     useEffect(() => {
+        if (!userId || userId === 'guest') return;
+        
         (async () => {
             try {
                 const { supabase, fetchAll } = await import('./services/supabaseClient');
-                if (!supabase || !supabaseUserId) return;
-                const remote = await fetchAll(supabaseUserId);
+                if (!supabase) return;
+                
+                console.log('[Main] Fetching data for user:', userId);
+                const remote = await fetchAll(userId);
+                
                 if (remote.todos.length || remote.notes.length) {
                     // naive merge: prefer newer createdAt
                     const byId: any = {};
@@ -580,10 +588,12 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                     });
                     setNotes(Object.values(byN));
                 }
-            } catch {}
+            } catch (error) {
+                console.error('[Main] Supabase fetch error:', error);
+            }
         })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [userId]);
 
     // Request notification permission on mount
     useEffect(() => {

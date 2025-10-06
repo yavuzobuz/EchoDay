@@ -624,8 +624,8 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
           onChange={(e) => setNewNoteText(e.target.value)}
           onPaste={handlePaste}
           placeholder="Yeni not ekle veya resim yapıştır..."
-          className="w-full p-2 bg-transparent focus:outline-none resize-none text-sm text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400"
-          rows={2}
+          className="w-full p-3 sm:p-4 bg-transparent focus:outline-none resize-none text-base sm:text-sm text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 min-h-[100px] sm:min-h-[120px]"
+          rows={4}
         />
         </div>
         <div className="flex justify-between items-center mt-2">
