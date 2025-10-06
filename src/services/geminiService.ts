@@ -112,11 +112,21 @@ const analyzeTask = async (apiKey: string, description: string): Promise<Analyze
         const offsetMinutes = -now.getTimezoneOffset();
         const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
         const prompt = `Aşağıdaki görev tanımını analiz et ve özelliklerini çıkar. Özellikle 'text' alanını kullanıcının girdiği orijinal metinle, çeviri yapmadan doldur.
-Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours}).
-Kullanıcının şu anki tarihi ve saati (yerel): ${nowLocal}.
-Referans için şu anın UTC zamanı: ${nowISO}.
-'Yarın saat 3' gibi göreceli zamanları bu yerel saat dilimine göre yorumla ve sonucu ISO 8601 UTC (Z) formatında döndür (ör. 2025-01-02T10:00:00Z).
-Görev: "${description}"`;
+
+ÖNEMLİ - SAAT DİLİMİ BİLGİSİ:
+- Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours})
+- Kullanıcının ŞU ANKİ yerel tarihi ve saati: ${nowLocal}
+- ŞU ANIN UTC zamanı (referans için): ${nowISO}
+
+ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
+1. Eğer görevde bir zaman belirtilmişse (örn: "yarın saat 15:00", "28 Ekim saat 14:30"), bu zamanı KULLANICININ YEREL SAAT DİLİMİNDE (${tz}) yorumla
+2. Yerel zamanı UTC'ye çevir: Yerel zamandan ${offsetHours} saat ÇIKARın
+3. Sonucu ISO 8601 UTC formatında döndür: YYYY-MM-DDTHH:mm:00.000Z
+4. Örnek: Kullanıcı "yarın saat 15:00" derse ve yarın 2025-10-07 ise:
+   - Yerel zaman: 2025-10-07T15:00:00 (${tz})
+   - UTC'ye çevrilmiş: 2025-10-07T12:00:00.000Z (15 - 3 = 12)
+
+Görev: "${description}"`
         
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -155,11 +165,21 @@ const analyzeImageForTask = async (apiKey: string, prompt: string, imageBase64: 
         const offsetMinutes = -now.getTimezoneOffset();
         const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
         const textPrompt = `Sağlanan resme dayanarak kullanıcının isteğini analiz et. İstekten ve resim içeriğinden görev özelliklerini çıkar. Özellikle 'text' alanını kullanıcının girdiği orijinal metinle, çeviri yapmadan doldur.
-Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours}).
-Kullanıcının şu anki tarihi ve saati (yerel): ${nowLocal}.
-Referans için şu anın UTC zamanı: ${nowISO}.
-'Yarın saat 3' gibi göreceli zamanları bu yerel saat dilimine göre yorumla ve sonucu ISO 8601 UTC (Z) formatında döndür (ör. 2025-01-02T10:00:00Z).
-Kullanıcı isteği: "${prompt}"`;
+
+ÖNEMLİ - SAAT DİLİMİ BİLGİSİ:
+- Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours})
+- Kullanıcının ŞU ANKİ yerel tarihi ve saati: ${nowLocal}
+- ŞU ANIN UTC zamanı (referans için): ${nowISO}
+
+ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
+1. Eğer görevde bir zaman belirtilmişse (örn: "yarın saat 15:00", "28 Ekim saat 14:30"), bu zamanı KULLANICININ YEREL SAAT DİLİMİNDE (${tz}) yorumla
+2. Yerel zamanı UTC'ye çevir: Yerel zamandan ${offsetHours} saat ÇIKARın
+3. Sonucu ISO 8601 UTC formatında döndür: YYYY-MM-DDTHH:mm:00.000Z
+4. Örnek: Kullanıcı "yarın saat 15:00" derse ve yarın 2025-10-07 ise:
+   - Yerel zaman: 2025-10-07T15:00:00 (${tz})
+   - UTC'ye çevrilmiş: 2025-10-07T12:00:00.000Z (15 - 3 = 12)
+
+Kullanıcı isteği: "${prompt}"`
         
         const result = await model.generateContent([textPrompt, imagePart]);
         const response = await result.response;

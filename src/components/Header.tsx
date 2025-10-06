@@ -1,5 +1,4 @@
 import React from 'react';
-import ThemeSwitcher from './ThemeSwitcher';
 import { AccentColor } from '../App';
 import Logo from './Logo';
 
@@ -21,7 +20,7 @@ const Header: React.FC<HeaderProps> = ({ theme, setTheme, accentColor, setAccent
         </span>
         <span className="font-bold text-xl hidden sm:inline text-gray-800 dark:text-gray-200">EchoDay</span>
       </div>
-      <ThemeSwitcher theme={theme} setTheme={setTheme} accentColor={accentColor} setAccentColor={setAccentColor} />
+      {/* Theme switcher removed (moved to Profile page) */}
       <div className="flex items-center gap-2">
         {onShowWelcome && (
           <button 

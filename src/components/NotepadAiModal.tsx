@@ -42,14 +42,14 @@ const NotepadAiModal: React.FC<NotepadAiModalProps> = ({ isOpen, onClose, onSubm
         <div className="space-y-4">
           <div>
             <h3 className="font-semibold mb-2 text-gray-700 dark:text-gray-300">1. İşlem Yapılacak Notları Seçin:</h3>
-            <div className="max-h-40 overflow-y-auto space-y-2 p-3 bg-gray-100 dark:bg-gray-700/50 rounded-md border border-gray-200 dark:border-gray-600">
+            <div className="touch-compact max-h-40 overflow-y-auto space-y-2 p-3 bg-gray-100 dark:bg-gray-700/50 rounded-md border border-gray-200 dark:border-gray-600">
               {noteLines.length > 0 ? noteLines.map((note, index) => (
                 <label key={note.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600/50 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={selectedIndices.includes(index)}
                     onChange={() => handleCheckboxChange(index)}
-                    className="h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)] bg-gray-100 dark:bg-gray-900"
+                    className="h-4 w-4 sm:h-5 sm:w-5 rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)] bg-gray-100 dark:bg-gray-900"
                   />
                   <span className="text-gray-800 dark:text-gray-200 flex-1 min-w-0 break-words">{note.text || '(Resimli Not)'}</span>
                   {note.imageUrl && <img src={note.imageUrl} className="h-8 w-8 object-cover rounded-sm flex-shrink-0" alt="not görseli"/>}

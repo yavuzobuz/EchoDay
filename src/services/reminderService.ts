@@ -1,4 +1,4 @@
-import { Todo, ReminderConfig } from '../types';
+import { Todo } from '../types';
 
 export interface ActiveReminder {
   taskId: string;
@@ -9,8 +9,6 @@ export interface ActiveReminder {
 }
 
 class ReminderService {
-  private checkInterval: number = 60000; // Check every minute
-  private intervalId: number | null = null;
   private notifiedReminders: Set<string> = new Set();
   
   /**
@@ -173,7 +171,7 @@ class ReminderService {
         badge: '/icon-192.png',
         tag: `${reminder.taskId}_${reminder.reminderId}`,
         requireInteraction: reminder.priority === 'high',
-        vibrate: reminder.priority === 'high' ? [200, 100, 200] : [200]
+        // vibrate: reminder.priority === 'high' ? [200, 100, 200] : [200] // Not supported in all browsers
       };
       
       try {

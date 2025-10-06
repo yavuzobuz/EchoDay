@@ -167,6 +167,15 @@ select {
   }
 }
 
+/* Compact touch targets (opt-in) for specific controls on mobile */
+@media (pointer: coarse) {
+  .touch-compact input[type="checkbox"],
+  .touch-compact input[type="radio"] {
+    min-height: 20px;
+    min-width: 20px;
+  }
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;

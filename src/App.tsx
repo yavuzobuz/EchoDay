@@ -13,8 +13,10 @@ const App: React.FC = () => {
   const [view, setView] = useLocalStorage<View>('view', 'welcome');
   const [apiKey, setApiKey] = useLocalStorage<string>('gemini-api-key', '');
   const [assistantName, setAssistantName] = useLocalStorage<string>('assistant-name', 'ATO');
+  const [followSystemTheme, setFollowSystemTheme] = useLocalStorage<boolean>('theme-follow-system', false);
 
 
+  // Apply theme class to HTML
   React.useEffect(() => {
     console.log('[App] Theme changed to:', theme);
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -27,6 +29,30 @@ const App: React.FC = () => {
     }
     console.log('[App] HTML classes:', document.documentElement.classList.toString());
   }, [theme]);
+
+  // Follow system theme when enabled
+  React.useEffect(() => {
+    if (!followSystemTheme) return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = () => setTheme(media.matches ? 'dark' : 'light');
+    apply();
+    const listener = () => apply();
+    if (typeof media.addEventListener === 'function') {
+      media.addEventListener('change', listener);
+    } else {
+      // Safari
+      // @ts-ignore
+      media.addListener(listener);
+    }
+    return () => {
+      if (typeof media.removeEventListener === 'function') {
+        media.removeEventListener('change', listener);
+      } else {
+        // @ts-ignore
+        media.removeListener(listener);
+      }
+    };
+  }, [followSystemTheme, setTheme]);
 
   React.useEffect(() => {
     const root = document.documentElement;
@@ -63,6 +89,8 @@ const App: React.FC = () => {
             setApiKey={setApiKey}
             assistantName={assistantName}
             setAssistantName={setAssistantName}
+            followSystemTheme={followSystemTheme}
+            setFollowSystemTheme={setFollowSystemTheme}
             onNavigateBack={() => setView('main')}
             onShowWelcome={() => setView('welcome')}
           />

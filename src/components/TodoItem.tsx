@@ -131,7 +131,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
             type="checkbox"
             checked={todo.completed}
             onChange={() => onToggle(todo.id)}
-            className="mt-1 h-5 w-5 flex-shrink-0 rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)] bg-gray-100 dark:bg-gray-900"
+            className="hidden sm:block mt-1 h-5 w-5 flex-shrink-0 rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)] bg-gray-100 dark:bg-gray-900"
             disabled={isEditing}
           />
           <div className="flex-1 min-w-0">
@@ -152,6 +152,47 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
               </div>
             ) : (
               <>
+                {/* Mobile-only header: checkbox left, actions right; text below */}
+                <div className="sm:hidden mb-2 pb-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
+                  <div className="touch-compact flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={todo.completed}
+                      onChange={() => onToggle(todo.id)}
+                      className="h-4 w-4 flex-shrink-0 rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)] bg-gray-100 dark:bg-gray-900"
+                      disabled={isEditing}
+                      aria-label="Görevi tamamla"
+                    />
+                  </div>
+                  <div className="flex items-center gap-1">
+                  {onUpdateReminders && (
+                    <button onClick={() => setIsReminderModalOpen(true)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" aria-label="Hatırlatma ayarla">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                      </svg>
+                    </button>
+                  )}
+                  {hasAIMetadata && (
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Detayları gör">
+                      <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    </button>
+                  )}
+                  <button onClick={() => onShare(todo)} className="p-1 rounded-full text-gray-400 hover:text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50" aria-label="Görevi paylaş">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
+                    </svg>
+                  </button>
+                  <button onClick={() => setIsEditing(true)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" aria-label="Görevi düzenle">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                      <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                  <button onClick={() => onDelete(todo.id)} className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" aria-label="Görevi sil">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                  </button>
+                  </div>
+                </div>
                 <div className="flex items-start gap-2">
                     <p className={`text-sm sm:text-lg font-medium text-gray-900 dark:text-white break-words ${todo.completed ? 'line-through' : ''}`}>
                     {todo.text}
@@ -166,7 +207,15 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                 </div>
                 {todo.datetime && (
                   <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    <span className="font-semibold hidden sm:inline">Zaman:</span> {new Date(todo.datetime).toLocaleString('tr-TR', { hour: '2-digit', minute: '2-digit', year: 'numeric', month: 'short', day: 'numeric' })}
+                    <span className="font-semibold hidden sm:inline">Zaman:</span> {new Date(todo.datetime).toLocaleString('tr-TR', { 
+                      hour: '2-digit', 
+                      minute: '2-digit', 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric',
+                      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                      hour12: false
+                    })}
                   </p>
                 )}
                 {activeRemindersCount > 0 && (
@@ -205,7 +254,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
           </div>
         </div>
         {!isEditing && (
-          <div className="flex items-center gap-0 sm:gap-1 flex-shrink-0 ml-1 sm:ml-2">
+          <div className="hidden sm:flex items-center gap-0 sm:gap-1 flex-shrink-0 ml-1 sm:ml-2">
             {onUpdateReminders && (
               <button onClick={() => setIsReminderModalOpen(true)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" aria-label="Hatırlatma ayarla">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">

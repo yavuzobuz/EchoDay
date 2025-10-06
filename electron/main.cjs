@@ -40,14 +40,23 @@ function createWindow() {
     // Open DevTools in development
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, dist folder is packaged with the app
+    // Production: Load from packaged dist folder
     const indexPath = path.join(__dirname, '../dist/index.html');
+    console.log('Production mode');
     console.log('Loading from:', indexPath);
     console.log('__dirname:', __dirname);
-    console.log('process.resourcesPath:', process.resourcesPath);
+    console.log('app.getAppPath():', app.getAppPath());
     
-    mainWindow.loadFile(indexPath).catch(err => {
+    mainWindow.loadFile(indexPath).then(() => {
+      console.log('Successfully loaded index.html');
+    }).catch(err => {
       console.error('Failed to load index.html:', err);
+      // Try alternative paths
+      const altPath = path.join(process.resourcesPath, 'app', 'dist', 'index.html');
+      console.log('Trying alternative path:', altPath);
+      mainWindow.loadFile(altPath).catch(err2 => {
+        console.error('Alternative path also failed:', err2);
+      });
     });
   }
   

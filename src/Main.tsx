@@ -600,8 +600,8 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
-                    <div className="lg:col-span-1">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
+                    <div className="lg:col-span-2">
                         {viewMode === 'list' ? (
                             <TodoList
                                 todos={todos}
@@ -616,7 +616,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                             <TimelineView todos={todos} />
                         )}
                     </div>
-                    <div className="lg:col-span-1 mt-4 lg:mt-0">
+                    <div className="lg:col-span-3 mt-4 lg:mt-0">
                        <DailyNotepad
                            notes={notes}
                            setNotes={setNotes}

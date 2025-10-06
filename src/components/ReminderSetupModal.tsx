@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ReminderConfig, ReminderType } from '../types';
+import { ReminderConfig } from '../types';
 
 interface ReminderSetupModalProps {
   isOpen: boolean;
@@ -17,7 +17,6 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
   onSave
 }) => {
   const [reminders, setReminders] = useState<ReminderConfig[]>(existingReminders);
-  const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
   const [customDateTime, setCustomDateTime] = useState<string>('');
   
   useEffect(() => {
@@ -49,7 +48,6 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
     };
     
     setReminders([...reminders, newReminder]);
-    setSelectedPreset(null);
   };
   
   const addCustomReminder = () => {

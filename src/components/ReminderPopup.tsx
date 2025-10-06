@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
+import { playReminderSound, ReminderSound } from '../utils/reminderSounds';
 
 interface ReminderPopupProps {
   message: string;
@@ -10,16 +11,24 @@ interface ReminderPopupProps {
   priority?: 'high' | 'medium';
 }
 
-const ReminderPopup: React.FC<ReminderPopupProps> = ({ message, onClose, onSnooze, taskId, reminderId, priority = 'medium' }) => {
+const ReminderPopup: React.FC<ReminderPopupProps> = ({ message, onClose, onSnooze, priority = 'medium' }) => {
   const tts = useTextToSpeech();
   const hasSpokenRef = useRef(false);
   const [showSnoozeOptions, setShowSnoozeOptions] = useState(false);
   
   useEffect(() => {
-    // Auto-speak reminder if TTS is enabled and hasn't spoken yet
-    if (tts.settings.enabled && tts.hasSupport && !hasSpokenRef.current) {
-      hasSpokenRef.current = true;
-      tts.speak(message);
+    const pref = (localStorage.getItem('reminderSound') as ReminderSound) || 'tts';
+    let stopSound: (() => void) | null = null;
+
+    if (pref === 'tts') {
+      // Auto-speak reminder if TTS is enabled
+      if (tts.settings.enabled && tts.hasSupport && !hasSpokenRef.current) {
+        hasSpokenRef.current = true;
+        tts.speak(message);
+      }
+    } else {
+      // Play selected alarm sound pattern
+      stopSound = playReminderSound(pref);
     }
     
     const timer = setTimeout(onClose, 10000); // Stays on screen for 10 seconds
@@ -28,6 +37,7 @@ const ReminderPopup: React.FC<ReminderPopupProps> = ({ message, onClose, onSnooz
       if (tts.isSpeaking) {
         tts.cancel();
       }
+      if (stopSound) stopSound();
     };
   }, [onClose, tts, message]);
 

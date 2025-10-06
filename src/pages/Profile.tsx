@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AccentColor } from '../App';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
+import { archiveService } from '../services/archiveService';
+import { DayStat } from '../types';
 
 interface ProfileProps {
   theme: 'light' | 'dark';
@@ -13,6 +15,8 @@ interface ProfileProps {
   setAssistantName: (name: string) => void;
   onNavigateBack: () => void;
   onShowWelcome: () => void;
+  followSystemTheme: boolean;
+  setFollowSystemTheme: (v: boolean) => void;
 }
 
 const accentColors: { name: AccentColor, className: string }[] = [
@@ -26,7 +30,9 @@ const Profile: React.FC<ProfileProps> = ({
   apiKey, setApiKey,
   assistantName, setAssistantName,
   onNavigateBack,
-  onShowWelcome
+  onShowWelcome,
+  followSystemTheme,
+  setFollowSystemTheme
 }) => {
   
   const [localApiKey, setLocalApiKey] = useState(apiKey);
@@ -35,6 +41,48 @@ const Profile: React.FC<ProfileProps> = ({
   const [localAssistantName, setLocalAssistantName] = useState(assistantName);
   const [notification, setNotification] = useState<string | null>(null);
   const tts = useTextToSpeech();
+
+  // Follow system theme toggle (stored in localStorage)
+  const [followSystem, setFollowSystem] = useState<boolean>(followSystemTheme);
+
+  // Usage stats
+  const [stats, setStats] = useState({
+    todayTotal: 0,
+    todayCompleted: 0,
+    weekTotal: 0,
+    weekCompleted: 0,
+  });
+  const [topCategories, setTopCategories] = useState<string[]>([]);
+  const [last7Days, setLast7Days] = useState<DayStat[]>([]);
+
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const currentTodos = JSON.parse(localStorage.getItem('todos') || '[]');
+        const today = new Date();
+        const dateStr = today.toISOString().split('T')[0];
+        const todaysCurrent = currentTodos.filter((t: any) => new Date(t.createdAt).toISOString().startsWith(dateStr));
+        const { todos: archivedToday } = await archiveService.getArchivedItemsForDate(dateStr);
+        const allToday = [...todaysCurrent, ...archivedToday];
+        const todayTotal = allToday.length;
+        const todayCompleted = allToday.filter((t: any) => t.completed).length;
+
+        const weekly = await archiveService.getPeriodicReport('week', currentTodos);
+        const dashboard = await archiveService.getDashboardStats(currentTodos);
+        setStats({
+          todayTotal,
+          todayCompleted,
+          weekTotal: weekly.totalTasks,
+          weekCompleted: weekly.completedTasks,
+        });
+        setTopCategories(weekly.topCategories?.slice(0, 5) || []);
+        setLast7Days(dashboard.last7Days || []);
+      } catch (e) {
+        console.error('Failed to load stats', e);
+      }
+    };
+    loadStats();
+  }, []);
 
   const handleSaveApiKey = (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,8 +136,9 @@ const Profile: React.FC<ProfileProps> = ({
                 <div className="flex items-center justify-between">
                     <label className="font-semibold text-lg">Görünüm</label>
                     <div className="flex items-center gap-2 p-1 bg-gray-200 dark:bg-gray-700 rounded-full">
-                    <button onClick={() => setTheme('light')} className={`px-3 py-1 rounded-full text-sm ${theme === 'light' ? 'bg-white shadow' : ''}`}>Açık</button>
-                    <button onClick={() => setTheme('dark')} className={`px-3 py-1 rounded-full text-sm ${theme === 'dark' ? 'bg-gray-800 text-white shadow' : ''}`}>Koyu</button>
+                      <button onClick={() => { setFollowSystem(false); setFollowSystemTheme(false); setTheme('light'); }} className={`px-3 py-1 rounded-full text-sm ${!followSystem && theme === 'light' ? 'bg-white shadow' : ''}`}>Açık</button>
+                      <button onClick={() => { setFollowSystem(false); setFollowSystemTheme(false); setTheme('dark'); }} className={`px-3 py-1 rounded-full text-sm ${!followSystem && theme === 'dark' ? 'bg-gray-800 text-white shadow' : ''}`}>Koyu</button>
+                      <button onClick={() => { setFollowSystem(true); setFollowSystemTheme(true); const media = window.matchMedia('(prefers-color-scheme: dark)'); setTheme(media.matches ? 'dark' : 'light'); }} className={`px-3 py-1 rounded-full text-sm ${followSystem ? 'bg-[var(--accent-color-600)] text-white shadow' : ''}`}>Sistem</button>
                     </div>
                 </div>
 
@@ -188,6 +237,164 @@ const Profile: React.FC<ProfileProps> = ({
                 )}
             </div>
 
+            {/* Data Backup & Import */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Veri Yedekleme ve İçe Aktarma</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Görevler, notlar ve sohbet geçmişinizi JSON olarak dışa aktarabilir veya geri yükleyebilirsiniz.</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                        onClick={async () => {
+                            try {
+                                const json = await archiveService.exportArchive();
+                                const blob = new Blob([json], { type: 'application/json' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `echoday-archive-${new Date().toISOString().slice(0,10)}.json`;
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                URL.revokeObjectURL(url);
+                                setNotification('Arşiv indirildi.');
+                                setTimeout(() => setNotification(null), 3000);
+                            } catch (e) {
+                                setNotification('Arşiv dışa aktarılamadı.');
+                                setTimeout(() => setNotification(null), 3000);
+                            }
+                        }}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                    >
+                        Arşivi Dışa Aktar
+                    </button>
+                    <button
+                        onClick={() => {
+                            try {
+                                const payload = {
+                                    exportedAt: new Date().toISOString(),
+                                    theme,
+                                    accentColor,
+                                    assistantName,
+                                    todos: JSON.parse(localStorage.getItem('todos') || '[]'),
+                                    notes: JSON.parse(localStorage.getItem('notes') || '[]'),
+                                    chatHistory: JSON.parse(localStorage.getItem('chatHistory') || '[]'),
+                                };
+                                const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                a.download = `echoday-backup-${new Date().toISOString().slice(0,10)}.json`;
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                URL.revokeObjectURL(url);
+                                setNotification('Veriler JSON olarak indirildi.');
+                                setTimeout(() => setNotification(null), 3000);
+                            } catch (e) {
+                                setNotification('Dışa aktarma başarısız.');
+                                setTimeout(() => setNotification(null), 3000);
+                            }
+                        }}
+                        className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)]"
+                    >
+                        JSON Dışa Aktar
+                    </button>
+                    <label className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 cursor-pointer inline-flex items-center justify-center">
+                        JSON İçe Aktar
+                        <input
+                            type="file"
+                            accept="application/json"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                    try {
+                                        const data = JSON.parse(reader.result as string);
+                                        if (Array.isArray(data.todos)) localStorage.setItem('todos', JSON.stringify(data.todos));
+                                        if (Array.isArray(data.notes)) localStorage.setItem('notes', JSON.stringify(data.notes));
+                                        if (Array.isArray(data.chatHistory)) localStorage.setItem('chatHistory', JSON.stringify(data.chatHistory));
+                                        setNotification('Veriler içe aktarıldı. Ana sayfada görüntüleyebilirsiniz.');
+                                        setTimeout(() => setNotification(null), 3000);
+                                    } catch {
+                                        setNotification('Geçersiz JSON dosyası.');
+                                        setTimeout(() => setNotification(null), 3000);
+                                    }
+                                };
+                                reader.readAsText(file);
+                            }}
+                            className="hidden"
+                        />
+                    </label>
+                    <button
+                        onClick={() => {
+                            if (confirm('Tüm görevleri, notları ve sohbet geçmişini temizlemek istediğinize emin misiniz? Bu işlem geri alınamaz.')) {
+                                localStorage.removeItem('todos');
+                                localStorage.removeItem('notes');
+                                localStorage.removeItem('chatHistory');
+                                setNotification('Veriler temizlendi.');
+                                setTimeout(() => setNotification(null), 3000);
+                            }
+                        }}
+                        className="px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-900/70"
+                    >
+                        Tüm Verileri Temizle
+                    </button>
+                </div>
+            </div>
+
+            {/* Usage Stats */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Kullanım İstatistikleri</h2>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+                        <div className="text-gray-500 dark:text-gray-400">Bugün</div>
+                        <div className="mt-1 font-semibold text-lg">{stats.todayCompleted}/{stats.todayTotal} tamamlandı</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Oran: {stats.todayTotal ? Math.round((stats.todayCompleted / stats.todayTotal) * 100) : 0}%</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+                        <div className="text-gray-500 dark:text-gray-400">Son 7 Gün</div>
+                        <div className="mt-1 font-semibold text-lg">{stats.weekCompleted}/{stats.weekTotal} tamamlandı</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">Oran: {stats.weekTotal ? Math.round((stats.weekCompleted / stats.weekTotal) * 100) : 0}%</div>
+                    </div>
+                </div>
+
+                {/* Top Categories & 7-day sparkline */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                    <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+                        <div className="text-sm font-semibold mb-2">En Aktif Kategoriler</div>
+                        {topCategories.length > 0 ? (
+                            <div className="flex flex-wrap gap-2">
+                                {topCategories.map((cat) => (
+                                    <span key={cat} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-[var(--accent-color-100)] text-[var(--accent-color-700)] dark:bg-gray-700 dark:text-gray-200 border border-[var(--accent-color-300)]/50">
+                                        {cat}
+                                    </span>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">Veri yok</div>
+                        )}
+                    </div>
+                    <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
+                        <div className="text-sm font-semibold mb-2">7 Günlük Aktivite</div>
+                        {last7Days.length > 0 ? (
+                          <div className="h-24 flex items-end gap-1">
+                            {(() => {
+                              const max = Math.max(1, ...last7Days.map(d => d.count));
+                              return last7Days.map((d) => (
+                                <div key={d.date} className="flex-1 flex flex-col items-center">
+                                  <div className="w-full bg-[var(--accent-color-600)]/70 dark:bg-[var(--accent-color-600)]/80 rounded-t-md" style={{ height: `${(d.count / max) * 88}%` }}></div>
+                                  <span className="mt-1 text-[10px] text-gray-500 dark:text-gray-400">{new Date(d.date).toLocaleDateString('tr-TR', { day: '2-digit' })}</span>
+                                </div>
+                              ));
+                            })()}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">Veri yok</div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
             {/* Assistant Settings */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Asistan Ayarları</h2>
@@ -226,6 +433,44 @@ const Profile: React.FC<ProfileProps> = ({
                     >
                         {tts.settings.enabled ? '✓ Aktif' : 'Devre Dışı'}
                     </button>
+                </div>
+
+                {/* Reminder sound selection */}
+                <div className="pt-4 border-t dark:border-gray-700">
+                    <h3 className="font-semibold mb-2">Hatırlatma Sesi</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
+                            <input
+                                type="radio"
+                                name="reminderSound"
+                                defaultChecked={(localStorage.getItem('reminderSound') || 'tts') === 'tts'}
+                                onChange={() => localStorage.setItem('reminderSound', 'tts')}
+                            />
+                            <span>Sesli hatırlatma (TTS)</span>
+                        </label>
+                        <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
+                            <label className="flex items-center gap-2 flex-1">
+                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem('reminderSound') === 'alarm1'} onChange={() => localStorage.setItem('reminderSound', 'alarm1')} />
+                                <span>Alarm 1</span>
+                            </label>
+                            <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm1'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
+                            <label className="flex items-center gap-2 flex-1">
+                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem('reminderSound') === 'alarm2'} onChange={() => localStorage.setItem('reminderSound', 'alarm2')} />
+                                <span>Alarm 2</span>
+                            </label>
+                            <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm2'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
+                        </div>
+                        <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
+                            <label className="flex items-center gap-2 flex-1">
+                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem('reminderSound') === 'alarm3'} onChange={() => localStorage.setItem('reminderSound', 'alarm3')} />
+                                <span>Alarm 3</span>
+                            </label>
+                            <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm3'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
+                        </div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 md:col-span-2">Not: TTS seçeneği açık olsa da cihazınız sessizdeyse konuşma duyulmayabilir. Alarm sesleri Web Audio ile üretilir ve kısa bildirim tonlarıdır.</p>
+                    </div>
                 </div>
 
                 {tts.hasSupport ? (

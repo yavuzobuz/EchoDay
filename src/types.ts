@@ -14,6 +14,7 @@ export interface AIMetadata {
   routingOrigin?: string;
   routingInfo?: string;
   isConflict?: boolean;
+  tags?: string[];
 }
 
 // FIX: Define a specific type for the data returned by the task analysis AI call.
