@@ -64,7 +64,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
           setNotePrompt('');
           setSpeakingMessageIndex(null);
       }
-  }, [isOpen, isListening, stopListening, tts]);
+  }, [isOpen, isListening, stopListening, tts.isSpeaking, tts.cancel]);
   
   const handleSpeakMessage = useCallback((text: string, index: number) => {
     if (speakingMessageIndex === index) {
