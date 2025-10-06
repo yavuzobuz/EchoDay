@@ -46,12 +46,12 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
   }, []);
   
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 dark:from-gray-950 dark:via-blue-950 dark:to-purple-950 text-gray-900 dark:text-gray-100 p-4 transition-colors duration-300 overflow-hidden relative">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[hsl(var(--gradient-from))] via-[hsl(var(--gradient-via))] to-[hsl(var(--gradient-to))] text-[hsl(var(--foreground))] p-4 transition-colors duration-300 overflow-hidden relative">
       {/* Animated Background Gradient */}
       <div 
         className="absolute inset-0 opacity-30 dark:opacity-20 pointer-events-none"
         style={{
-          background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(99, 102, 241, 0.15), transparent 40%)`
+          background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, hsl(var(--primary) / 0.15), transparent 40%)`
         }}
       />
       
@@ -60,7 +60,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
         {[...Array(20)].map((_, i) => (
           <div
             key={i}
-            className="absolute w-2 h-2 bg-[var(--accent-color-400)] rounded-full opacity-20 animate-float"
+            className="absolute w-2 h-2 bg-[hsl(var(--primary))] rounded-full opacity-20 animate-float"
             style={{
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
@@ -73,14 +73,14 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
       
       <div className="text-center max-w-7xl mx-auto relative z-10">
         {/* Logo with pulse animation - BÜYÜTÜLDÜ */}
-        <div className={`inline-block p-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-3xl mb-8 shadow-2xl transform transition-all duration-1000 ${
+        <div className={`inline-block p-8 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-3xl mb-8 glow-primary transform transition-all duration-1000 ${
           isLoaded ? 'scale-100 opacity-100 rotate-0' : 'scale-0 opacity-0 rotate-180'
         }`}>
-          <Logo className="w-32 h-32 text-[var(--accent-color-600)] animate-pulse" />
+          <Logo className="w-32 h-32 animate-pulse" />
         </div>
         
         {/* Main Title with gradient animation */}
-        <h1 className={`text-6xl sm:text-7xl md:text-8xl font-black mb-4 bg-gradient-to-r from-[var(--accent-color-500)] via-purple-600 to-pink-600 bg-clip-text text-transparent animate-gradient-x transform transition-all duration-1000 ${
+        <h1 className={`text-6xl sm:text-7xl md:text-8xl font-black mb-4 gradient-text animate-gradient-x transform transition-all duration-1000 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           EchoDay
@@ -90,28 +90,28 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
         <div className={`flex items-center justify-center gap-3 mb-4 transform transition-all duration-1000 delay-200 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
-          <svg className="w-10 h-10 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+          <svg className="w-10 h-10 text-[hsl(var(--accent))]" fill="currentColor" viewBox="0 0 20 20">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
-          <p className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gray-700 to-gray-900 dark:from-gray-200 dark:to-gray-400">
+          <p className="text-3xl md:text-4xl font-bold text-[hsl(var(--foreground))]">
             Gününüzün Yankısı
           </p>
         </div>
         
         {/* Description with fade in */}
-        <p className={`text-lg md:text-xl text-gray-700 dark:text-gray-300 mb-12 max-w-3xl mx-auto leading-relaxed transform transition-all duration-1000 delay-300 ${
+        <p className={`text-lg md:text-xl text-[hsl(var(--muted-foreground))] mb-12 max-w-3xl mx-auto leading-relaxed transform transition-all duration-1000 delay-300 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
-          <span className="inline-flex items-center gap-2 font-semibold text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)]">
+          <span className="inline-flex items-center gap-2 font-semibold text-[hsl(var(--primary))]">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path d="M13 7H7v6h6V7z" />
               <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
             </svg>
             AI destekli
           </span> sesli komutlar, 
-          <span className="font-semibold text-purple-600 dark:text-purple-400">akıllı öneriler</span> ve 
-          <span className="font-semibold text-pink-600 dark:text-pink-400">güçlü analiz</span> özellikleriyle 
-          verimliliğinizi <span className="font-bold underline decoration-wavy decoration-[var(--accent-color-500)]">üst seviyeye</span> çıkarın.
+          <span className="font-semibold text-[hsl(var(--accent))]">akıllı öneriler</span> ve 
+          <span className="font-semibold text-[hsl(var(--primary))]">güçlü analiz</span> özellikleriyle 
+          verimliliğinizi <span className="font-bold underline decoration-wavy decoration-[hsl(var(--primary))]">üst seviyeye</span> çıkarın.
         </p>
 
         {/* Features Grid with stagger animation */}
@@ -294,15 +294,14 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
           </button>
 
           <a
-            href="https://github.com/yavuzobuz/EchoDay/releases/tag/v1.0.0"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/Sesli.Gunluk.Planlayici.exe"
             className="group inline-flex items-center gap-3 px-12 py-6 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xl font-bold rounded-2xl shadow-2xl hover:shadow-gray-700/50 transition-all duration-300 transform hover:scale-105 border-2 border-gray-700 dark:border-gray-600 hover:border-gray-600"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-y-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            <span>Masaüstü İndir</span>
+            <span>Windows İçin İndir</span>
+            <span className="text-sm font-normal opacity-75">(201 MB)</span>
           </a>
         </div>
 
