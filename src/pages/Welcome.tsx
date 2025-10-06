@@ -294,7 +294,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
           </button>
 
           <a
-            href="https://github.com/yavuzobuz/EchoDay/releases/tag/untagged-f6c63d3f235128100f77"
+            href="https://github.com/yavuzobuz/EchoDay/releases/tag/v1.0.0"
             target="_blank"
             rel="noopener noreferrer"
             className="group inline-flex items-center gap-3 px-12 py-6 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xl font-bold rounded-2xl shadow-2xl hover:shadow-gray-700/50 transition-all duration-300 transform hover:scale-105 border-2 border-gray-700 dark:border-gray-600 hover:border-gray-600"
