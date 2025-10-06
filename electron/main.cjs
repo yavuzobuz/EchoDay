@@ -81,18 +81,48 @@ function createWindow() {
     console.log('Loading from:', indexPath);
     console.log('__dirname:', __dirname);
     console.log('app.getAppPath():', app.getAppPath());
+    console.log('process.resourcesPath:', process.resourcesPath);
     
-    mainWindow.loadFile(indexPath).then(() => {
-      console.log('Successfully loaded index.html');
-    }).catch(err => {
-      console.error('Failed to load index.html:', err);
-      // Try alternative paths
-      const altPath = path.join(process.resourcesPath, 'app', 'dist', 'index.html');
-      console.log('Trying alternative path:', altPath);
-      mainWindow.loadFile(altPath).catch(err2 => {
-        console.error('Alternative path also failed:', err2);
+    // Check if file exists
+    if (fs.existsSync(indexPath)) {
+      console.log('File exists at primary path');
+      mainWindow.loadFile(indexPath).then(() => {
+        console.log('Successfully loaded index.html');
+      }).catch(err => {
+        console.error('Failed to load index.html:', err);
+        mainWindow.loadURL(`file://${indexPath}`);
       });
-    });
+    } else {
+      console.log('File not found at primary path, trying alternative paths...');
+      // Try alternative paths for portable build
+      const paths = [
+        path.join(process.resourcesPath, 'app', 'dist', 'index.html'),
+        path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html'),
+        path.join(__dirname, '..', '..', 'dist', 'index.html'),
+        path.join(app.getAppPath(), 'dist', 'index.html')
+      ];
+      
+      let loaded = false;
+      for (const altPath of paths) {
+        console.log('Trying path:', altPath);
+        if (fs.existsSync(altPath)) {
+          console.log('File found at:', altPath);
+          mainWindow.loadFile(altPath).then(() => {
+            console.log('Successfully loaded from:', altPath);
+            loaded = true;
+          }).catch(err => {
+            console.error('Failed to load from:', altPath, err);
+          });
+          break;
+        }
+      }
+      
+      if (!loaded) {
+        console.error('Could not find index.html in any expected location');
+        // Show error in window
+        mainWindow.loadURL('data:text/html,<h1>Error: Could not find application files</h1><p>Please check the console for details.</p>');
+      }
+    }
   }
   
   // Show window when ready
