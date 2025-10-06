@@ -3,9 +3,10 @@ import useLocalStorage from './hooks/useLocalStorage';
 import Welcome from './pages/Welcome';
 import Main from './Main';
 import Profile from './pages/Profile';
+import Auth from './pages/Auth';
 
 export type AccentColor = 'blue' | 'green' | 'red';
-type View = 'welcome' | 'main' | 'profile';
+type View = 'welcome' | 'main' | 'profile' | 'auth';
 
 const App: React.FC = () => {
   const [theme, setTheme] = useLocalStorage<'light' | 'dark'>('theme', 'dark');
@@ -77,7 +78,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch(view) {
       case 'welcome':
-        return <Welcome onGetStarted={handleGetStarted} />;
+        return <Welcome onGetStarted={handleGetStarted} onNavigateToAuth={() => setView('auth')} />;
       case 'profile':
         return (
           <Profile
@@ -94,6 +95,10 @@ const App: React.FC = () => {
             onNavigateBack={() => setView('main')}
             onShowWelcome={() => setView('welcome')}
           />
+        );
+      case 'auth':
+        return (
+          <Auth onNavigateBack={() => setView('welcome')} onAuthSuccess={() => setView('main')} />
         );
       case 'main':
       default:

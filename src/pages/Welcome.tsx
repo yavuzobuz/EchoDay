@@ -3,6 +3,7 @@ import Logo from '../components/Logo';
 
 interface WelcomeProps {
   onGetStarted: () => void;
+  onNavigateToAuth?: () => void;
 }
 
 const Feature: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode; delay: number }> = ({ icon, title, children, delay }) => {
@@ -30,7 +31,7 @@ const Feature: React.FC<{ icon: React.ReactNode; title: string; children: React.
 };
 
 
-const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
+const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentScene, setCurrentScene] = useState(0);
@@ -99,6 +100,15 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
           <Logo className="w-32 h-32 animate-pulse" />
         </div>
         
+        {/* Auth link */}
+        <div className={`mb-3 transform transition-all duration-1000 ${
+          isLoaded ? 'opacity-100' : 'opacity-0'
+        }`}>
+          {onNavigateToAuth && (
+            <button onClick={onNavigateToAuth} className="text-sm text-[hsl(var(--accent))] hover:underline">Hesabın var mı? Giriş yap</button>
+          )}
+        </div>
+
         {/* Main Title with gradient animation */}
         <h1 className={`text-6xl sm:text-7xl md:text-8xl font-black mb-4 gradient-text animate-gradient-x transform transition-all duration-1000 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
