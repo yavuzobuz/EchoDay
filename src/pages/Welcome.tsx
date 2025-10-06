@@ -33,7 +33,10 @@ const Feature: React.FC<{ icon: React.ReactNode; title: string; children: React.
 const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
+  const [currentScene, setCurrentScene] = useState(0);
   
+  const scenes = 3; // Toplam sahne sayısı
+
   useEffect(() => {
     setIsLoaded(true);
     
@@ -44,6 +47,23 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
+
+  // Otomatik sahne değişimi - Her 5 saniyede bir
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentScene((prev) => (prev + 1) % scenes);
+    }, 5000); // 5000ms = 5 saniye
+
+    return () => clearInterval(interval);
+  }, [scenes]);
+
+  const nextScene = () => {
+    setCurrentScene((prev) => (prev + 1) % scenes);
+  };
+
+  const prevScene = () => {
+    setCurrentScene((prev) => (prev - 1 + scenes) % scenes);
+  };
   
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[hsl(var(--gradient-from))] via-[hsl(var(--gradient-via))] to-[hsl(var(--gradient-to))] text-[hsl(var(--foreground))] p-4 transition-colors duration-300 overflow-hidden relative">
@@ -146,11 +166,26 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
           </Feature>
         </div>
         
-        {/* App Preview Mockup - MODERN TASARİM */}
+        {/* App Preview Mockup - 3 SAHNE */}
         <div className={`mb-16 transform transition-all duration-1000 delay-500 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           <div className="relative max-w-6xl mx-auto">
+            {/* Navigation Arrows */}
+            <button 
+              onClick={prevScene}
+              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
+              aria-label="Önceki sahne"
+            >
+              <svg className="w-6 h-6 text-[hsl(var(--foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <button 
+              onClick={nextScene}
+              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
+              aria-label="Sonraki sahne"
+            >
+              <svg className="w-6 h-6 text-[hsl(var(--foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+            </button>
             {/* Modern App Window - Resimdeki gibi */}
             <div className="bg-[hsl(var(--card))] rounded-2xl shadow-2xl overflow-hidden border border-[hsl(var(--border))]">
               {/* Window Header - macOS tarzı */}
@@ -174,8 +209,11 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
                 </div>
               </div>
               
-              {/* App Content - Resimdeki layout */}
-              <div className="p-6 space-y-6">
+              {/* App Content - Sahneler */}
+              <div className="p-6 space-y-6 min-h-[600px]">
+                {/* SAHNE 1: Ana Ekran */}
+                {currentScene === 0 && (
+                  <>
                 {/* Top Action Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Sesli Görev Ekle Card */}
@@ -212,7 +250,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
                   </div>
                 </div>
 
-                {/* Görevlerim Section */}
+                {/* Görevlerim Section - Sadece Task 1 */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
@@ -238,7 +276,48 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
                       </div>
                     </div>
 
-                    {/* Task 2 */}
+                  </div>
+                </div>
+                  </>
+                )}
+
+                {/* SAHNE 2: AI Asistan Sohbet */}
+                {currentScene === 1 && (
+                  <>
+                {/* Görevlerim Section - Task 2 görünür */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
+                      ⭐ Görevlerim
+                      <span className="text-xs bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-2 py-0.5 rounded-full">Bugün</span>
+                    </h2>
+                  </div>
+
+                  {/* Task Items */}
+                  <div className="space-y-2">
+                    {/* Task 2 - AI Asistan ile eklenen */}
+                    <div className="bg-[hsl(var(--muted))] rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <input type="checkbox" className="mt-1 w-4 h-4 rounded" />
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-[hsl(var(--foreground))]">hastane randevusu saat 12.35'te boğaz kontrolü diş kontrolü için hastaneye gidilecek</h3>
+                          <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">Zaman: 6 Eki 2025 12:35</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button className="p-1 hover:bg-[hsl(var(--background))] rounded" title="Paylaş">
+                            <svg className="w-4 h-4 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                          </button>
+                          <button className="p-1 hover:bg-[hsl(var(--background))] rounded" title="Düzenle">
+                            <svg className="w-4 h-4 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                          </button>
+                          <button className="p-1 hover:bg-[hsl(var(--background))] rounded" title="Sil">
+                            <svg className="w-4 h-4 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Task 3 */}
                     <div className="bg-[hsl(var(--muted))] rounded-lg p-4">
                       <div className="flex items-start gap-3">
                         <input type="checkbox" className="mt-1 w-4 h-4 rounded" />
@@ -248,6 +327,112 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* AI Asistan Sohbet Section - SAHNE 2 */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
+                      🤖 AI Asistan
+                    </h2>
+                    <button className="p-1 hover:bg-[hsl(var(--muted))] rounded" title="Kapat">
+                      <svg className="w-5 h-5 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+
+                  {/* Chat Messages */}
+                  <div className="space-y-3">
+                    {/* User Message */}
+                    <div className="flex justify-end">
+                      <div className="bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
+                        <p className="text-sm">hastane randevusu saat 12.35'te boğaz kontrolü diş kontrolü için hastaneye gidilecek</p>
+                      </div>
+                    </div>
+
+                    {/* AI Response */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[hsl(var(--accent))] flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-[hsl(var(--accent-foreground))]" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M13 7H7v6h6V7z" />
+                          <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%]">
+                        <p className="text-sm text-[hsl(var(--foreground))]">Elbette, "hastane randevusu saat 12.35'te boğaz kontrolü diş kontrolü için hastaneye gidilecek" görevi listeye eklendi.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chat Input */}
+                  <div className="flex gap-2 pt-2 border-t border-[hsl(var(--border))]">
+                    <input 
+                      type="text" 
+                      placeholder="Mesajınızı yazın..."
+                      className="flex-1 px-4 py-2 bg-[hsl(var(--input))] text-[hsl(var(--foreground))] rounded-lg border border-[hsl(var(--border))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))] text-sm" 
+                    />
+                    <button className="p-2 bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors" title="Sesli mesaj">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                    </button>
+                    <button className="p-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:bg-[hsl(var(--primary)_/_0.9)] transition-colors" title="Gönder">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
+                  </div>
+                </div>
+
+                  </>
+                )}
+
+                {/* SAHNE 3: Not Defteri */}
+                {currentScene === 2 && (
+                  <>
+                {/* AI Asistan Sohbet Section - Kapatılmış */}
+                <div className="space-y-3" style={{ display: 'none' }}>
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
+                      🤖 AI Asistan
+                    </h2>
+                    <button className="p-1 hover:bg-[hsl(var(--muted))] rounded" title="Kapat">
+                      <svg className="w-5 h-5 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+
+                  {/* Chat Messages */}
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {/* User Message */}
+                    <div className="flex justify-end">
+                      <div className="bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%]">
+                        <p className="text-sm">hastane randevusu saat 12.35'te boğaz kontrolü diş kontrolü için hastaneye gidilecek</p>
+                      </div>
+                    </div>
+
+                    {/* AI Response */}
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-[hsl(var(--accent))] flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-[hsl(var(--accent-foreground))]" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M13 7H7v6h6V7z" />
+                          <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%]">
+                        <p className="text-sm text-[hsl(var(--foreground))]">Elbette, "hastane randevusu saat 12.35'te boğaz kontrolü diş kontrolü için hastaneye gidilecek" görevi listeye eklendi.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Chat Input */}
+                  <div className="flex gap-2 pt-2 border-t border-[hsl(var(--border))]">
+                    <input 
+                      type="text" 
+                      placeholder="Mesajınızı yazın..."
+                      className="flex-1 px-4 py-2 bg-[hsl(var(--input))] text-[hsl(var(--foreground))] rounded-lg border border-[hsl(var(--border))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))] text-sm" 
+                    />
+                    <button className="p-2 bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors" title="Sesli mesaj">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                    </button>
+                    <button className="p-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:bg-[hsl(var(--primary)_/_0.9)] transition-colors" title="Gönder">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </button>
                   </div>
                 </div>
 
@@ -306,7 +491,25 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted }) => {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                   </button>
                 </div>
+                  </>
+                )}
               </div>
+            </div>
+            
+            {/* Scene Indicator Dots */}
+            <div className="flex justify-center gap-2 mt-6">
+              {[0, 1, 2].map((scene) => (
+                <button
+                  key={scene}
+                  onClick={() => setCurrentScene(scene)}
+                  className={`w-3 h-3 rounded-full transition-all ${
+                    currentScene === scene 
+                      ? 'bg-[hsl(var(--primary))] w-8' 
+                      : 'bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted-foreground))]'
+                  }`}
+                  aria-label={`Sahne ${scene + 1}`}
+                />
+              ))}
             </div>
             
             {/* Floating elements around preview */}
