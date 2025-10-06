@@ -48,6 +48,15 @@ export interface ReminderConfig {
   snoozedCount?: number;
 }
 
+export type RecurrenceFrequency = 'daily' | 'weekly' | 'monthly';
+export interface RecurrenceRule {
+  frequency: RecurrenceFrequency;
+  interval: number; // 1 = her gün/hafta/ay
+  byWeekday?: number[]; // weekly için: 0-6 (Pazar=0)
+  ends?: { type: 'never' | 'on' | 'count'; onDate?: string; count?: number };
+  occurrencesDone?: number; // iç sayaç
+}
+
 export interface Todo {
   id: string;
   text: string;
@@ -57,6 +66,8 @@ export interface Todo {
   createdAt: string;
   aiMetadata?: AIMetadata;
   reminders?: ReminderConfig[];
+  recurrence?: RecurrenceRule; // yinelenen görev
+  parentId?: string; // ilk görevin id’si
 }
 
 export interface Note {

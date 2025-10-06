@@ -11,7 +11,7 @@ interface HeaderProps {
   onShowWelcome?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ theme, setTheme, accentColor, setAccentColor, onNavigateToProfile, onShowWelcome }) => {
+const Header: React.FC<HeaderProps> = ({ onNavigateToProfile, onShowWelcome }) => {
   return (
     <header className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm p-2 sticky top-0 z-40 flex justify-between items-center border-b border-gray-200 dark:border-gray-800 px-4">
       <div className="flex items-center gap-3">

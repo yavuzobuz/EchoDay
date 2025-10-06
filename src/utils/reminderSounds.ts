@@ -33,7 +33,6 @@ export function playReminderSound(kind: ReminderSound): () => void {
   // Stop any previous
   if (stopCurrent) stopCurrent();
 
-  const stops: number[] = [];
 
   const pushPattern = (pattern: Array<{ f: number; d: number; t?: OscillatorType; v?: number }>, repeat = 1, gapMs = 120) => {
     for (let r = 0; r < repeat; r++) {
@@ -48,17 +47,17 @@ export function playReminderSound(kind: ReminderSound): () => void {
   if (kind === 'alarm1') {
     // Soft chime pattern
     const pat = [
-      { f: 880, d: 180, t: 'sine' },
-      { f: 660, d: 180, t: 'sine' },
-      { f: 523.25, d: 260, t: 'triangle' },
+      { f: 880, d: 180, t: 'sine' as OscillatorType },
+      { f: 660, d: 180, t: 'sine' as OscillatorType },
+      { f: 523.25, d: 260, t: 'triangle' as OscillatorType },
     ];
     pushPattern(pat, 4, 140);
   } else if (kind === 'alarm2') {
     // Digital bell pattern
     const pat = [
-      { f: 1200, d: 100, t: 'square', v: 0.18 },
-      { f: 1000, d: 100, t: 'square', v: 0.18 },
-      { f: 800, d: 150, t: 'square', v: 0.18 },
+      { f: 1200, d: 100, t: 'square' as OscillatorType, v: 0.18 },
+      { f: 1000, d: 100, t: 'square' as OscillatorType, v: 0.18 },
+      { f: 800, d: 150, t: 'square' as OscillatorType, v: 0.18 },
     ];
     pushPattern(pat, 6, 90);
   } else if (kind === 'alarm3') {
@@ -69,9 +68,8 @@ export function playReminderSound(kind: ReminderSound): () => void {
     }
   }
 
-  const endTime = when;
   const stopper = () => {
-    try { if (context && context.close) { /* don't close to reuse */ } } catch {}
+    try { if (context) { /* don't close to reuse */ } } catch {}
   };
   stopCurrent = stopper;
   return stopper;

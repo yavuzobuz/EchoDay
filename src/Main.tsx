@@ -53,6 +53,9 @@ type ViewMode = 'list' | 'timeline';
 const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, onNavigateToProfile, onShowWelcome }) => {
     const [todos, setTodos] = useLocalStorage<Todo[]>('todos', []);
     const [notes, setNotes] = useLocalStorage<Note[]>('notes', []);
+
+    // Supabase sync (optional)
+    const supabaseUserId = React.useMemo(() => localStorage.getItem('supabase-user-id') || '', []);
     const [chatHistory, setChatHistory] = useLocalStorage<ChatMessage[]>('chatHistory', []);
     const [showInfoBanner, setShowInfoBanner] = useLocalStorage<boolean>('show-info-banner', true);
     
@@ -206,8 +209,59 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         }
     }, [apiKey, setTodos, checkApiKey]);
     
+    const createNextOccurrence = (todo: Todo): Todo | null => {
+        if (!todo.recurrence) return null;
+        const rule = todo.recurrence;
+        const base = todo.datetime ? new Date(todo.datetime) : new Date();
+        let next = new Date(base);
+        if (rule.frequency === 'daily') {
+            next.setDate(base.getDate() + (rule.interval || 1));
+        } else if (rule.frequency === 'weekly') {
+            if (rule.byWeekday && rule.byWeekday.length > 0) {
+                // find next weekday
+                const currentDow = base.getDay();
+                const sorted = [...rule.byWeekday].sort((a,b)=>a-b);
+                const after = sorted.find(d => d > currentDow);
+                const target = after ?? (sorted[0] + 7);
+                const delta = target - currentDow;
+                next.setDate(base.getDate() + delta);
+            } else {
+                next.setDate(base.getDate() + 7 * (rule.interval || 1));
+            }
+        } else if (rule.frequency === 'monthly') {
+            next.setMonth(base.getMonth() + (rule.interval || 1));
+        }
+        const occurrencesDone = (rule.occurrencesDone || 0) + 1;
+        if (rule.ends?.type === 'count' && rule.ends.count && occurrencesDone >= rule.ends.count) {
+            return null; // stop creating new ones
+        }
+        if (rule.ends?.type === 'on' && rule.ends.onDate) {
+            const end = new Date(rule.ends.onDate);
+            if (next > end) return null;
+        }
+        const newTodo: Todo = {
+            ...todo,
+            id: uuidv4(),
+            completed: false,
+            createdAt: new Date().toISOString(),
+            datetime: todo.datetime ? next.toISOString() : null,
+            recurrence: { ...rule, occurrencesDone },
+            reminders: (todo.reminders || []).map(r => ({ ...r, triggered: false })),
+            parentId: todo.parentId || todo.id,
+        };
+        return newTodo;
+    };
+
     const handleToggleTodo = (id: string) => {
-        setTodos(todos.map(todo => todo.id === id ? { ...todo, completed: !todo.completed } : todo));
+        setTodos(prev => prev.flatMap(todo => {
+            if (todo.id !== id) return [todo];
+            const toggled = { ...todo, completed: !todo.completed } as Todo;
+            if (!todo.completed && toggled.completed) {
+                const next = createNextOccurrence(toggled);
+                return next ? [toggled, next] : [toggled];
+            }
+            return [toggled];
+        }));
     };
 
     const handleDeleteTodo = (id: string) => {
@@ -225,6 +279,15 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             setTodoForDirections(todo);
             setIsLocationPromptOpen(true);
         }
+    };
+
+  const handleExportICS = () => {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const events = todos.filter(t => !!t.datetime).map(t => ({ id: t.id, title: t.text, start: t.datetime, durationMinutes: t.aiMetadata?.estimatedDuration || 60 }));
+        import('./utils/ics' /* webpackChunkName: "ics" */).then(({ generateICS, downloadICS }) => {
+            const ics = generateICS(events, { calendarName: 'EchoDay', timezone: tz });
+            downloadICS(`echoday-${new Date().toISOString().slice(0,10)}`, ics);
+        });
     };
 
     const handleLocationSubmit = async (origin: string) => {
@@ -459,6 +522,69 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         }
     }, [lastArchiveDate, notes, setLastArchiveDate, setNotes, setTodos, todos]);
 
+    // Daily summary notifier
+    useEffect(() => {
+        const getSetting = () => (localStorage.getItem('daily-summary-time') || '08:00');
+        const check = () => {
+            const time = getSetting();
+            const [hh, mm] = time.split(':').map(Number);
+            const now = new Date();
+            const key = 'daily-summary-last';
+            const today = now.toISOString().split('T')[0];
+            const last = localStorage.getItem(key);
+            if (last === today) return;
+            if (now.getHours() === (hh || 8) && Math.abs(now.getMinutes() - (mm || 0)) < 2) {
+                const pending = todos.filter(t => !t.completed).length;
+                const overdue = todos.filter(t => !t.completed && t.datetime && new Date(t.datetime) < now).length;
+                setNotification({ message: `Günaydın! ${pending} görev, ${overdue} gecikmiş. Başlayalım mı?`, type: 'success' });
+                localStorage.setItem(key, today);
+            }
+        };
+        const interval = setInterval(check, 60 * 1000);
+        check();
+        return () => clearInterval(interval);
+    }, [todos]);
+
+    // Push todos/notes to Supabase on change (if configured)
+    useEffect(() => {
+        (async () => {
+            try {
+                const { supabase, upsertTodos, upsertNotes } = await import('./services/supabaseClient');
+                if (!supabase || !supabaseUserId) return;
+                await upsertTodos(supabaseUserId, todos);
+                await upsertNotes(supabaseUserId, notes);
+            } catch {}
+        })();
+    }, [todos, notes, supabaseUserId]);
+
+    // Supabase initial fetch (if configured)
+    useEffect(() => {
+        (async () => {
+            try {
+                const { supabase, fetchAll } = await import('./services/supabaseClient');
+                if (!supabase || !supabaseUserId) return;
+                const remote = await fetchAll(supabaseUserId);
+                if (remote.todos.length || remote.notes.length) {
+                    // naive merge: prefer newer createdAt
+                    const byId: any = {};
+                    [...todos, ...remote.todos].forEach((t: any) => {
+                        const cur = byId[t.id];
+                        if (!cur || new Date(t.createdAt) > new Date(cur.createdAt)) byId[t.id] = t;
+                    });
+                    setTodos(Object.values(byId));
+
+                    const byN: any = {};
+                    [...notes, ...remote.notes].forEach((n: any) => {
+                        const cur = byN[n.id];
+                        if (!cur || new Date(n.createdAt) > new Date(cur.createdAt)) byN[n.id] = n;
+                    });
+                    setNotes(Object.values(byN));
+                }
+            } catch {}
+        })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Request notification permission on mount
     useEffect(() => {
         if ('Notification' in window && Notification.permission === 'default') {
@@ -591,6 +717,11 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                                 <span className="hidden sm:inline">Arşivi Görüntüle</span>
                                 <span className="sm:hidden">Arşiv</span>
+                            </button>
+                            <button onClick={handleExportICS} className="inline-flex items-center gap-1 text-xs sm:text-sm text-gray-500 hover:text-[var(--accent-color-600)] dark:hover:text-[var(--accent-color-400)] hover:underline">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v11a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3zm0 5h14v9H3V8z" clipRule="evenodd" /></svg>
+                                <span className="hidden sm:inline">Takvime Dışa Aktar (.ics)</span>
+                                <span className="sm:hidden">ICS</span>
                             </button>
                         </div>
                     </div>

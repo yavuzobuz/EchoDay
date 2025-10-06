@@ -142,6 +142,17 @@ const Profile: React.FC<ProfileProps> = ({
                     </div>
                 </div>
 
+                {/* Daily summary time */}
+                <div className="flex items-center justify-between">
+                    <label className="font-semibold text-lg">Gün Başı Özeti Saati</label>
+                    <input
+                        type="time"
+                        defaultValue={localStorage.getItem('daily-summary-time') || '08:00'}
+                        onChange={(e) => localStorage.setItem('daily-summary-time', e.target.value || '08:00')}
+                        className="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                </div>
+
                 <div className="flex items-center justify-between">
                     <label className="font-semibold text-lg">Vurgu Rengi</label>
                     <div className="flex items-center gap-3">
@@ -235,6 +246,21 @@ const Profile: React.FC<ProfileProps> = ({
                         </div>
                     </div>
                 )}
+            </div>
+
+            {/* Supabase (Geçici) Kullanıcı ID */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-3">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Senkronizasyon</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Supabase senkronu için geçici kullanıcı ID girin (gerçek oturum açma sonraki adımda eklenecek).</p>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        defaultValue={localStorage.getItem('supabase-user-id') || ''}
+                        onChange={(e) => localStorage.setItem('supabase-user-id', e.target.value)}
+                        placeholder="user_abc123"
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                </div>
             </div>
 
             {/* Data Backup & Import */}
