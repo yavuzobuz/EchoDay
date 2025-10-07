@@ -106,12 +106,10 @@ function AppContent() {
         <Route
           path="/welcome"
           element={
-            <ProtectedRoute>
-              <Welcome
-                onGetStarted={() => navigate('/app')}
-                onNavigateToAuth={() => navigate('/login')}
-              />
-            </ProtectedRoute>
+            <Welcome
+              onGetStarted={() => navigate('/app')}
+              onNavigateToAuth={() => navigate('/login')}
+            />
           }
         />
         <Route
