@@ -256,8 +256,8 @@ const Profile: React.FC<ProfileProps> = ({
                                 <span className="text-sm text-gray-500 dark:text-gray-400">Avatar seçmek için tıklayın</span>
                             </div>
                             {showAvatarPicker && (
-                                <div className="mt-3 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
-                                    <div className="grid grid-cols-8 gap-2">
+                                <div className="mt-3 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-x-auto">
+                                    <div className="grid grid-cols-5 sm:grid-cols-8 gap-2">
                                         {DEFAULT_AVATARS.map((avatar) => (
                                             <button
                                                 key={avatar}
@@ -309,7 +309,7 @@ const Profile: React.FC<ProfileProps> = ({
                     </form>
                 ) : (
                     <div className="space-y-4">
-                        <div className="flex items-start gap-4">
+                        <div className="flex flex-col sm:flex-row items-start gap-4">
                             <div className="text-6xl">{profile?.avatar || '😊'}</div>
                             <div className="flex-1">
                                 <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{profile?.name || 'Kullanıcı'}</h3>
@@ -335,7 +335,7 @@ const Profile: React.FC<ProfileProps> = ({
             {!profileLoading && profileStats && (
                 <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Profil İstatistikleri</h2>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
                             <div className="text-3xl font-bold text-[var(--accent-color-600)]">{profileStats?.totalTodos || 0}</div>
                             <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Toplam Görev</div>
@@ -375,10 +375,10 @@ const Profile: React.FC<ProfileProps> = ({
             {/* User Info & Sign Out */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600 mb-4">Hesap Bilgileri</h2>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Giriş Yapılmış Hesap</p>
-                        <p className="font-semibold text-lg text-gray-800 dark:text-gray-200">{user?.email}</p>
+                        <p className="font-semibold text-lg text-gray-800 dark:text-gray-200 break-all">{user?.email}</p>
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Kullanıcı ID: {user?.id.substring(0, 8)}...</p>
                     </div>
                     <button
@@ -393,7 +393,7 @@ const Profile: React.FC<ProfileProps> = ({
             {/* General Settings */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Genel Ayarlar</h2>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                     <label className="font-semibold text-lg">Görünüm</label>
                     <div className="flex items-center gap-2 p-1 bg-gray-200 dark:bg-gray-700 rounded-full">
                       <button onClick={() => { setFollowSystem(false); setFollowSystemTheme(false); setTheme('light'); }} className={`px-3 py-1 rounded-full text-sm ${!followSystem && theme === 'light' ? 'bg-white shadow' : ''}`}>Açık</button>
@@ -403,7 +403,7 @@ const Profile: React.FC<ProfileProps> = ({
                 </div>
 
                 {/* Daily summary time */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                     <label className="font-semibold text-lg">Gün Başı Özeti Saati</label>
                     <input
                         type="time"
@@ -413,7 +413,7 @@ const Profile: React.FC<ProfileProps> = ({
                     />
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-3">
                     <label className="font-semibold text-lg">Vurgu Rengi</label>
                     <div className="flex items-center gap-3">
                     {accentColors.map(color => (
@@ -421,7 +421,7 @@ const Profile: React.FC<ProfileProps> = ({
                     ))}
                     </div>
                 </div>
-                 <div className="flex items-center justify-between pt-4 border-t dark:border-gray-700">
+                 <div className="flex items-center justify-between flex-wrap gap-3 pt-4 border-t dark:border-gray-700">
                     <label htmlFor="show-welcome" className="font-semibold text-lg">Karşılama Ekranı</label>
                     <button
                         id="show-welcome"
@@ -431,7 +431,7 @@ const Profile: React.FC<ProfileProps> = ({
                         Tekrar Göster
                     </button>
                 </div>
-                <div className="flex items-center justify-between pt-4 border-t dark:border-gray-700">
+                <div className="flex items-center justify-between flex-wrap gap-3 pt-4 border-t dark:border-gray-700">
                     <div>
                         <label className="font-semibold text-lg block">Tarayıcı Bildirimleri</label>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Hatırlatmalar için bildirim izni gereklidir</p>
@@ -495,7 +495,7 @@ const Profile: React.FC<ProfileProps> = ({
                         </div>
                     </form>
                 ) : (
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
                         <div>
                             <p className="font-semibold text-lg text-green-600 dark:text-green-400">API Anahtarı Yapılandırıldı</p>
                             <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">{apiKey.substring(0, 4)}...{apiKey.substring(apiKey.length - 4)}</p>
@@ -620,7 +620,7 @@ const Profile: React.FC<ProfileProps> = ({
             {/* Usage Stats */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Kullanım İstatistikleri</h2>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                     <div className="p-3 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700">
                         <div className="text-gray-500 dark:text-gray-400">Bugün</div>
                         <div className="mt-1 font-semibold text-lg">{stats.todayCompleted}/{stats.todayTotal} tamamlandı</div>
@@ -675,7 +675,7 @@ const Profile: React.FC<ProfileProps> = ({
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Asistan Ayarları</h2>
                 <form onSubmit={handleSaveAssistantName} className="space-y-3">
                     <label htmlFor="assistantName" className="font-semibold text-lg">Asistan İsmi</label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <input
                             id="assistantName"
                             type="text"
@@ -692,7 +692,7 @@ const Profile: React.FC<ProfileProps> = ({
 
             {/* TTS Settings */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
-                <div className="flex items-center justify-between border-b pb-2 dark:border-gray-600">
+                <div className="flex items-center justify-between flex-wrap gap-3 border-b pb-2 dark:border-gray-600">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">Sesli Yanıtlar (TTS)</h2>
                     <button
                         onClick={() => {
