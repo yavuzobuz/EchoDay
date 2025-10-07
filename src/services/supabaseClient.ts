@@ -1,7 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const rawUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
+const rawKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
+
+function isValidHttpUrl(maybeUrl?: string): boolean {
+  if (!maybeUrl) return false;
+  try {
+    const u = new URL(maybeUrl);
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+const hasValidConfig = isValidHttpUrl(rawUrl) && !!rawKey && rawKey.length > 10;
 
 // Detect Electron environment
 const isElectron = !!(window as any).isElectron || !!(window as any).electronAPI;
@@ -29,8 +41,8 @@ if (isElectron && typeof navigator !== 'undefined' && !navigator.locks) {
   };
 }
 
-// Configure Supabase client
-export const supabase = (url && key) ? createClient(url, key, {
+// Configure Supabase client safely (avoid runtime crash if env missing on Vercel)
+export const supabase = hasValidConfig ? createClient(rawUrl as string, rawKey as string, {
   auth: {
     storageKey: 'supabase-auth',
     storage: window.localStorage,
@@ -38,7 +50,9 @@ export const supabase = (url && key) ? createClient(url, key, {
     persistSession: true,
     detectSessionInUrl: false
   }
-}) : null;
+}) : (console.warn('[Supabase] Not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for web builds'), null as any);
+
+export const isSupabaseConfigured = !!supabase;
 
 export async function getUserId(): Promise<string | null> {
   if (!supabase) return null;
