@@ -20,7 +20,7 @@ const TodoList: React.FC<TodoListProps> = ({ todos, onToggle, onDelete, onGetDir
   const sortedTodos = [...todos].sort((a, b) => (a.completed ? 1 : -1) - (b.completed ? 1 : -1) || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {sortedTodos.map(todo => (
         <TodoItem
           key={todo.id}

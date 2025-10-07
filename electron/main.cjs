@@ -204,6 +204,21 @@ ipcMain.handle('platform', () => {
   return process.platform;
 });
 
+// IPC handler to read file as base64
+ipcMain.handle('fs:readFileAsBase64', (event, filePath) => {
+  try {
+    const cleanPath = filePath.startsWith('file:///') ? filePath.substring(8) : filePath;
+    if (fs.existsSync(cleanPath)) {
+      const fileData = fs.readFileSync(cleanPath);
+      return fileData.toString('base64');
+    }
+    return null;
+  } catch (error) {
+    console.error('[IPC] Failed to read file:', error);
+    return null;
+  }
+});
+
 // ============ Profile IPC Handlers ============
 
 // Profil al

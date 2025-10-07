@@ -7,6 +7,7 @@ interface ArchiveModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentTodos: Todo[];
+  currentNotes?: Note[]; // Optional for backward compatibility
 }
 
 type ArchiveView = 'search' | 'stats' | 'reports';
@@ -36,7 +37,7 @@ const BarChart: React.FC<{ data: DashboardStats['last7Days'] }> = ({ data }) => 
   );
 };
 
-const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTodos }) => {
+const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTodos, currentNotes = [] }) => {
   const [results, setResults] = useState<{ todos: Todo[]; notes: Note[] }>({ todos: [], notes: [] });
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +45,9 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [searchMode, setSearchMode] = useState<'date' | 'query' | 'all'>('date');
   const [view, setView] = useState<ArchiveView>('search');
+  // DB health status
+  const [dbHealthy, setDbHealthy] = useState<boolean>(true);
+  const [_dbErrors, setDbErrors] = useState<string[]>([]);
   
   // Delete mode state
   const [deleteMode, setDeleteMode] = useState(false);
@@ -56,6 +60,13 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
 
   useEffect(() => {
     if (isOpen) {
+        // Check DB health when modal opens
+        archiveService.checkDatabaseHealth().then(h => {
+          setDbHealthy(h.isHealthy);
+          setDbErrors(h.errors || []);
+        }).catch(() => {
+          setDbHealthy(false);
+        });
         if (view === 'search' && searchMode === 'date') {
             fetchByDate(selectedDate);
         } else if (view === 'stats' && !stats) {
@@ -73,6 +84,8 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
       setSelectedNoteIds([]);
       setNotification(null);
       setDetailView(null);
+      setDbHealthy(true);
+      setDbErrors([]);
     }
   }, [isOpen, selectedDate, searchMode, view]);
 
@@ -83,12 +96,87 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
     setIsLoading(false);
   };
   
+  const handleRepairDatabase = async () => {
+    if (!window.confirm('Veritabanını onarmak tüm arşiv verilerini silecektir. Devam etmek istiyor musunuz?')) return;
+    setIsLoading(true);
+    const ok = await archiveService.resetArchiveDatabase();
+    setIsLoading(false);
+    if (ok) {
+      setDbHealthy(true);
+      setDbErrors([]);
+      // Refresh current view
+      if (searchMode === 'date') await fetchByDate(selectedDate);
+      else if (searchMode === 'all') await fetchAllArchived();
+      else setResults({ todos: [], notes: [] });
+      setStats(null);
+      alert('Veritabanı sıfırlandı. Arşiv temizlendi ve yeniden oluşturuldu.');
+    } else {
+      alert('Veritabanı onarılamadı. Lütfen uygulamayı yeniden başlatın.');
+    }
+  };
+  
   const fetchAllArchived = async () => {
     setIsLoading(true);
     setSearchMode('all');
     const data = await archiveService.getAllArchivedItems();
     setResults(data);
     setIsLoading(false);
+  };
+  
+  const handleManualArchive = async () => {
+    const completedTodos = currentTodos.filter(t => t.completed);
+    const notesToArchive = currentNotes || [];
+    
+    if (completedTodos.length === 0 && notesToArchive.length === 0) {
+      setNotification({ 
+        message: 'Arşivlenecek tamamlanmış görev veya not bulunamadı.', 
+        type: 'error' 
+      });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    
+    const message = completedTodos.length > 0 && notesToArchive.length > 0
+      ? `${completedTodos.length} tamamlanmış görev ve ${notesToArchive.length} not arşivlenecek.`
+      : completedTodos.length > 0
+      ? `${completedTodos.length} tamamlanmış görev arşivlenecek.`
+      : `${notesToArchive.length} not arşivlenecek.`;
+    
+    if (!window.confirm(`${message} Devam etmek istiyor musunuz?`)) {
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      await archiveService.archiveItems(completedTodos, notesToArchive);
+      
+      const successMessage = completedTodos.length > 0 && notesToArchive.length > 0
+        ? `${completedTodos.length} görev ve ${notesToArchive.length} not başarıyla arşivlendi!`
+        : completedTodos.length > 0
+        ? `${completedTodos.length} görev başarıyla arşivlendi!`
+        : `${notesToArchive.length} not başarıyla arşivlendi!`;
+      
+      setNotification({ 
+        message: successMessage, 
+        type: 'success' 
+      });
+      setTimeout(() => setNotification(null), 3000);
+      
+      // Refresh search if in date mode
+      if (searchMode === 'date') {
+        await fetchByDate(selectedDate);
+      } else if (searchMode === 'all') {
+        await fetchAllArchived();
+      }
+    } catch (error: any) {
+      setNotification({ 
+        message: error.message || 'Arşivleme başarısız oldu.', 
+        type: 'error' 
+      });
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const fetchStats = async () => {
@@ -472,6 +560,14 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                   <span className="hidden sm:inline">📁 Tüm Arşiv</span>
                   <span className="sm:hidden">📁 Tümü</span>
                 </button>
+                <button 
+                  onClick={handleManualArchive}
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-xs sm:text-sm whitespace-nowrap flex items-center gap-1"
+                  title="Tamamlanmış görevleri arşivle"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
+                  <span className="hidden md:inline">Arşivle</span>
+                </button>
               <form onSubmit={handleSearch} className="flex gap-2 sm:col-span-1 lg:col-span-2">
                   <input
                       type="search"
@@ -715,6 +811,12 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                 <button onClick={() => setView('stats')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${view === 'stats' ? 'bg-white dark:bg-gray-800 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>İstatistikler</button>
                 <button onClick={() => setView('reports')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${view === 'reports' ? 'bg-white dark:bg-gray-800 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Raporlar</button>
               </div>
+              {!dbHealthy && (
+                <div className="ml-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800">
+                  <span className="text-xs">Veritabanı sorunu</span>
+                  <button onClick={handleRepairDatabase} className="text-xs font-semibold underline">Onar</button>
+                </div>
+              )}
           </div>
           <button onClick={onClose} className="p-1.5 sm:p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex-shrink-0">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 sm:h-6 sm:w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>

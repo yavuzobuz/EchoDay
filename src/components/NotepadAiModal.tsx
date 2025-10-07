@@ -66,6 +66,7 @@ const NotepadAiModal: React.FC<NotepadAiModalProps> = ({ isOpen, onClose, onSubm
                 <button type="button" onClick={() => setQuickPrompt('Bu notları kısa ve anlaşılır bir şekilde özetle.')} className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Notları Özetle</button>
                 <button type="button" onClick={() => setQuickPrompt('Bu notlardan bir yapılacaklar listesi oluştur.')} className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Görev Listesi Oluştur</button>
                 <button type="button" onClick={() => setQuickPrompt('Bu notları bir e-posta taslağı haline getir.')} className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">E-posta Oluştur</button>
+                <button type="button" onClick={() => setQuickPrompt('Bu notlardan başlıkları içeren bir HTML tablo oluştur. Sadece <table> etiketiyle tabloyu döndür. Metin ve varsa resimlerden elde edilen bilgiler de kullanılsın.')} className="px-3 py-1.5 text-sm bg-gray-200 dark:bg-gray-700 rounded-full hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Tablo Oluştur</button>
             </div>
           </div>
 

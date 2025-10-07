@@ -61,10 +61,16 @@ function validateDatetime(datetime: any): string | null {
   // If it's already a valid ISO string, return it
   if (typeof datetime === 'string') {
     const date = new Date(datetime);
-    // Check if it's a valid date AND if the string looks like an ISO format
-    if (!isNaN(date.getTime()) && /^\d{4}-\d{2}-\d{2}T/.test(datetime)) {
-      return datetime;
+    
+    // Check if it's a valid date
+    if (!isNaN(date.getTime())) {
+      // Accept both full ISO timestamps (YYYY-MM-DDTHH:mm:ss.sssZ) and date-only formats (YYYY-MM-DD)
+      // PostgreSQL timestamp fields accept both formats
+      if (/^\d{4}-\d{2}-\d{2}(T|\s|$)/.test(datetime)) {
+        return datetime;
+      }
     }
+    
     // If it's invalid (like "İki hafta içinde"), return null
     console.warn(`Invalid datetime value detected and converted to null: "${datetime}"`);
     return null;
@@ -156,6 +162,97 @@ export async function upsertNotes(userId: string, notes: any[]) {
     throw error;
   }
   return data;
+}
+
+export async function deleteNotes(userId: string, noteIds: string[]) {
+  if (!supabase || noteIds.length === 0) return;
+  const { error } = await supabase.from('notes').delete().eq('user_id', userId).in('id', noteIds);
+  if (error) {
+    console.error('Supabase deleteNotes error:', error);
+    throw error;
+  }
+}
+
+// ========== ARCHIVE (Supabase) ==========
+export async function archiveUpsertNotes(userId: string, notes: any[]) {
+  if (!supabase || notes.length === 0) return;
+  const now = new Date().toISOString();
+  const payload = notes.map((n) => {
+    const { id, text, imageUrl, createdAt } = n;
+    return {
+      id, // use original id as primary key for de-duplication
+      user_id: userId,
+      text: text || '',
+      image_url: imageUrl || null,
+      created_at: createdAt || now,
+      archived_at: now,
+    };
+  });
+  const { error } = await supabase.from('archived_notes').upsert(payload);
+  if (error) {
+    console.error('Supabase archiveUpsertNotes error:', error);
+    throw error;
+  }
+}
+
+export async function archiveUpsertTodos(userId: string, todos: any[]) {
+  if (!supabase || todos.length === 0) return;
+  const now = new Date().toISOString();
+  const payload = todos.map((t) => {
+    const { id, text, priority, datetime, createdAt } = t;
+    return {
+      id, // use original id
+      user_id: userId,
+      text: text || '',
+      priority: priority || 'medium',
+      datetime: datetime || null,
+      created_at: createdAt || now,
+      archived_at: now,
+    };
+  });
+  const { error } = await supabase.from('archived_todos').upsert(payload);
+  if (error) {
+    console.error('Supabase archiveUpsertTodos error:', error);
+    throw error;
+  }
+}
+
+export async function archiveFetchByDate(userId: string, date: string) {
+  if (!supabase) return { todos: [], notes: [] };
+  const start = new Date(date); start.setHours(0,0,0,0);
+  const end = new Date(date); end.setHours(23,59,59,999);
+  const startISO = start.toISOString();
+  const endISO = end.toISOString();
+
+  const [tRes, nRes] = await Promise.all([
+    supabase.from('archived_todos').select('*').eq('user_id', userId).gte('archived_at', startISO).lte('archived_at', endISO),
+    supabase.from('archived_notes').select('*').eq('user_id', userId).gte('archived_at', startISO).lte('archived_at', endISO),
+  ]);
+  const todos = (tRes.data || []).map((row: any) => ({
+    ...row,
+    createdAt: row.created_at ?? row.createdAt,
+    archivedAt: row.archived_at ?? row.archivedAt,
+    userId: row.user_id ?? row.userId,
+  }));
+  const notes = (nRes.data || []).map((row: any) => ({
+    ...row,
+    createdAt: row.created_at ?? row.createdAt,
+    archivedAt: row.archived_at ?? row.archivedAt,
+    userId: row.user_id ?? row.userId,
+    imageUrl: row.image_url ?? row.imageUrl,
+  }));
+  return { todos, notes };
+}
+
+export async function archiveSearch(userId: string, query: string) {
+  if (!supabase) return { todos: [], notes: [] };
+  const [tRes, nRes] = await Promise.all([
+    supabase.from('archived_todos').select('*').eq('user_id', userId).ilike('text', `%${query}%`),
+    supabase.from('archived_notes').select('*').eq('user_id', userId).ilike('text', `%${query}%`),
+  ]);
+  const todos = (tRes.data || []).map((row: any) => ({ ...row, imageUrl: row.image_url ?? row.imageUrl }));
+  const notes = (nRes.data || []).map((row: any) => ({ ...row, imageUrl: row.image_url ?? row.imageUrl }));
+  return { todos, notes };
 }
 
 export async function fetchAll(userId: string) {

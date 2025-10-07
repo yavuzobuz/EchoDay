@@ -34,4 +34,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // PDF API
   selectPdfFile: () => ipcRenderer.invoke('pdf:selectFile'),
+  
+  // File System API for Electron
+  readFileAsBase64: (filePath) => ipcRenderer.invoke('fs:readFileAsBase64', filePath),
 });

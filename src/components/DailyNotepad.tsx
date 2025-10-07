@@ -15,10 +15,12 @@ interface DailyNotepadProps {
   onShareNote: (note: Note) => void;
   setNotification?: (notification: { message: string; type: 'success' | 'error' } | null) => void;
   onAnalyzePdf?: (pdfFile: File) => void;
-  onAddTask?: (description: string) => void;
+  onExtractTextFromImage?: (dataUrl: string) => Promise<string | null>;
+  onDeleteNotesRemote?: (ids: string[]) => Promise<void> | void;
+  onSelectionModeChange?: (active: boolean) => void;
 }
 
-const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiModal, onAnalyzeImage, onShareNote, setNotification, onAnalyzePdf, onAddTask }) => {
+const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiModal, onAnalyzeImage, onShareNote, setNotification, onAnalyzePdf, onExtractTextFromImage, onDeleteNotesRemote, onSelectionModeChange }) => {
   // Get user ID for archive
   const { user } = useAuth();
   const userId = user?.id || 'guest';
@@ -27,7 +29,9 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [filterTag, setFilterTag] = useState<string>('');
   const [newNoteText, setNewNoteText] = useState('');
-  const [newNoteImage, setNewNoteImage] = useState<string | null>(null);
+  // Preview URL (Object URL) for immediate display, and Data URL for persistence/sync
+  const [newNoteImagePreview, setNewNoteImagePreview] = useState<string | null>(null);
+  const [newNoteImageDataUrl, setNewNoteImageDataUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -52,18 +56,20 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
 
 
   const handleAddNote = (text: string) => {
-    if (!text.trim() && !newNoteImage) return;
+    if (!text.trim() && !newNoteImageDataUrl) return;
 
     const newNote: Note = {
       id: uuidv4(),
       text: text.trim(),
-      imageUrl: newNoteImage || undefined,
+      imageUrl: newNoteImageDataUrl || undefined,
       createdAt: new Date().toISOString(),
     };
 
     setNotes([newNote, ...notes]);
     setNewNoteText('');
-    setNewNoteImage(null);
+    if (newNoteImagePreview) URL.revokeObjectURL(newNoteImagePreview);
+    setNewNoteImagePreview(null);
+    setNewNoteImageDataUrl(null);
     if(fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -73,12 +79,38 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
   });
 
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // 1) Hemen küçük önizleme için Object URL kullan
+      try {
+        const objectUrl = URL.createObjectURL(file);
+        // Eski önizlemeyi serbest bırak
+        if (newNoteImagePreview) URL.revokeObjectURL(newNoteImagePreview);
+        setNewNoteImagePreview(objectUrl);
+      } catch {}
+
+      // 2) Kalıcı saklama ve OCR için Data URL'e dönüştür
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setNewNoteImage(reader.result as string);
+      reader.onloadend = async () => {
+        const dataUrl = reader.result as string;
+        setNewNoteImageDataUrl(dataUrl);
+        // Otomatik metin çıkarma (varsa)
+        try {
+          if (onExtractTextFromImage) {
+            if (setNotification) setNotification({ message: 'Resim analiz ediliyor...', type: 'success' });
+            const extracted = await onExtractTextFromImage(dataUrl);
+            if (extracted) {
+              setNewNoteText(prev => (prev ? `${prev}\n\n${extracted}` : extracted));
+              if (setNotification) setNotification({ message: 'Resimdeki metin not alanına eklendi.', type: 'success' });
+            } else if (setNotification) {
+              setNotification({ message: 'Resimden metin çıkarılamadı.', type: 'error' });
+            }
+          }
+        } catch (err) {
+          console.error('[DailyNotepad] Auto extract failed:', err);
+          if (setNotification) setNotification({ message: 'Resim analizi başarısız oldu.', type: 'error' });
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -136,7 +168,7 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
 
   const clearSelection = () => setSelectedNoteIds([]);
 
-  const handleBulkDelete = (visible: Note[]) => {
+  const handleBulkDelete = async (visible: Note[]) => {
     const toDelete = visible.filter(n => selectedNoteIds.includes(n.id));
     if (toDelete.length === 0) return;
     // Save for undo
@@ -145,10 +177,17 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
     setNotes(notes.filter(n => !selectedNoteIds.includes(n.id)));
     // Reset selection
     setSelectionMode(false);
+    onSelectionModeChange?.(false);
     setSelectedNoteIds([]);
     // Start undo timer (6s)
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
     undoTimerRef.current = window.setTimeout(() => setUndoState(null), 6000);
+    // Remote delete if available (avoid re-appearing after refresh)
+    try {
+      if (onDeleteNotesRemote) await onDeleteNotesRemote(toDelete.map(n => n.id));
+    } catch (e) {
+      console.warn('[DailyNotepad] Remote delete failed:', e);
+    }
   };
 
   const handleBulkArchive = async (visible: Note[]) => {
@@ -162,10 +201,18 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
       // Remove from current list
       setNotes(notes.filter(n => !selectedNoteIds.includes(n.id)));
       setSelectionMode(false);
+      onSelectionModeChange?.(false);
       setSelectedNoteIds([]);
       // Timer
       if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
       undoTimerRef.current = window.setTimeout(() => setUndoState(null), 6000);
+      
+      // Remove from remote so they don't come back after refresh
+      try {
+        if (onDeleteNotesRemote) await onDeleteNotesRemote(toArchive.map(n => n.id));
+      } catch (e) {
+        console.warn('[DailyNotepad] Remote delete after archive failed:', e);
+      }
       
       if (setNotification) {
         setNotification({ message: `${toArchive.length} not arşivlendi`, type: 'success' });
@@ -178,6 +225,26 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
           type: 'error' 
         });
       }
+    }
+  };
+
+  // Single note archive helper (desktop/mobile action button)
+  const handleArchiveSingle = async (note: Note) => {
+    try {
+      console.log(`[DailyNotepad] Archiving single note ${note.id} for user ${userId}`);
+      await archiveService.archiveItems([], [note], userId);
+      // Remove locally
+      setNotes(prev => prev.filter(n => n.id !== note.id));
+      // Remote delete to avoid reappearing after refresh
+      try {
+        if (onDeleteNotesRemote) await onDeleteNotesRemote([note.id]);
+      } catch (e) {
+        console.warn('[DailyNotepad] Remote delete after single archive failed:', e);
+      }
+      if (setNotification) setNotification({ message: 'Not arşivlendi', type: 'success' });
+    } catch (e: any) {
+      console.error('[DailyNotepad] Single archive failed:', e);
+      if (setNotification) setNotification({ message: e.message || 'Not arşivlenemedi', type: 'error' });
     }
   };
 
@@ -233,8 +300,13 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
     if (undoTimerRef.current) window.clearTimeout(undoTimerRef.current);
   };
 
-  const handleDeleteNote = (id: string) => {
+  const handleDeleteNote = async (id: string) => {
     setNotes(notes.filter(note => note.id !== id));
+    try {
+      if (onDeleteNotesRemote) await onDeleteNotesRemote([id]);
+    } catch (e) {
+      console.warn('[DailyNotepad] Remote single delete failed:', e);
+    }
   };
   
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -250,7 +322,7 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
         if (file) {
           const reader = new FileReader();
           reader.onloadend = () => {
-            setNewNoteImage(reader.result as string);
+setNewNoteImageDataUrl(reader.result as string);
           };
           reader.readAsDataURL(file);
           e.preventDefault();
@@ -322,32 +394,75 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
   };
 
   // Render markdown-like content with checklist support
+  // Improve OCR'd text appearance by merging consecutive short lines into paragraphs
   const renderNoteContent = (note: Note) => {
-    const lines = (note.text || '').split('\n');
-    return (
-      <div className="space-y-1">
-        {lines.map((line, idx) => {
-          const checklist = line.match(/^\- \[( |x|X)\] (.*)$/);
-          if (checklist) {
-            const checked = checklist[1].toLowerCase() === 'x';
-            const label = checklist[2];
-            return (
-              <label key={idx} className="flex items-start gap-2 text-xs sm:text-sm">
-                <input type="checkbox" className="mt-1 h-4 w-4 text-[var(--accent-color-600)]" checked={checked} onChange={() => toggleChecklistLine(note, idx)} />
-                <span className={`${checked ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{linkify(label)}</span>
-              </label>
-            );
-          }
-          const h1 = line.match(/^# (.*)$/);
-          const h2 = line.match(/^## (.*)$/);
-          const h3 = line.match(/^### (.*)$/);
-          if (h1) return <h3 key={idx} className="text-base sm:text-lg font-bold">{linkify(h1[1])}</h3>;
-          if (h2) return <h4 key={idx} className="text-sm sm:text-base font-semibold">{linkify(h2[1])}</h4>;
-          if (h3) return <h5 key={idx} className="text-sm font-semibold">{linkify(h3[1])}</h5>;
-          return <p key={idx} className="text-xs sm:text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">{linkify(line)}</p>;
-        })}
-      </div>
-    );
+    const rawLines = (note.text || '').split('\n');
+    const elements: React.ReactNode[] = [];
+    let paragraphBuffer: string[] = [];
+
+    const flushParagraph = (key: string) => {
+      if (paragraphBuffer.length > 0) {
+        const text = paragraphBuffer.join(' ').replace(/\s+/g, ' ').trim();
+        if (text) {
+          elements.push(
+            <p key={key} className="text-sm sm:text-base leading-relaxed text-gray-800 dark:text-gray-200 whitespace-normal break-words">
+              {linkify(text)}
+            </p>
+          );
+        }
+        paragraphBuffer = [];
+      }
+    };
+
+    rawLines.forEach((line, idx) => {
+      const trimmed = line.trim();
+
+      // Headings
+      const h1 = trimmed.match(/^# (.*)$/);
+      const h2 = trimmed.match(/^## (.*)$/);
+      const h3 = trimmed.match(/^### (.*)$/);
+      if (h1 || h2 || h3) {
+        flushParagraph(`p-${idx}`);
+        if (h1) elements.push(<h3 key={`h1-${idx}`} className="text-base sm:text-lg font-bold mt-1">{linkify(h1[1])}</h3>);
+        if (h2) elements.push(<h4 key={`h2-${idx}`} className="text-sm sm:text-base font-semibold mt-1">{linkify(h2[1])}</h4>);
+        if (h3) elements.push(<h5 key={`h3-${idx}`} className="text-sm font-semibold mt-1">{linkify(h3[1])}</h5>);
+        return;
+      }
+
+      // Checklist
+      const checklist = trimmed.match(/^\- \[( |x|X)\] (.*)$/);
+      if (checklist) {
+        flushParagraph(`p-${idx}`);
+        const checked = checklist[1].toLowerCase() === 'x';
+        const label = checklist[2];
+        elements.push(
+          <label key={`c-${idx}`} className="flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1 h-4 w-4 text-[var(--accent-color-600)]" checked={checked} onChange={() => toggleChecklistLine(note, idx)} />
+            <span className={`${checked ? 'line-through text-gray-500 dark:text-gray-400' : 'text-gray-800 dark:text-gray-200'}`}>{linkify(label)}</span>
+          </label>
+        );
+        return;
+      }
+
+      // Blank line → paragraph break
+      if (trimmed === '') {
+        flushParagraph(`p-${idx}`);
+        return;
+      }
+
+      // Accumulate normal lines into a paragraph buffer
+      paragraphBuffer.push(trimmed);
+
+      // If the line ends with punctuation, flush to form a sentence/paragraph
+      if (/[\.!?؛،]$/.test(trimmed)) {
+        flushParagraph(`p-${idx}`);
+      }
+    });
+
+    // Flush remaining buffer
+    flushParagraph('p-last');
+
+    return <div className="space-y-1">{elements}</div>;
   };
 
   // Editing helpers for Markdown
@@ -419,7 +534,7 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
         </h3>
         <div className="flex items-center gap-1">
           <button
-            onClick={() => { setSelectionMode(!selectionMode); if (!selectionMode) setSelectedNoteIds([]); }}
+            onClick={() => { const next = !selectionMode; setSelectionMode(next); onSelectionModeChange?.(next); if (!selectionMode) setSelectedNoteIds([]); }}
             className={selectionButtonClass}
             title="Seçim Modu"
           >
@@ -511,18 +626,14 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
                     <button onClick={() => onShareNote(note)} className="p-1 rounded-full text-gray-400 hover:text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-green-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-green-500" title="Paylaş">
                         <ShareIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
+                    {/* Archive (single) */}
+                    <button onClick={(e) => { e.stopPropagation(); handleArchiveSingle(note); }} className="p-1 rounded-full text-gray-400 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-amber-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-amber-500" title="Arşivle">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                    </button>
                     {/* Delete */}
                     <button onClick={() => handleDeleteNote(note.id)} className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-red-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-red-500" title="Sil">
                         <TrashIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
-                    {/* Add as Task */}
-                    {onAddTask && note.text && (
-                      <button onClick={() => { onAddTask(note.text); if (setNotification) setNotification({ message: 'Not görev olarak eklendi!', type: 'success' }); }} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-blue-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-blue-500" title="Görev Ekle">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                        </svg>
-                      </button>
-                    )}
                 </div>
                 {note.imageUrl && (
                     <div className="relative">
@@ -579,17 +690,13 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
                       </button>
 <span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">Sil</span>
                     </div>
-                    {/* Add as Task (mobile) */}
-                    {onAddTask && note.text && (
-                      <div className="relative group">
-                        <button onClick={() => { onAddTask(note.text); if (setNotification) setNotification({ message: 'Not görev olarak eklendi!', type: 'success' }); }} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-white/10 dark:hover:bg-white/10" aria-label="Görev Ekle" >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                          </svg>
-                        </button>
-<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">Görev Ekle</span>
-                      </div>
-                    )}
+                    {/* Archive (mobile single) */}
+                    <div className="relative group">
+                      <button onClick={() => handleArchiveSingle(note)} className="p-1 rounded-full text-gray-400 hover:text-amber-600 hover:bg-white/10 dark:hover:bg-white/10" aria-label="Arşivle" >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                      </button>
+                      <span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">Arşivle</span>
+                    </div>
                   </div>
                   {/* Tags Row + Inline Tag Editor (only when not editing the note text) */}
                   <div className="mb-2">
@@ -655,14 +762,14 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
 
       <form onSubmit={handleFormSubmit} className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
         <div className="bg-white/60 dark:bg-gray-800/60 border border-gray-300 dark:border-gray-700/60 rounded-lg focus-within:ring-2 focus-within:ring-[var(--accent-color-500)] transition-all relative">
-         {newNoteImage && (
+         {(newNoteImagePreview || newNoteImageDataUrl) && (
              <div className="relative p-2">
-                <img src={newNoteImage} alt="Yeni not önizlemesi" className="max-h-28 w-auto rounded-md"/>
-                <button type="button" onClick={() => { setNewNoteImage(null); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1 shadow-md">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
-                </button>
-             </div>
-         )}
+                <img src={newNoteImagePreview || newNoteImageDataUrl || ''} alt="Yeni not önizlemesi" className="max-h-28 w-auto rounded-md"/>
+                 <button type="button" onClick={() => { if (newNoteImagePreview) URL.revokeObjectURL(newNoteImagePreview); setNewNoteImagePreview(null); setNewNoteImageDataUrl(null); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1 shadow-md">
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                 </button>
+              </div>
+          )}
         <textarea
           value={newNoteText}
           onChange={(e) => setNewNoteText(e.target.value)}
@@ -695,7 +802,7 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
         </div>
         </div>
         <div className="flex justify-end items-center mt-2">
-            <button type="submit" className="px-4 py-1.5 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 text-sm font-semibold shadow-sm hover:shadow-md transition-all" disabled={!newNoteText.trim() && !newNoteImage}>
+            <button type="submit" className="px-4 py-1.5 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 text-sm font-semibold shadow-sm hover:shadow-md transition-all" disabled={!newNoteText.trim() && !newNoteImageDataUrl}>
                 Ekle
             </button>
         </div>

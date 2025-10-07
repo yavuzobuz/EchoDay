@@ -66,10 +66,17 @@ function validateDatetime(datetime: any): string | null {
   // If it's already a valid ISO string, return it
   if (typeof datetime === 'string') {
     const date = new Date(datetime);
-    // Check if it's a valid date AND if the string looks like an ISO format
-    if (!isNaN(date.getTime()) && /^\d{4}-\d{2}-\d{2}T/.test(datetime)) {
-      return datetime;
+    
+    // Check if it's a valid date
+    if (!isNaN(date.getTime())) {
+      // Accept both full ISO timestamps (YYYY-MM-DDTHH:mm:ss.sssZ) 
+      // and date-only formats (YYYY-MM-DD)
+      // PostgreSQL timestamp fields accept both formats
+      if (/^\d{4}-\d{2}-\d{2}(T|\s|$)/.test(datetime)) {
+        return datetime;
+      }
     }
+    
     // If it's invalid (like "İki hafta içinde"), return null
     console.warn(`Invalid datetime value detected and converted to null: "${datetime}"`);
     return null;
@@ -78,6 +85,11 @@ function validateDatetime(datetime: any): string | null {
   return null;
 }
 ```
+
+**Supported Formats:**
+- Full ISO timestamps: `2025-10-07T12:00:00.000Z`
+- Date-only format: `2025-10-07` or `2023-08-16`
+- Invalid strings (natural language) are converted to `null`
 
 ### Çözüm 2 / Solution 2: Improved AI Instructions
 `src/services/geminiService.ts` dosyasındaki AI schema ve prompt'ları güçlendirildi:

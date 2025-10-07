@@ -70,14 +70,28 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     // const [taskDependencies, setTaskDependencies] = useState<TaskDependency[]>([]);
     const [showContextInsights, setShowContextInsights] = useState(false);
     const [showProactiveSuggestions, setShowProactiveSuggestions] = useState(false);
-
+    
     // Component State
     const [viewMode, setViewMode] = useState<ViewMode>('list');
+    const [isSelectionModeActive, setIsSelectionModeActive] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState(false);
     const [loadingMessage, setLoadingMessage] = useState('AI Düşünüyor...');
     const [aiMessage, setAiMessage] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [activeReminders, setActiveReminders] = useState<ActiveReminder[]>([]);
+
+    // Tasks UI state (filter + search)
+    const [taskFilter, setTaskFilter] = useState<'all' | 'active' | 'completed'>('all');
+    const [taskQuery, setTaskQuery] = useState('');
+
+    const visibleTodos = React.useMemo(() => {
+        const q = taskQuery.trim().toLowerCase();
+        let list = todos;
+        if (taskFilter === 'active') list = list.filter(t => !t.completed);
+        if (taskFilter === 'completed') list = list.filter(t => t.completed);
+        if (q) list = list.filter(t => t.text.toLowerCase().includes(q));
+        return list;
+    }, [todos, taskFilter, taskQuery]);
     
     // Modal State
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -153,7 +167,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             return;
         }
         
-        const canListen = !isTaskModalOpen && !isChatOpen && !isImageTaskModalOpen && !isLocationPromptOpen && !isSuggestionsModalOpen && !isNotepadAiModalOpen && !isArchiveModalOpen && !mainCommandListener.isListening;
+        const canListen = !isTaskModalOpen && !isChatOpen && !isImageTaskModalOpen && !isLocationPromptOpen && !isSuggestionsModalOpen && !isNotepadAiModalOpen && !isArchiveModalOpen && !isSelectionModeActive && !mainCommandListener.isListening;
         
         if (canListen && !wakeWordListener.isListening) {
              try {
@@ -164,7 +178,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         } else if (!canListen && wakeWordListener.isListening) {
             wakeWordListener.stopListening();
         }
-    }, [isTaskModalOpen, isChatOpen, isImageTaskModalOpen, isLocationPromptOpen, isSuggestionsModalOpen, isNotepadAiModalOpen, isArchiveModalOpen, mainCommandListener.isListening, wakeWordListener, isElectron]);
+    }, [isTaskModalOpen, isChatOpen, isImageTaskModalOpen, isLocationPromptOpen, isSuggestionsModalOpen, isNotepadAiModalOpen, isArchiveModalOpen, isSelectionModeActive, mainCommandListener.isListening, wakeWordListener, isElectron]);
 
 
     // --- Task Management ---
@@ -502,17 +516,40 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
         setIsLoading(true);
         setLoadingMessage('Resimdeki metin çıkarılıyor...');
-        const extractedText = await geminiService.extractTextFromImage(apiKey, note);
-        setIsLoading(false);
-        
-        if (extractedText) {
-            const updatedText = note.text ? `${note.text}\n\n--- AI Analizi ---\n${extractedText}` : extractedText;
-            setNotes(notes.map(n => n.id === noteId ? { ...n, text: updatedText } : n));
-            setNotification({ message: 'Resimden metin çıkarıldı.', type: 'success' });
-        } else {
-            setNotification({ message: 'Resimden metin çıkarılamadı.', type: 'error' });
+
+        try {
+            let extractedText: string | null = null;
+
+            // Electron uses file paths, web uses data URLs
+            if (isElectron && window.electronAPI && !note.imageUrl.startsWith('data:')) {
+const base64Data = await (window.electronAPI as any).readFileAsBase64(note.imageUrl);
+                if (base64Data) {
+                    // Re-construct data URL for the service
+                    const mimeType = note.imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
+                    const dataUrl = `data:${mimeType};base64,${base64Data}`;
+                    extractedText = await geminiService.extractTextFromDataUrl(apiKey, dataUrl);
+                } else {
+                    throw new Error('Electron could not read the image file.');
+                }
+            } else {
+                // For web and already-base64 images in Electron
+                extractedText = await geminiService.extractTextFromDataUrl(apiKey, note.imageUrl);
+            }
+
+            if (extractedText) {
+                const updatedText = note.text ? `${note.text}\n\n--- AI Analizi ---\n${extractedText}` : extractedText;
+                setNotes(notes.map(n => n.id === noteId ? { ...n, text: updatedText, updatedAt: new Date().toISOString() } : n));
+                setNotification({ message: 'Resimden metin çıkarıldı.', type: 'success' });
+            } else {
+                setNotification({ message: 'Resimden metin çıkarılamadı.', type: 'error' });
+            }
+        } catch (error: any) {
+            console.error('Image analysis error:', error);
+            setNotification({ message: `Resim analizi başarısız: ${error.message || 'Bilinmeyen hata'}`, type: 'error' });
+        } finally {
+            setIsLoading(false);
         }
-    }, [checkApiKey, notes, apiKey, setNotification]);
+    }, [apiKey, checkApiKey, notes, setNotes, setNotification, isElectron]);
     
     // --- Daily Briefing ---
     const handleGetDailyBriefing = async () => {
@@ -769,7 +806,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
 
     return (
-        <div className="min-h-screen overflow-x-hidden bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
+        <div className="min-h-screen overflow-x-hidden bg-gray-100 text-gray-900 dark:text-gray-100 transition-colors duration-300 dark:bg-gradient-to-br dark:from-[hsl(var(--gradient-from))] dark:via-[hsl(var(--gradient-via))] dark:to-[hsl(var(--gradient-to))]">
             {isLoading && <Loader message={loadingMessage} />}
             {notification && <NotificationPopup message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
             
@@ -808,32 +845,35 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-                        <h2 className="text-xl sm:text-2xl font-bold">Görevlerim</h2>
-                        <div className="flex gap-2 flex-wrap">
-                            <button onClick={handleGetDailyBriefing} className="inline-flex items-center gap-1 text-xs sm:text-sm text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] hover:underline">
+                        <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                            Görevlerim
+                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-[var(--accent-color-600)]/15 text-[var(--accent-color-600)]">{visibleTodos.length}</span>
+                        </h2>
+                        <div className="flex gap-1.5 flex-wrap">
+<button onClick={handleGetDailyBriefing} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
                                 <span className="hidden sm:inline">Günün Özetini Al</span>
                                 <span className="sm:hidden">Özet</span>
                             </button>
-                            <button onClick={() => setShowContextInsights(true)} className="inline-flex items-center gap-1 text-xs sm:text-sm text-purple-600 dark:text-purple-400 hover:underline">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" /><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" /></svg>
-                                <span className="hidden sm:inline">📊 İçgörüler</span>
-                                <span className="sm:hidden">İçgörü</span>
-                            </button>
+<button onClick={() => setShowContextInsights(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600">
+  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" /><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" /></svg>
+  <span className="hidden sm:inline">📊 İçgörüler</span>
+  <span className="sm:hidden">İçgörü</span>
+</button>
                             {proactiveSuggestions.length > 0 && (
-                                <button onClick={() => setShowProactiveSuggestions(true)} className="inline-flex items-center gap-1 text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 hover:underline animate-pulse">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
+<button onClick={() => setShowProactiveSuggestions(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-indigo-200/60 dark:border-indigo-700/60 bg-white/60 dark:bg-gray-800/60 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:border-indigo-300 dark:hover:border-indigo-600 animate-pulse">
+<svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
                                     <span className="hidden sm:inline">🤖 AI Önerileri ({proactiveSuggestions.length})</span>
                                     <span className="sm:hidden">🤖 ({proactiveSuggestions.length})</span>
                                 </button>
                             )}
-                            <button onClick={() => setIsArchiveModalOpen(true)} className="inline-flex items-center gap-1 text-xs sm:text-sm text-gray-500 hover:text-[var(--accent-color-600)] dark:hover:text-[var(--accent-color-400)] hover:underline">
+<button onClick={() => setIsArchiveModalOpen(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                                 <span className="hidden sm:inline">Arşivi Görüntüle</span>
                                 <span className="sm:hidden">Arşiv</span>
                             </button>
-                            <button onClick={handleExportICS} className="inline-flex items-center gap-1 text-xs sm:text-sm text-gray-500 hover:text-[var(--accent-color-600)] dark:hover:text-[var(--accent-color-400)] hover:underline">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v11a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3zm0 5h14v9H3V8z" clipRule="evenodd" /></svg>
+<button onClick={handleExportICS} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v11a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3zm0 5h14v9H3V8z" clipRule="evenodd" /></svg>
                                 <span className="hidden sm:inline">Takvime Dışa Aktar (.ics)</span>
                                 <span className="sm:hidden">ICS</span>
                             </button>
@@ -845,18 +885,37 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                     </div>
                 </div>
 
+                {/* Tasks toolbar: filters + search */}
+                <div className="mb-4 mt-1 grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="md:col-span-2">
+                        <div className="inline-flex rounded-full bg-gray-100 dark:bg-gray-800 p-1">
+                            <button onClick={() => setTaskFilter('all')} className={`px-3 py-1.5 text-xs sm:text-sm rounded-full ${taskFilter==='all' ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Tümü</button>
+                            <button onClick={() => setTaskFilter('active')} className={`px-3 py-1.5 text-xs sm:text-sm rounded-full ${taskFilter==='active' ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Aktif</button>
+                            <button onClick={() => setTaskFilter('completed')} className={`px-3 py-1.5 text-xs sm:text-sm rounded-full ${taskFilter==='completed' ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Tamamlanan</button>
+                        </div>
+                    </div>
+                    <div className="md:col-span-1">
+                        <div className="relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
+                            <input value={taskQuery} onChange={(e)=>setTaskQuery(e.target.value)} placeholder="Görevlerde ara..." className="w-full pl-9 pr-3 py-2 rounded-lg bg-white/80 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-500)]" />
+                        </div>
+                    </div>
+                </div>
+
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
                     <div className="lg:col-span-2">
                         {viewMode === 'list' ? (
-                            <TodoList
-                                todos={todos}
-                                onToggle={handleToggleTodo}
-                                onDelete={handleDeleteTodo}
-                                onGetDirections={handleGetDirections}
-                                onEdit={handleEditTodo}
-                                onShare={(todo) => { setShareType('todo'); setShareItem(todo); setIsShareModalOpen(true); }}
-                                onUpdateReminders={handleUpdateReminders}
-                            />
+                            <div className="bg-white/80 dark:bg-gray-800/60 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl shadow-lg p-3 sm:p-4">
+                                <TodoList
+                                    todos={visibleTodos}
+                                    onToggle={handleToggleTodo}
+                                    onDelete={handleDeleteTodo}
+                                    onGetDirections={handleGetDirections}
+                                    onEdit={handleEditTodo}
+                                    onShare={(todo) => { setShareType('todo'); setShareItem(todo); setIsShareModalOpen(true); }}
+                                    onUpdateReminders={handleUpdateReminders}
+                                />
+                            </div>
                         ) : (
                             <TimelineView todos={todos} />
                         )}
@@ -870,7 +929,25 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                            onShareNote={(note) => { setShareType('note'); setShareItem(note); setIsShareModalOpen(true); }}
                            setNotification={setNotification}
                            onAnalyzePdf={handleAnalyzePdf}
-                           onAddTask={handleAddTask}
+                           onExtractTextFromImage={async (dataUrl) => {
+                               if (!checkApiKey()) return null;
+                               setIsLoading(true);
+                               setLoadingMessage('Resimdeki metin çıkarılıyor...');
+                               const text = await geminiService.extractTextFromDataUrl(apiKey, dataUrl);
+                               setIsLoading(false);
+                               return text;
+                           }}
+                           onDeleteNotesRemote={async (ids) => {
+                               try {
+                                   const { deleteNotes } = await import('./services/supabaseClient');
+                                   if (userId && userId !== 'guest') {
+                                       await deleteNotes(userId, ids);
+                                   }
+                               } catch (e) {
+                                   console.warn('[Main] Remote delete (bulk) failed:', e);
+                               }
+                           }}
+                           onSelectionModeChange={setIsSelectionModeActive}
                        />
                     </div>
                 </div>
@@ -893,7 +970,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             <LocationPromptModal isOpen={isLocationPromptOpen} onClose={() => setIsLocationPromptOpen(false)} onSubmit={handleLocationSubmit} destination={todoForDirections?.aiMetadata?.destination || ''} />
             <SuggestionsModal isOpen={isSuggestionsModalOpen} onClose={() => setIsSuggestionsModalOpen(false)} briefing={dailyBriefing} />
             <NotepadAiModal isOpen={isNotepadAiModalOpen} onClose={() => setIsNotepadAiModalOpen(false)} onSubmit={handleAnalyzeNotes} notes={notes} />
-            <ArchiveModal isOpen={isArchiveModalOpen} onClose={() => setIsArchiveModalOpen(false)} currentTodos={todos} />
+            <ArchiveModal isOpen={isArchiveModalOpen} onClose={() => setIsArchiveModalOpen(false)} currentTodos={todos} currentNotes={notes} />
             <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} item={shareItem} type={shareType} />
             
             {/* New AI Features Modals */}

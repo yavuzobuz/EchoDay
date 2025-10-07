@@ -353,6 +353,23 @@ const extractTextFromImage = async (apiKey: string, note: Note): Promise<string 
     }
 };
 
+// Extract text directly from an image data URL (without constructing a Note)
+const extractTextFromDataUrl = async (apiKey: string, dataUrl: string): Promise<string | null> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({ model: modelName });
+        const b64 = dataUrl.split(',')[1];
+        const mime = dataUrl.match(/:(.*?);/)?.[1] || 'image/png';
+        const imagePart = { inlineData: { data: b64, mimeType: mime } };
+        const textPrompt = 'Bu resimdeki tüm metni çıkar. Sadece çıkarılan metni döndür.';
+        const result = await model.generateContent([textPrompt, imagePart]);
+        const response = await result.response;
+        return response.text();
+    } catch (error) {
+        console.error('Error extracting text from data URL with Gemini:', error);
+        return null;
+    }
+};
+
 const classifyChatIntent = async (apiKey: string, message: string): Promise<{ intent: string, description?: string } | null> => {
     try {
         const model = getAI(apiKey).getGenerativeModel({
@@ -1048,6 +1065,7 @@ export const geminiService = {
     getDailyBriefing,
     processNotesWithPrompt,
     extractTextFromImage,
+    extractTextFromDataUrl,
     classifyChatIntent,
     speechToText,
     // Advanced NLP

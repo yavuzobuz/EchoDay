@@ -1,5 +1,6 @@
 import Dexie, { Table } from 'dexie';
 import { Todo, Note, DashboardStats, DayStat, CategoryStats, TimeAnalysis, PeriodicReport } from '../types';
+import { supabase, archiveUpsertNotes, archiveUpsertTodos, archiveFetchByDate, archiveSearch } from './supabaseClient';
 
 export const db = new Dexie('SmartTodoArchive') as Dexie & {
   todos: Table<Todo, string>;
@@ -33,6 +34,35 @@ db.version(3).stores({
   // Existing data will be kept, userId field will be undefined until set
 });
 
+// Ensure database is open before any operation
+const ensureDbOpen = async (): Promise<boolean> => {
+  try {
+    // Check if IndexedDB is available
+    if (!('indexedDB' in window)) {
+      console.error('[Archive] IndexedDB not available in this environment');
+      return false;
+    }
+    
+    // Check if database is already open
+    if (db.isOpen()) {
+      return true;
+    }
+    
+    // Try to open the database
+    await db.open();
+    console.log('[Archive] ✅ Database opened successfully');
+    return true;
+  } catch (error: any) {
+    console.error('[Archive] ❌ Failed to open database:', error);
+    console.error('[Archive] Error details:', {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack
+    });
+    return false;
+  }
+};
+
 // Test database initialization
 const initDB = async (): Promise<boolean> => {
   try {
@@ -55,19 +85,7 @@ const initDB = async (): Promise<boolean> => {
       message: error?.message,
       stack: error?.stack
     });
-    
-    // Try to close and reopen
-    try {
-      console.log('[Archive] Attempting to close and reopen database...');
-      db.close();
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await db.open();
-      console.log('[Archive] ✅ Database reopened successfully');
-      return true;
-    } catch (retryError) {
-      console.error('[Archive] ❌ Retry failed:', retryError);
-      return false;
-    }
+    return false;
   }
 };
 
@@ -80,7 +98,11 @@ const initializeDatabase = async () => {
   }
 };
 
-initializeDatabase();
+// Skip Dexie init if Supabase archive is on (especially for Electron)
+// isSupabaseOn defined below; use runtime check against 'supabase' directly to avoid hoisting issues
+if (!supabase) {
+  initializeDatabase();
+}
 
 // Helper: Get current user ID from AuthContext or localStorage
 const getCurrentUserId = (): string => {
@@ -99,36 +121,44 @@ const getCurrentUserId = (): string => {
   return 'guest';
 };
 
+const isSupabaseOn = () => !!supabase;
+
 const archiveItems = async (todos: Todo[], notes: Note[], userId?: string): Promise<void> => {
   try {
     const currentUserId = userId || getCurrentUserId();
     console.log(`[Archive] Starting archive for user ${currentUserId}: ${todos.length} todos, ${notes.length} notes`);
-    
+
+    if (isSupabaseOn() && currentUserId !== 'guest') {
+      try {
+        // Prefer Supabase-based archive
+        await Promise.all([
+          archiveUpsertTodos(currentUserId, todos),
+          archiveUpsertNotes(currentUserId, notes),
+        ]);
+        console.log('[Archive] Archived to Supabase successfully');
+        return;
+      } catch (e) {
+        console.warn('[Archive] Supabase archive failed, falling back to IndexedDB:', e);
+        // continue to fallback
+      }
+    }
+
+    // Fallback: IndexedDB (Dexie)
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) throw new Error('Database could not be opened');
+
     await db.transaction('rw', db.todos, db.notes, async () => {
       if (todos.length > 0) {
-        console.log('[Archive] Archiving todos:', todos.map(t => t.text));
-        // Add userId to each todo
         const todosWithUserId = todos.map(t => ({ ...t, userId: currentUserId }));
         await db.todos.bulkPut(todosWithUserId);
-        console.log('[Archive] Todos archived successfully');
       }
       if (notes.length > 0) {
-        console.log('[Archive] Archiving notes:', notes.map(n => n.text || '(image note)'));
-        // Add userId to each note
         const notesWithUserId = notes.map(n => ({ ...n, userId: currentUserId }));
         await db.notes.bulkPut(notesWithUserId);
-        console.log('[Archive] Notes archived successfully');
       }
     });
-    
-    console.log(`[Archive] Archive completed: ${todos.length} todos and ${notes.length} notes archived.`);
   } catch (error: any) {
     console.error('[Archive] Failed to archive items:', error);
-    console.error('[Archive] Error name:', error?.name);
-    console.error('[Archive] Error message:', error?.message);
-    console.error('[Archive] Error stack:', error?.stack);
-    
-    // User-friendly error messages
     if (error?.name === 'QuotaExceededError') {
       throw new Error('Depolama alanı doldu. Lütfen eski arşivleri temizleyin.');
     } else if (error?.name === 'ConstraintError') {
@@ -141,6 +171,19 @@ const archiveItems = async (todos: Todo[], notes: Note[], userId?: string): Prom
 
 const getArchivedItemsForDate = async (date: string, userId?: string): Promise<{ todos: Todo[], notes: Note[] }> => {
     const currentUserId = userId || getCurrentUserId();
+
+    // Prefer Supabase if available
+    if (isSupabaseOn() && currentUserId !== 'guest') {
+      try {
+        return await archiveFetchByDate(currentUserId, date);
+      } catch (e) {
+        console.warn('[Archive] Supabase fetch by date failed, fallback to IndexedDB:', e);
+      }
+    }
+
+    // Fallback: IndexedDB (Dexie)
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) { console.error('[Archive] Database not available for date query'); return { todos: [], notes: [] }; }
     // ✅ Use local timezone for date range to match how items are archived
     const startDate = new Date(date);
     startDate.setHours(0, 0, 0, 0);
@@ -180,8 +223,20 @@ const getArchivedItemsForDate = async (date: string, userId?: string): Promise<{
 
 const searchArchive = async (query: string, userId?: string): Promise<{ todos: Todo[], notes: Note[] }> => {
     if (!query.trim()) return { todos: [], notes: [] };
-
     const currentUserId = userId || getCurrentUserId();
+
+    // Prefer Supabase if available
+    if (isSupabaseOn() && currentUserId !== 'guest') {
+      try {
+        return await archiveSearch(currentUserId, query);
+      } catch (e) {
+        console.warn('[Archive] Supabase search failed, fallback to IndexedDB:', e);
+      }
+    }
+
+    // Fallback: IndexedDB (Dexie)
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) { console.error('[Archive] Database not available for search'); return { todos: [], notes: [] }; }
     const lowerCaseQuery = query.toLowerCase();
     
     // ✅ Improved search: Full-text search instead of just prefix match
@@ -205,6 +260,19 @@ const searchArchive = async (query: string, userId?: string): Promise<{ todos: T
 const removeNotes = async (ids: string[]): Promise<void> => {
   try {
     if (!ids.length) return;
+
+    if (isSupabaseOn() && supabase && getCurrentUserId() !== 'guest') {
+      await supabase.from('archived_notes').delete().in('id', ids);
+      console.log(`[Archive] (Supabase) Removed ${ids.length} notes from archive`);
+      return;
+    }
+    
+    // Ensure database is open
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
+    
     await db.notes.where('id').anyOf(ids).delete();
     console.log(`[Archive] Removed ${ids.length} notes from archive`);
   } catch (error) {
@@ -216,6 +284,19 @@ const removeNotes = async (ids: string[]): Promise<void> => {
 const removeTodos = async (ids: string[]): Promise<void> => {
   try {
     if (!ids.length) return;
+
+    if (isSupabaseOn() && supabase && getCurrentUserId() !== 'guest') {
+      await supabase.from('archived_todos').delete().in('id', ids);
+      console.log(`[Archive] (Supabase) Removed ${ids.length} todos from archive`);
+      return;
+    }
+    
+    // Ensure database is open
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
+    
     await db.todos.where('id').anyOf(ids).delete();
     console.log(`[Archive] Removed ${ids.length} todos from archive`);
   } catch (error) {
@@ -226,6 +307,21 @@ const removeTodos = async (ids: string[]): Promise<void> => {
 
 const deleteArchivedItems = async (todoIds: string[], noteIds: string[]): Promise<{ todosDeleted: number; notesDeleted: number }> => {
   try {
+    if (isSupabaseOn() && supabase && getCurrentUserId() !== 'guest') {
+      await Promise.all([
+        todoIds.length ? supabase.from('archived_todos').delete().in('id', todoIds) : Promise.resolve(null),
+        noteIds.length ? supabase.from('archived_notes').delete().in('id', noteIds) : Promise.resolve(null),
+      ]);
+      console.log(`[Archive] (Supabase) Delete completed: ${todoIds.length} todos and ${noteIds.length} notes deleted`);
+      return { todosDeleted: todoIds.length, notesDeleted: noteIds.length };
+    }
+
+    // Ensure database is open
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
+    
     console.log(`[Archive] Deleting ${todoIds.length} todos and ${noteIds.length} notes from archive`);
     
     let todosDeleted = 0;
@@ -254,22 +350,41 @@ const deleteArchivedItems = async (todoIds: string[], noteIds: string[]): Promis
 const getDashboardStats = async (currentTodos: Todo[], userId?: string): Promise<DashboardStats> => {
   try {
     const currentUserId = userId || getCurrentUserId();
-    // ✅ Optimized: Only fetch completed todos from archive using index
-    const completedArchived = await db.todos
-      .where('completed')
-      .equals(1)
-      .filter(t => t.userId === currentUserId)
-      .toArray();
-    
-    const currentCompleted = currentTodos.filter(t => t.completed);
-    const completedTasks = [...currentCompleted, ...completedArchived];
 
-    // Calculate total completed
-    const totalCompleted = completedTasks.length;
+    let archivedCompletedDates: string[] = [];
+    if (isSupabaseOn() && supabase && currentUserId !== 'guest') {
+      const tRes = await supabase
+        .from('archived_todos')
+        .select('id, created_at')
+        .eq('user_id', currentUserId);
+      archivedCompletedDates = (tRes.data || []).map((r: any) => (r.created_at || new Date().toISOString()));
+    } else {
+      // Dexie fallback
+      const isOpen = await ensureDbOpen();
+      if (!isOpen) {
+        console.error('[Archive] Database not available for dashboard stats');
+        return { totalCompleted: 0, currentStreak: 0, last7Days: [] };
+      }
+      const completedArchived = await db.todos
+        .where('completed')
+        .equals(1)
+        .filter(t => t.userId === currentUserId)
+        .toArray();
+      archivedCompletedDates = completedArchived.map(t => t.createdAt);
+    }
+
+    const currentCompleted = currentTodos.filter(t => t.completed);
+    const completedTasksDates = [
+      ...currentCompleted.map(t => t.createdAt),
+      ...archivedCompletedDates,
+    ];
+
+// Calculate total completed
+    const totalCompleted = completedTasksDates.length;
 
     // Calculate streak
     const completionDates = new Set(
-      completedTasks.map(t => new Date(t.createdAt).toISOString().split('T')[0])
+      completedTasksDates.map(d => new Date(d).toISOString().split('T')[0])
     );
     
     let currentStreak = 0;
@@ -284,7 +399,7 @@ const getDashboardStats = async (currentTodos: Todo[], userId?: string): Promise
         }
     }
 
-    // Calculate last 7 days activity
+// Calculate last 7 days activity
     const last7Days: DayStat[] = [];
     const dateCounts = new Map<string, number>();
 
@@ -295,8 +410,8 @@ const getDashboardStats = async (currentTodos: Todo[], userId?: string): Promise
         dateCounts.set(dateStr, 0);
     }
     
-    completedTasks.forEach(task => {
-        const taskDateStr = new Date(task.createdAt).toISOString().split('T')[0];
+    completedTasksDates.forEach(dateStrRaw => {
+        const taskDateStr = new Date(dateStrRaw).toISOString().split('T')[0];
         if (dateCounts.has(taskDateStr)) {
             dateCounts.set(taskDateStr, (dateCounts.get(taskDateStr) || 0) + 1);
         }
@@ -319,6 +434,36 @@ const getDashboardStats = async (currentTodos: Todo[], userId?: string): Promise
 const getAllArchivedItems = async (userId?: string): Promise<{ todos: Todo[], notes: Note[] }> => {
   try {
     const currentUserId = userId || getCurrentUserId();
+
+    if (isSupabaseOn() && supabase && currentUserId !== 'guest') {
+      const [tRes, nRes] = await Promise.all([
+        supabase.from('archived_todos').select('*').eq('user_id', currentUserId),
+        supabase.from('archived_notes').select('*').eq('user_id', currentUserId),
+      ]);
+      const todos = (tRes.data || []).map((row: any) => ({
+        ...row,
+        createdAt: row.created_at ?? row.createdAt,
+        archivedAt: row.archived_at ?? row.archivedAt,
+        userId: row.user_id ?? row.userId,
+      }));
+      const notes = (nRes.data || []).map((row: any) => ({
+        ...row,
+        createdAt: row.created_at ?? row.createdAt,
+        archivedAt: row.archived_at ?? row.archivedAt,
+        userId: row.user_id ?? row.userId,
+        imageUrl: row.image_url ?? row.imageUrl,
+      }));
+      console.log(`[Archive] (Supabase) Total archived items: ${todos.length} todos, ${notes.length} notes`);
+      return { todos, notes };
+    }
+
+    // Dexie fallback
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      console.error('[Archive] Database not available');
+      return { todos: [], notes: [] };
+    }
+    
     const [todos, notes] = await Promise.all([
       db.todos.where('userId').equals(currentUserId).toArray(),
       db.notes.where('userId').equals(currentUserId).toArray()
@@ -340,6 +485,21 @@ const clearOldArchives = async (daysToKeep: number = 90): Promise<number> => {
     const cutoffISO = cutoffDate.toISOString();
     
     console.log(`[Archive] Clearing archives older than ${cutoffDate.toLocaleDateString('tr-TR')}`);
+
+    if (isSupabaseOn() && supabase && getCurrentUserId() !== 'guest') {
+      await Promise.all([
+        supabase.from('archived_todos').delete().lt('archived_at', cutoffISO),
+        supabase.from('archived_notes').delete().lt('archived_at', cutoffISO),
+      ]);
+      console.log('[Archive] (Supabase) Cleared old archived items');
+      return 0;
+    }
+
+    // Dexie fallback
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
     
     const deletedTodos = await db.todos
       .where('createdAt')
@@ -373,7 +533,31 @@ const checkDatabaseHealth = async (): Promise<{
   let noteCount = 0;
   
   try {
-    await db.open();
+    if (isSupabaseOn() && supabase && getCurrentUserId() !== 'guest') {
+      const [tRes, nRes] = await Promise.all([
+        supabase.from('archived_todos').select('*', { count: 'exact', head: true }),
+        supabase.from('archived_notes').select('*', { count: 'exact', head: true }),
+      ]);
+      todoCount = tRes.count || 0;
+      noteCount = nRes.count || 0;
+      const totalItems = todoCount + noteCount;
+      const estimatedSizeMB = (totalItems * 1024) / (1024 * 1024);
+      return { isHealthy: true, todoCount, noteCount, totalItems, estimatedSizeMB, errors };
+    }
+
+    // Dexie fallback
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      errors.push('Database could not be opened');
+      return {
+        isHealthy: false,
+        todoCount: 0,
+        noteCount: 0,
+        totalItems: 0,
+        estimatedSizeMB: 0,
+        errors
+      };
+    }
     
     [todoCount, noteCount] = await Promise.all([
       db.todos.count(),
@@ -415,6 +599,44 @@ const checkDatabaseHealth = async (): Promise<{
 const exportArchive = async (): Promise<string> => {
   try {
     console.log('[Archive] Starting export...');
+
+    if (isSupabaseOn() && supabase && getCurrentUserId() !== 'guest') {
+      const [tRes, nRes] = await Promise.all([
+        supabase.from('archived_todos').select('*'),
+        supabase.from('archived_notes').select('*'),
+      ]);
+      const todos = (tRes.data || []).map((row: any) => ({
+        ...row,
+        createdAt: row.created_at ?? row.createdAt,
+        archivedAt: row.archived_at ?? row.archivedAt,
+        userId: row.user_id ?? row.userId,
+      }));
+      const notes = (nRes.data || []).map((row: any) => ({
+        ...row,
+        createdAt: row.created_at ?? row.createdAt,
+        archivedAt: row.archived_at ?? row.archivedAt,
+        userId: row.user_id ?? row.userId,
+        imageUrl: row.image_url ?? row.imageUrl,
+      }));
+      const exportData = {
+        version: 2,
+        exportDate: new Date().toISOString(),
+        appName: 'EchoDay',
+        todoCount: todos.length,
+        noteCount: notes.length,
+        todos,
+        notes
+      };
+      const jsonString = JSON.stringify(exportData, null, 2);
+      console.log(`[Archive] (Supabase) Export completed: ${todos.length} todos, ${notes.length} notes`);
+      return jsonString;
+    }
+
+    // Dexie fallback
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
     
     const [todos, notes] = await Promise.all([
       db.todos.toArray(),
@@ -454,6 +676,22 @@ const importArchive = async (jsonData: string): Promise<{ todosImported: number;
     }
     
     console.log(`[Archive] Importing ${data.todos.length} todos and ${data.notes.length} notes...`);
+
+    if (isSupabaseOn() && supabase && getCurrentUserId() !== 'guest') {
+      const currentUserId = getCurrentUserId();
+      await Promise.all([
+        archiveUpsertTodos(currentUserId, data.todos || []),
+        archiveUpsertNotes(currentUserId, data.notes || []),
+      ]);
+      console.log('[Archive] (Supabase) Import completed successfully');
+      return { todosImported: data.todos.length, notesImported: data.notes.length };
+    }
+
+    // Dexie fallback
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
     
     await db.transaction('rw', db.todos, db.notes, async () => {
       if (data.todos.length > 0) {
@@ -488,9 +726,29 @@ const getCategoryStats = async (currentTodos: Todo[], userId?: string): Promise<
   try {
     const currentUserId = userId || getCurrentUserId();
     console.log(`[Archive] Calculating category stats for user ${currentUserId}...`);
-    
-    // Arşivdeki tüm todoları al (kullanıcıya özel)
-    const archivedTodos = await db.todos.where('userId').equals(currentUserId).toArray();
+
+    let archivedTodos: Todo[] = [];
+    if (isSupabaseOn() && supabase && currentUserId !== 'guest') {
+      // Archived todos in Supabase don't carry ai metadata; will default categories
+      const tRes = await supabase.from('archived_todos').select('*').eq('user_id', currentUserId);
+      archivedTodos = (tRes.data || []).map((row: any) => ({
+        id: row.id,
+        text: row.text || '',
+        priority: 'medium' as any,
+        datetime: row.datetime || null,
+        completed: true,
+        createdAt: row.created_at || new Date().toISOString(),
+      }));
+    } else {
+      // Dexie fallback
+      const isOpen = await ensureDbOpen();
+      if (!isOpen) {
+        console.error('[Archive] Database not available for category stats');
+        return [];
+      }
+      archivedTodos = await db.todos.where('userId').equals(currentUserId).toArray();
+    }
+
     const allTodos = [...currentTodos, ...archivedTodos];
     
     // Kategorilere göre grupla
@@ -575,8 +833,38 @@ const getTimeAnalysis = async (currentTodos: Todo[], userId?: string): Promise<T
   try {
     const currentUserId = userId || getCurrentUserId();
     console.log(`[Archive] Analyzing time data for user ${currentUserId}...`);
-    
-    const archivedTodos = await db.todos.where('userId').equals(currentUserId).toArray();
+
+    let archivedTodos: Todo[] = [];
+    if (isSupabaseOn() && supabase && currentUserId !== 'guest') {
+      const tRes = await supabase.from('archived_todos').select('*').eq('user_id', currentUserId);
+      archivedTodos = (tRes.data || []).map((row: any) => ({
+        id: row.id,
+        text: row.text || '',
+        priority: 'medium' as any,
+        datetime: row.datetime || null,
+        completed: true,
+        createdAt: row.created_at || new Date().toISOString(),
+      }));
+    } else {
+      // Dexie fallback
+      const isOpen = await ensureDbOpen();
+      if (!isOpen) {
+        console.error('[Archive] Database not available for time analysis');
+        return {
+          averageCompletionTime: 0,
+          fastestTask: null,
+          slowestTask: null,
+          categoryAverages: {},
+          timeDistribution: {
+            under15min: 0,
+            between15and60min: 0,
+            between1and3hours: 0,
+            over3hours: 0
+          }
+        };
+      }
+      archivedTodos = await db.todos.where('userId').equals(currentUserId).toArray();
+    }
     const allCompletedTodos = [...currentTodos, ...archivedTodos].filter(t => t.completed);
     
     const completionTimes: { todo: Todo; time: number }[] = [];
@@ -696,11 +984,58 @@ const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[],
     const endISO = endDate.toISOString();
     
     // Belirtilen periyot içindeki todoları al (kullanıcıya özel)
-    const archivedTodos = await db.todos
-      .where('createdAt')
-      .between(startISO, endISO, true, true)
-      .filter(t => t.userId === currentUserId)
-      .toArray();
+    let archivedTodos: Todo[] = [];
+    if (isSupabaseOn() && supabase && currentUserId !== 'guest') {
+      const tRes = await supabase
+        .from('archived_todos')
+        .select('*')
+        .eq('user_id', currentUserId)
+        .gte('archived_at', startISO)
+        .lte('archived_at', endISO);
+      archivedTodos = (tRes.data || []).map((row: any) => ({
+        id: row.id,
+        text: row.text || '',
+        priority: 'medium' as any,
+        datetime: row.datetime || null,
+        completed: true,
+        createdAt: row.created_at || new Date().toISOString(),
+      }));
+    } else {
+      // Dexie fallback
+      const isOpen = await ensureDbOpen();
+      if (!isOpen) {
+        console.error('[Archive] Database not available for periodic report');
+        return {
+          period,
+          startDate: new Date().toISOString(),
+          endDate: new Date().toISOString(),
+          totalTasks: 0,
+          completedTasks: 0,
+          completionRate: 0,
+          categoryBreakdown: [],
+          timeAnalysis: {
+            averageCompletionTime: 0,
+            fastestTask: null,
+            slowestTask: null,
+            categoryAverages: {},
+            timeDistribution: {
+              under15min: 0,
+              between15and60min: 0,
+              between1and3hours: 0,
+              over3hours: 0
+            }
+          },
+          topCategories: [],
+          productivityScore: 0,
+          insights: []
+        };
+      }
+      archivedTodos = await db.todos
+        .where('createdAt')
+        .between(startISO, endISO, true, true)
+        .filter(t => t.userId === currentUserId)
+        .toArray();
+    }
     
     const periodTodos = [
       ...currentTodos.filter(t => t.createdAt >= startISO && t.createdAt <= endISO),
@@ -796,6 +1131,24 @@ const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[],
   }
 };
 
+// Database repair: delete and recreate IndexedDB (will remove all archived items)
+const resetArchiveDatabase = async (): Promise<boolean> => {
+  try {
+    console.warn('[Archive] ⚠️ Resetting archive database. All archived items will be deleted.');
+    if (db.isOpen()) {
+      db.close();
+    }
+    await Dexie.delete(db.name);
+    // Re-open to recreate schema
+    await db.open();
+    console.log('[Archive] ✅ Archive database reset and reopened successfully');
+    return true;
+  } catch (error) {
+    console.error('[Archive] ❌ Failed to reset archive database:', error);
+    return false;
+  }
+};
+
 export const archiveService = {
   archiveItems,
   getArchivedItemsForDate,
@@ -813,4 +1166,6 @@ export const archiveService = {
   getCategoryStats,
   getTimeAnalysis,
   getPeriodicReport,
+  // Maintenance
+  resetArchiveDatabase,
 };
