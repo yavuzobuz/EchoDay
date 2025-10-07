@@ -39,7 +39,7 @@ export function useSettingsStorage<T>(key: string, initialValue: T): [T, (value:
     }
   });
 
-  // Load from Electron settings on mount
+  // Load from Electron settings on mount OR reload when key changes
   useEffect(() => {
     if (isElectron && window.electronAPI) {
       console.log(`[useSettingsStorage] Loading ${key} from Electron...`);
@@ -52,7 +52,14 @@ export function useSettingsStorage<T>(key: string, initialValue: T): [T, (value:
         console.error(`[useSettingsStorage] Error loading ${key} from Electron settings:`, error);
       });
     } else {
-      console.log(`[useSettingsStorage] NOT using Electron for ${key}`);
+      // Browser: when the key changes (e.g., userId becomes available after auth), reload from localStorage
+      try {
+        console.log(`[useSettingsStorage] Reloading ${key} from localStorage (web)...`);
+        const item = window.localStorage.getItem(key);
+        setStoredValue(item ? JSON.parse(item) : initialValue);
+      } catch (error) {
+        console.error(`Error reloading ${key} from localStorage:`, error);
+      }
     }
   }, [key, isElectron]);
 
