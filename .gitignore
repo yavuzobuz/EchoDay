@@ -31,3 +31,6 @@ dist-electron
 
 # Release archives
 *.zip
+
+# Release artifacts directory (do not track binaries)
+release-package/
