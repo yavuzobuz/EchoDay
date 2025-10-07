@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 
 const rawUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
 const rawKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
@@ -62,7 +63,7 @@ export async function getUserId(): Promise<string | null> {
 
 export function onAuthStateChange(cb: (userId: string | null) => void) {
   if (!supabase) return () => {};
-  const { data: sub } = supabase.auth.onAuthStateChange(async (_event, session) => {
+  const { data: sub } = supabase.auth.onAuthStateChange(async (_event: AuthChangeEvent, session: Session | null) => {
     cb(session?.user?.id || null);
   });
   return () => sub.subscription.unsubscribe();
