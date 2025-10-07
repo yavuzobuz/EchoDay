@@ -54,7 +54,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
   const os = getOS();
 
   const downloadLinks = {
-    windows: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_Windows_v1.0.1_FINAL.zip',
+    windows: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/sesli-gunluk-planlayici-dist.zip',
     mac: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_macOS.dmg',
     linux: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_Linux.AppImage',
   } as const;
@@ -727,7 +727,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
         {/* Secondary direct links for all platforms */}
         <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400 px-4">
           <a className="underline hover:opacity-80" href={downloadLinks.windows} download>
-            Windows (.exe)
+            Windows (.zip)
           </a>
           <span className="opacity-50">|</span>
           <a className="underline hover:opacity-80" href={downloadLinks.mac} download>

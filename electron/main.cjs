@@ -58,6 +58,7 @@ function createWindow() {
       spellcheck: false,
       backgroundThrottling: false,
       sandbox: true,
+      devTools: isDev,
     },
     title: 'Sesli Günlük Planlayıcı',
     backgroundColor: '#1a1a1a',
@@ -129,10 +130,6 @@ function createWindow() {
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
-    // Enable DevTools in production for debugging
-    if (!isDev) {
-      mainWindow.webContents.openDevTools();
-    }
   });
 
   // Handle window close
