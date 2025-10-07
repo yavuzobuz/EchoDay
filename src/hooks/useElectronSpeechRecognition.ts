@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { geminiService } from '../services/geminiService';
+import { useAuth } from '../contexts/AuthContext';
 
 export const useElectronSpeechRecognition = (
   onTranscriptReady: (transcript: string) => void,
@@ -8,55 +9,50 @@ export const useElectronSpeechRecognition = (
   // Helper function to remove stop keywords from end of transcript
   const cleanStopKeywords = (text: string, keywords?: string[]): string => {
     if (!keywords || keywords.length === 0) return text;
-    
+
     let cleaned = text.trim();
     console.log('[Electron SR] 🧹 Cleaning transcript:', cleaned);
     console.log('[Electron SR] 🔍 Looking for keywords:', keywords);
-    
+
+    // Helper to escape regex metacharacters
+    const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
     // Sort keywords by length (longest first) to match longer phrases first
     const sortedKeywords = [...keywords].sort((a, b) => b.length - a.length);
-    
-    // Try to find and remove any stop keyword from the end
+
+    // Try to find and remove any stop keyword from the end (case-insensitive, no lowercasing to avoid Turkish case mapping issues)
     for (const keyword of sortedKeywords) {
-      const lowerKeyword = keyword.toLowerCase();
-      const lowerCleaned = cleaned.toLowerCase();
-      
-      // Simple approach: check if ends with keyword (case insensitive)
-      // Then remove with any trailing punctuation
-      if (lowerCleaned.endsWith(lowerKeyword) || 
-          lowerCleaned.endsWith(lowerKeyword + '.') ||
-          lowerCleaned.endsWith(lowerKeyword + '!') ||
-          lowerCleaned.endsWith(lowerKeyword + ',') ||
-          lowerCleaned.endsWith(lowerKeyword + '?') ||
-          lowerCleaned.endsWith(lowerKeyword + ';') ||
-          lowerCleaned.endsWith(lowerKeyword + ':')) {
-        
-        // Find the position where keyword starts
-        const keywordIndex = lowerCleaned.lastIndexOf(lowerKeyword);
-        if (keywordIndex !== -1) {
-          cleaned = cleaned.substring(0, keywordIndex).trim();
-          console.log(`[Electron SR] ✅ Removed stop keyword "${keyword}" from transcript`);
-          console.log('[Electron SR] 📝 Result:', cleaned);
-          break;
-        }
+      // Allow optional leading spaces before the keyword and optional trailing punctuation/space after, anchored to end of string
+      const re = new RegExp(`(?:\\s*)${escapeRegex(keyword)}(?:[\\s.,!?:;]*)$`, 'i');
+      if (re.test(cleaned)) {
+        cleaned = cleaned.replace(re, '').trim();
+        console.log(`[Electron SR] ✅ Removed stop keyword "${keyword}" from transcript`);
+        console.log('[Electron SR] 📝 Result:', cleaned);
+        break;
       }
     }
-    
+
     return cleaned;
   };
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [hasSupport, setHasSupport] = useState(false);
+
+  // Auth (for per-user API key)
+  const { user } = useAuth();
+  const userId = user?.id || 'guest';
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const autoStopTimerRef = useRef<number | null>(null);
   const webSpeechRecognitionRef = useRef<any>(null);
+  const isElectronRef = useRef<boolean>(false);
   
   // Check if we're in Electron and MediaRecorder is available
   useEffect(() => {
     const isElectron = !!(window as any).isElectron || !!(window as any).electronAPI;
+    isElectronRef.current = isElectron;
     const hasMediaRecorder = typeof MediaRecorder !== 'undefined';
     const hasGetUserMedia = !!(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
     
@@ -99,11 +95,31 @@ export const useElectronSpeechRecognition = (
           const base64Data = base64Audio.split(',')[1];
           
           try {
-            // Read API key from localStorage (same key used in App.tsx)
-            const raw = localStorage.getItem('gemini-api-key') || '';
-            const apiKey = raw && raw.startsWith('"') && raw.endsWith('"') ? JSON.parse(raw) : raw;
+            // Read API key - check Electron settings first, then fallback to localStorage
+            const userScopedKey = `gemini-api-key_${userId}`;
+            let apiKey = '';
+            
+            // Try Electron IPC first (if available)
+            if ((window as any).electronAPI?.getSetting) {
+              try {
+                apiKey = await (window as any).electronAPI.getSetting(userScopedKey);
+                console.log('[Electron SR] API key from Electron settings:', apiKey ? '✅ Found' : '❌ Not found');
+              } catch (e) {
+                console.warn('[Electron SR] Failed to read from Electron settings:', e);
+              }
+            }
+            
+            // Fallback to localStorage
             if (!apiKey) {
-              console.warn('Gemini API anahtarı bulunamadı. Profil sayfasından ekleyin.');
+              let raw = localStorage.getItem(userScopedKey) || '';
+              if (!raw) raw = localStorage.getItem('gemini-api-key') || '';
+              apiKey = raw && raw.startsWith('"') && raw.endsWith('"') ? JSON.parse(raw) : raw;
+              console.log('[Electron SR] API key from localStorage:', apiKey ? '✅ Found' : '❌ Not found');
+            }
+            
+            if (!apiKey) {
+              console.warn('❌ Gemini API anahtarı bulunamadı. Profil sayfasından ekleyin.');
+              alert('⚠️ API anahtarı bulunamadı!\n\nLütfen Profil sayfasından Gemini API anahtarınızı ekleyin.');
               setTranscript('');
               onTranscriptReady('');
               return;
@@ -146,8 +162,8 @@ export const useElectronSpeechRecognition = (
       console.log('[Electron SR] MediaRecorder started');
       console.log('[Electron SR] Stop keywords:', options?.stopOnKeywords);
       
-      // Try Web Speech API for real-time keyword detection
-      if (options?.stopOnKeywords && options.stopOnKeywords.length > 0) {
+      // Try Web Speech API for real-time keyword detection only when NOT running in Electron
+      if (!isElectronRef.current && options?.stopOnKeywords && options.stopOnKeywords.length > 0) {
         try {
           const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
           if (SpeechRecognition) {
@@ -183,14 +199,6 @@ export const useElectronSpeechRecognition = (
             
             recognition.onerror = (event: any) => {
               console.error('[Electron SR] ❌ Web Speech API ERROR:', event.error);
-              if (event.error === 'network') {
-                console.error('[Electron SR] Network error - Web Speech not available in Electron');
-                console.log('[Electron SR] 💡 Please use MANUAL STOP (click microphone button) or wait 15s timeout');
-              } else if (event.error === 'not-allowed') {
-                console.error('[Electron SR] Microphone permission denied!');
-              } else if (event.error === 'no-speech') {
-                console.warn('[Electron SR] No speech detected (non-critical)');
-              }
             };
             
             recognition.start();
@@ -199,12 +207,12 @@ export const useElectronSpeechRecognition = (
             console.log('[Electron SR] 💡 Say one of these to STOP: ' + options.stopOnKeywords.join(', ').toUpperCase());
           } else {
             console.log('[Electron SR] ⚠️ Web Speech API not available');
-            console.log('[Electron SR] 👉 Use MANUAL STOP: Click microphone button or wait 15s');
           }
         } catch (error) {
           console.error('[Electron SR] ❌ Web Speech startup failed:', error);
-          console.log('[Electron SR] 👉 FALLBACK: Use manual stop (click microphone) or wait 15s timeout');
         }
+      } else if (isElectronRef.current && options?.stopOnKeywords && options.stopOnKeywords.length > 0) {
+        console.log('[Electron SR] Keyword auto-stop via Web Speech is disabled in Electron. Use manual stop or timeout.');
       }
       
       // Auto-stop after 15 seconds if continuous is false (increased from 10 to give more time)

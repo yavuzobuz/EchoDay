@@ -14,7 +14,11 @@ const taskSchema = {
     properties: {
         text: { type: SchemaType.STRING, description: 'Görevin tam ve orijinal metni. Kullanıcının söylediği veya yazdığı gibi, çeviri yapılmadan veya özetlenmeden alınmalıdır.' },
         priority: { type: SchemaType.STRING, enum: [Priority.High, Priority.Medium], description: 'Görevin önceliği. Belirtilmemişse varsayılan olarak orta. Acil görevler için yüksek.' },
-        datetime: { type: SchemaType.STRING, description: 'Görev için belirtilmişse ISO 8601 formatında (YYYY-AA-GGTHH:dd:ss.sssZ) belirli tarih ve saat. Aksi takdirde null.', nullable: true },
+        datetime: { 
+            type: SchemaType.STRING, 
+            description: 'SADECE kesin tarih/saat varsa ISO 8601 UTC formatında (YYYY-MM-DDTHH:mm:ss.000Z). Belirsiz süreler için ("yarın", "gelecek hafta", "iki hafta içinde") MUTLAKA null döndür. ASLA doğal dil metni kullanma.', 
+            nullable: true 
+        },
         category: { type: SchemaType.STRING, description: 'Görev için bir kategori (örn: İş, Kişisel, Alışveriş, Randevu).', nullable: true },
         estimatedDuration: { type: SchemaType.NUMBER, description: 'Görevi tamamlamak için tahmini süre (dakika cinsinden).', nullable: true },
         requiresRouting: { type: SchemaType.BOOLEAN, description: 'Görev belirli bir yere gitmeyi içeriyorsa ve yol tarifi gerektiriyorsa true.', nullable: true },
@@ -119,12 +123,14 @@ const analyzeTask = async (apiKey: string, description: string): Promise<Analyze
 - ŞU ANIN UTC zamanı (referans için): ${nowISO}
 
 ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
-1. Eğer görevde bir zaman belirtilmişse (örn: "yarın saat 15:00", "28 Ekim saat 14:30"), bu zamanı KULLANICININ YEREL SAAT DİLİMİNDE (${tz}) yorumla
+1. Eğer görevde BELİRLİ bir tarih ve saat varsa ("yarın saat 15:00", "28 Ekim saat 14:30"), bu zamanı KULLANICININ YEREL SAAT DİLİMİNDE (${tz}) yorumla
 2. Yerel zamanı UTC'ye çevir: Yerel zamandan ${offsetHours} saat ÇIKARın
 3. Sonucu ISO 8601 UTC formatında döndür: YYYY-MM-DDTHH:mm:00.000Z
 4. Örnek: Kullanıcı "yarın saat 15:00" derse ve yarın 2025-10-07 ise:
    - Yerel zaman: 2025-10-07T15:00:00 (${tz})
    - UTC'ye çevrilmiş: 2025-10-07T12:00:00.000Z (15 - 3 = 12)
+5. KRİTİK: Eğer kesin tarih/saat belirtilmemişse ("gelecek hafta", "iki hafta içinde", "yakında"), datetime alanını null olarak bırak
+6. KRİTİK: ASLA datetime alanına doğal dil metni yazma ("iki hafta içinde", "İki hafta içinde" gibi). Sadece ISO formatı veya null kullan
 
 TEXT ALANI FORMATLAMA:
 - Eğer görevde belirli bir tarih varsa (örn: duruşma, fatura ödemesi vb.), text alanında TARİHİ de BELİRT.
@@ -178,12 +184,14 @@ const analyzeImageForTask = async (apiKey: string, prompt: string, imageBase64: 
 - ŞU ANIN UTC zamanı (referans için): ${nowISO}
 
 ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
-1. Eğer görevde bir zaman belirtilmişse (örn: "yarın saat 15:00", "28 Ekim saat 14:30"), bu zamanı KULLANICININ YEREL SAAT DİLİMİNDE (${tz}) yorumla
+1. Eğer görevde BELİRLİ bir tarih ve saat varsa ("yarın saat 15:00", "28 Ekim saat 14:30"), bu zamanı KULLANICININ YEREL SAAT DİLİMİNDE (${tz}) yorumla
 2. Yerel zamanı UTC'ye çevir: Yerel zamandan ${offsetHours} saat ÇIKARın
 3. Sonucu ISO 8601 UTC formatında döndür: YYYY-MM-DDTHH:mm:00.000Z
 4. Örnek: Kullanıcı "yarın saat 15:00" derse ve yarın 2025-10-07 ise:
    - Yerel zaman: 2025-10-07T15:00:00 (${tz})
    - UTC'ye çevrilmiş: 2025-10-07T12:00:00.000Z (15 - 3 = 12)
+5. KRİTİK: Eğer kesin tarih/saat belirtilmemişse ("gelecek hafta", "iki hafta içinde", "yakında"), datetime alanını null olarak bırak
+6. KRİTİK: ASLA datetime alanına doğal dil metni yazma ("iki hafta içinde", "İki hafta içinde" gibi). Sadece ISO formatı veya null kullan
 
 TEXT ALANI FORMATLAMA:
 - Eğer görevde belirli bir tarih varsa (örn: duruşma, fatura ödemesi vb.), text alanında TARİHİ de BELİRT.

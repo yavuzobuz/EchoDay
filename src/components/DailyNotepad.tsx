@@ -4,6 +4,7 @@ import { useSpeechRecognition } from '../hooks/useSpeechRecognitionUnified';
 import { Note } from '../types';
 import { archiveService } from '../services/archiveService';
 import { Clipboard } from '@capacitor/clipboard';
+import { useAuth } from '../contexts/AuthContext';
 import { PencilSquareIcon, HeartIcon, TagIcon, ShareIcon, TrashIcon, BookmarkIcon, SparklesIcon } from '@heroicons/react/24/outline';
 
 interface DailyNotepadProps {
@@ -18,6 +19,10 @@ interface DailyNotepadProps {
 }
 
 const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiModal, onAnalyzeImage, onShareNote, setNotification, onAnalyzePdf, onAddTask }) => {
+  // Get user ID for archive
+  const { user } = useAuth();
+  const userId = user?.id || 'guest';
+  
   // Sorting and filtering state
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const [filterTag, setFilterTag] = useState<string>('');
@@ -150,7 +155,8 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
     const toArchive = visible.filter(n => selectedNoteIds.includes(n.id));
     if (toArchive.length === 0) return;
     try {
-      await archiveService.archiveItems([], toArchive);
+      console.log(`[DailyNotepad] Archiving ${toArchive.length} notes for user ${userId}`);
+      await archiveService.archiveItems([], toArchive, userId);
       // Save for undo
       setUndoState({ type: 'archive', notes: toArchive });
       // Remove from current list
@@ -204,6 +210,7 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
     } else if (undoState.type === 'archive') {
       // Remove from archive DB then restore
       try {
+        console.log(`[DailyNotepad] Removing ${items.length} notes from archive for user ${userId}`);
         await archiveService.removeNotes(items.map(n => n.id));
         setNotes(prev => [...items, ...prev]);
         if (setNotification) {

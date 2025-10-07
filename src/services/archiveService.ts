@@ -36,19 +36,51 @@ db.version(3).stores({
 // Test database initialization
 const initDB = async (): Promise<boolean> => {
   try {
+    // Check if IndexedDB is available
+    if (!('indexedDB' in window)) {
+      throw new Error('IndexedDB not available');
+    }
+    
+    // Try to open the database
     await db.open();
-    console.log('[Archive] Dexie database initialized successfully');
+    console.log('[Archive] ✅ Dexie database initialized successfully');
     console.log('[Archive] Platform:', navigator.userAgent);
-    console.log('[Archive] IndexedDB available:', 'indexedDB' in window);
+    console.log('[Archive] Database name:', db.name);
+    console.log('[Archive] Version:', db.verno);
     return true;
-  } catch (error) {
-    console.error('[Archive] Failed to initialize Dexie:', error);
-    return false;
+  } catch (error: any) {
+    console.error('[Archive] ❌ Failed to initialize Dexie:', error);
+    console.error('[Archive] Error details:', {
+      name: error?.name,
+      message: error?.message,
+      stack: error?.stack
+    });
+    
+    // Try to close and reopen
+    try {
+      console.log('[Archive] Attempting to close and reopen database...');
+      db.close();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await db.open();
+      console.log('[Archive] ✅ Database reopened successfully');
+      return true;
+    } catch (retryError) {
+      console.error('[Archive] ❌ Retry failed:', retryError);
+      return false;
+    }
   }
 };
 
-// Initialize on load
-initDB();
+// Initialize on load with retry
+const initializeDatabase = async () => {
+  console.log('[Archive] Starting database initialization...');
+  const success = await initDB();
+  if (!success) {
+    console.warn('[Archive] ⚠️ Database initialization failed. Archive features will be limited.');
+  }
+};
+
+initializeDatabase();
 
 // Helper: Get current user ID from AuthContext or localStorage
 const getCurrentUserId = (): string => {

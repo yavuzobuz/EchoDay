@@ -1,6 +1,7 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import useLocalStorage from './hooks/useLocalStorage';
+import { useSettingsStorage } from './hooks/useSettingsStorage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Welcome from './pages/Welcome';
 import Main from './Main';
@@ -37,7 +38,8 @@ function AppContent() {
   // User-specific settings
   const [theme, setTheme] = useLocalStorage<'light' | 'dark'>(`theme_${userId}`, 'dark');
   const [accentColor, setAccentColor] = useLocalStorage<AccentColor>(`accent-color_${userId}`, 'blue');
-  const [apiKey, setApiKey] = useLocalStorage<string>(`gemini-api-key_${userId}`, '');
+  // Use Electron-compatible storage for API key
+  const [apiKey, setApiKey] = useSettingsStorage<string>(`gemini-api-key_${userId}`, '');
   const [assistantName, setAssistantName] = useLocalStorage<string>(`assistant-name_${userId}`, 'ATO');
   const [followSystemTheme, setFollowSystemTheme] = useLocalStorage<boolean>(`theme-follow-system_${userId}`, false);
 
@@ -131,11 +133,7 @@ function AppContent() {
         />
         <Route
           path="/"
-          element={
-            <ProtectedRoute>
-              <Navigate to="/app" replace />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/welcome" replace />}
         />
         <Route
           path="/profile"
@@ -165,11 +163,11 @@ function AppContent() {
 
 const App: React.FC = () => {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AuthProvider>
         <AppContent />
       </AuthProvider>
-    </BrowserRouter>
+    </HashRouter>
   );
 };
 

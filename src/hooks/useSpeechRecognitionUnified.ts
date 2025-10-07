@@ -211,8 +211,9 @@ export const useSpeechRecognition = (
     // Reset retry counter on new start
     retryCountRef.current = 0;
     
-    if (isWeb) {
-      // Web Speech API kullan
+    // Electron'da her zaman fallback kullan
+    if (isWeb && !isElectronRef.current) {
+      // Web Speech API kullan (Electron değilse)
       if (recognitionRef.current) {
         try {
           transcriptReadyCalledRef.current = false;
@@ -267,8 +268,8 @@ export const useSpeechRecognition = (
   const stopListening = useCallback(async () => {
     if (!isListening) return;
     
-    if (isWeb) {
-      // Web Speech API durdur
+    if (isWeb && !isElectronRef.current) {
+      // Web Speech API durdur (Electron değilse)
       if (recognitionRef.current) {
         if (silenceTimerRef.current) {
           clearTimeout(silenceTimerRef.current);

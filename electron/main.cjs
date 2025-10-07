@@ -8,6 +8,7 @@ const isDev = process.env.NODE_ENV === 'development';
 const dataPath = path.join(os.homedir(), 'AppData', 'Roaming', 'SesliGunlukPlanlayici');
 const profilesFile = path.join(dataPath, 'profiles.json');
 const statsFile = path.join(dataPath, 'stats.json');
+const settingsFile = path.join(dataPath, 'settings.json');
 
 // Dizini oluştur
 if (!fs.existsSync(dataPath)) {
@@ -128,6 +129,10 @@ function createWindow() {
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    // Enable DevTools in production for debugging
+    if (!isDev) {
+      mainWindow.webContents.openDevTools();
+    }
   });
 
   // Handle window close
@@ -300,6 +305,59 @@ ipcMain.handle('stats:update', (event, userId, updates) => {
   } catch (error) {
     console.error('Error updating stats:', error);
     throw error;
+  }
+});
+
+// ============ Settings Handlers ============
+
+// Ayar kaydet
+ipcMain.handle('settings:set', (event, key, value) => {
+  try {
+    const settings = readJSON(settingsFile);
+    settings[key] = value;
+    writeJSON(settingsFile, settings);
+    console.log(`[Settings] Saved ${key}:`, value ? '***' : 'null');
+    return true;
+  } catch (error) {
+    console.error('Error saving setting:', error);
+    return false;
+  }
+});
+
+// Ayar oku
+ipcMain.handle('settings:get', (event, key) => {
+  try {
+    const settings = readJSON(settingsFile);
+    const value = settings[key];
+    console.log(`[Settings] Retrieved ${key}:`, value ? '***' : 'null');
+    return value || null;
+  } catch (error) {
+    console.error('Error reading setting:', error);
+    return null;
+  }
+});
+
+// Tüm ayarları oku
+ipcMain.handle('settings:getAll', () => {
+  try {
+    return readJSON(settingsFile);
+  } catch (error) {
+    console.error('Error reading all settings:', error);
+    return {};
+  }
+});
+
+// Ayar sil
+ipcMain.handle('settings:delete', (event, key) => {
+  try {
+    const settings = readJSON(settingsFile);
+    delete settings[key];
+    writeJSON(settingsFile, settings);
+    console.log(`[Settings] Deleted ${key}`);
+    return true;
+  } catch (error) {
+    console.error('Error deleting setting:', error);
+    return false;
   }
 });
 

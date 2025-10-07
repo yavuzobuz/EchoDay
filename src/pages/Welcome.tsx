@@ -35,8 +35,33 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentScene, setCurrentScene] = useState(0);
-  
   const scenes = 4; // Toplam sahne sayısı
+  
+  // OS detection and direct download links
+  const getOS = () => {
+    try {
+      const platform = (navigator?.platform || '').toLowerCase();
+      const ua = (navigator?.userAgent || '').toLowerCase();
+      if (platform.includes('win')) return 'windows';
+      if (platform.includes('mac')) return 'mac';
+      if (platform.includes('linux')) return 'linux';
+      if (/android/.test(ua)) return 'android';
+      if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+    } catch (_) {}
+    return 'windows';
+  };
+
+  const os = getOS();
+
+  const downloadLinks = {
+    windows: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_Windows_v1.0.1_FINAL.zip',
+    mac: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_macOS.dmg',
+    linux: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_Linux.AppImage',
+  } as const;
+
+  const primaryDownloadHref = os === 'mac' ? downloadLinks.mac : os === 'linux' ? downloadLinks.linux : downloadLinks.windows;
+  const primaryLabel = os === 'mac' ? 'macOS için İndir' : os === 'linux' ? 'Linux için İndir' : 'Windows için İndir';
+  
 
   useEffect(() => {
     setIsLoaded(true);
@@ -67,7 +92,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
   };
   
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[hsl(var(--gradient-from))] via-[hsl(var(--gradient-via))] to-[hsl(var(--gradient-to))] text-[hsl(var(--foreground))] p-4 transition-colors duration-300 overflow-hidden relative">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[hsl(var(--gradient-from))] via-[hsl(var(--gradient-via))] to-[hsl(var(--gradient-to))] text-[hsl(var(--foreground))] p-4 sm:p-6 lg:p-8 transition-colors duration-300 overflow-x-hidden relative">
       {/* Animated Background Gradient */}
       <div 
         className="absolute inset-0 opacity-30 dark:opacity-20 pointer-events-none"
@@ -92,7 +117,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
         ))}
       </div>
       
-      <div className="text-center max-w-7xl mx-auto relative z-10">
+      <div className="text-center max-w-7xl mx-auto relative z-10 w-full px-2 sm:px-4">
         {/* Logo with pulse animation - BÜYÜTÜLDÜ */}
         <div className={`inline-block p-8 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-3xl mb-8 glow-primary transform transition-all duration-1000 ${
           isLoaded ? 'scale-100 opacity-100 rotate-0' : 'scale-0 opacity-0 rotate-180'
@@ -110,20 +135,20 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
         </div>
 
         {/* Main Title with gradient animation */}
-        <h1 className={`text-6xl sm:text-7xl md:text-8xl font-black mb-4 gradient-text animate-gradient-x transform transition-all duration-1000 ${
+        <h1 className={`text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black mb-4 gradient-text animate-gradient-x transform transition-all duration-1000 break-words ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           EchoDay
         </h1>
         
         {/* Subtitle with typing effect feel */}
-        <div className={`flex items-center justify-center gap-3 mb-4 transform transition-all duration-1000 delay-200 ${
+        <div className={`flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-4 transform transition-all duration-1000 delay-200 px-4 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
-          <svg className="w-10 h-10 text-[hsl(var(--accent))]" fill="currentColor" viewBox="0 0 20 20">
+          <svg className="w-6 h-6 sm:w-10 sm:h-10 text-[hsl(var(--accent))] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
-          <p className="text-3xl md:text-4xl font-bold text-[hsl(var(--foreground))]">
+          <p className="text-xl sm:text-3xl md:text-4xl font-bold text-[hsl(var(--foreground))] break-words">
             Gününüzün Yankısı
           </p>
         </div>
@@ -187,18 +212,18 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
         <div className={`mb-16 transform transition-all duration-1000 delay-500 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
-          <div className="relative max-w-6xl mx-auto">
+          <div className="relative max-w-6xl mx-auto w-full">
             {/* Navigation Arrows */}
             <button 
               onClick={prevScene}
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
+              className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
               aria-label="Önceki sahne"
             >
               <svg className="w-6 h-6 text-[hsl(var(--foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
             <button 
               onClick={nextScene}
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
+              className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
               aria-label="Sonraki sahne"
             >
               <svg className="w-6 h-6 text-[hsl(var(--foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
@@ -612,22 +637,22 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
               ))}
             </div>
             
-            {/* Floating elements around preview */}
-            <div className="absolute -top-4 -left-4 bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-bounce flex items-center gap-2">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            {/* Floating elements around preview - Hidden on mobile */}
+            <div className="hidden md:flex absolute -top-4 -left-4 bg-blue-500 text-white px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg animate-bounce items-center gap-2">
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
               </svg>
               Sesli
             </div>
-            <div className="absolute -top-4 -right-4 bg-purple-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-bounce flex items-center gap-2" style={{ animationDelay: '0.5s' }}>
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <div className="hidden md:flex absolute -top-4 -right-4 bg-purple-500 text-white px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg animate-bounce items-center gap-2" style={{ animationDelay: '0.5s' }}>
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M13 7H7v6h6V7z" />
                 <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
               </svg>
               AI
             </div>
-            <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-pink-500 text-white px-4 py-2 rounded-full text-sm font-bold shadow-lg animate-bounce flex items-center gap-2" style={{ animationDelay: '1s' }}>
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <div className="hidden md:flex absolute -bottom-4 left-1/2 -translate-x-1/2 bg-pink-500 text-white px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg animate-bounce items-center gap-2" style={{ animationDelay: '1s' }}>
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
               </svg>
               Hızlı
@@ -668,12 +693,12 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
         </div>
 
         {/* CTA Buttons - SOLID RENKLER */}
-        <div className={`flex flex-col sm:flex-row items-center justify-center gap-6 transform transition-all duration-1000 delay-700 ${
+        <div className={`flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 px-4 transform transition-all duration-1000 delay-700 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           <button
             onClick={onGetStarted}
-            className="group inline-flex items-center gap-3 px-12 py-6 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)_/_0.9)] text-[hsl(var(--primary-foreground))] text-xl font-bold rounded-2xl glow-primary hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1"
+            className="group inline-flex items-center gap-2 sm:gap-3 px-8 sm:px-12 py-4 sm:py-6 bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary)_/_0.9)] text-[hsl(var(--primary-foreground))] text-lg sm:text-xl font-bold rounded-2xl glow-primary hover:shadow-2xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 w-full sm:w-auto"
           >
             <svg className="w-6 h-6 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
@@ -685,20 +710,41 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
           </button>
 
           <a
-            href="https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/EchoDay-v1.0.0-Windows-Portable.zip"
-            className="group inline-flex flex-col items-center gap-2 px-12 py-6 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-xl font-bold rounded-2xl shadow-2xl hover:shadow-gray-700/50 transition-all duration-300 transform hover:scale-105 border-2 border-gray-700 dark:border-gray-600 hover:border-gray-600"
+            href={primaryDownloadHref}
+            className="group inline-flex flex-col items-center gap-2 px-8 sm:px-12 py-4 sm:py-6 bg-gray-800 hover:bg-gray-900 dark:bg-gray-700 dark:hover:bg-gray-600 text-white text-lg sm:text-xl font-bold rounded-2xl shadow-2xl hover:shadow-gray-700/50 transition-all duration-300 transform hover:scale-105 border-2 border-gray-700 dark:border-gray-600 hover:border-gray-600 w-full sm:w-auto"
+            download
           >
             <div className="flex items-center gap-3">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-y-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
               </svg>
-              <span>Windows İçin İndir</span>
+              <span>{primaryLabel}</span>
             </div>
-            <span className="text-xs font-normal opacity-75">ZIP dosyasını çıkartıp .exe'yi çalıştırın (122 MB)</span>
+            <span className="text-xs font-normal opacity-75">Doğrudan indirme</span>
           </a>
         </div>
 
-        <div className={`mt-8 flex items-center justify-center gap-6 text-sm text-gray-600 dark:text-gray-400 transform transition-all duration-1000 delay-800 ${
+        {/* Secondary direct links for all platforms */}
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400 px-4">
+          <a className="underline hover:opacity-80" href={downloadLinks.windows} download>
+            Windows (.exe)
+          </a>
+          <span className="opacity-50">|</span>
+          <a className="underline hover:opacity-80" href={downloadLinks.mac} download>
+            macOS (.dmg)
+          </a>
+          <span className="opacity-50">|</span>
+          <a className="underline hover:opacity-80" href={downloadLinks.linux} download>
+            Linux (.AppImage)
+          </a>
+          <span className="opacity-50">|</span>
+          <a className="underline hover:opacity-80 flex items-center gap-1" href="/sesli-asistan.apk" download>
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.6 10.81L16.19 9.4l-3.56 3.55V1h-2v11.95l-3.56-3.55L5.66 10.81 12 17.17l6.34-6.36M23 19v2H1v-2h22z"/></svg>
+            Android (.apk)
+          </a>
+        </div>
+
+        <div className={`mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 text-xs sm:text-sm text-gray-600 dark:text-gray-400 transform transition-all duration-1000 delay-800 px-4 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           <span className="flex items-center gap-2">

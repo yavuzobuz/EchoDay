@@ -3,7 +3,42 @@ import { createClient } from '@supabase/supabase-js';
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-export const supabase = (url && key) ? createClient(url, key) : null;
+// Detect Electron environment
+const isElectron = !!(window as any).isElectron || !!(window as any).electronAPI;
+
+// Polyfill navigator.locks to avoid LockManager warnings in Electron
+if (isElectron && typeof navigator !== 'undefined' && !navigator.locks) {
+  // Provide a minimal LockManager polyfill for Electron
+  (navigator as any).locks = {
+    request: async (name: string, options: any, callback: any) => {
+      // If callback is in the second parameter (no options provided)
+      const cb = typeof options === 'function' ? options : callback;
+      const opts = typeof options === 'function' ? {} : options;
+      
+      // Create a fake lock object
+      const lock = { name, mode: opts.mode || 'exclusive' };
+      
+      // Call the callback immediately with the fake lock
+      try {
+        return await cb(opts.ifAvailable === true && Math.random() > 0.5 ? null : lock);
+      } catch (e) {
+        throw e;
+      }
+    },
+    query: async () => ({ held: [], pending: [] })
+  };
+}
+
+// Configure Supabase client
+export const supabase = (url && key) ? createClient(url, key, {
+  auth: {
+    storageKey: 'supabase-auth',
+    storage: window.localStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  }
+}) : null;
 
 export async function getUserId(): Promise<string | null> {
   if (!supabase) return null;
@@ -17,6 +52,25 @@ export function onAuthStateChange(cb: (userId: string | null) => void) {
     cb(session?.user?.id || null);
   });
   return () => sub.subscription.unsubscribe();
+}
+
+// Helper function to validate and sanitize datetime values
+function validateDatetime(datetime: any): string | null {
+  if (!datetime) return null;
+  
+  // If it's already a valid ISO string, return it
+  if (typeof datetime === 'string') {
+    const date = new Date(datetime);
+    // Check if it's a valid date AND if the string looks like an ISO format
+    if (!isNaN(date.getTime()) && /^\d{4}-\d{2}-\d{2}T/.test(datetime)) {
+      return datetime;
+    }
+    // If it's invalid (like "İki hafta içinde"), return null
+    console.warn(`Invalid datetime value detected and converted to null: "${datetime}"`);
+    return null;
+  }
+  
+  return null;
 }
 
 export async function upsertTodos(userId: string, todos: any[]) {
@@ -45,7 +99,7 @@ export async function upsertTodos(userId: string, todos: any[]) {
       id,
       text,
       priority,
-      datetime,
+      datetime: validateDatetime(datetime), // Validate and sanitize datetime
       completed: completed ?? false,
       created_at: createdAt || now,
       updated_at: now,
