@@ -314,7 +314,7 @@ const Profile: React.FC<ProfileProps> = ({
                             <div className="flex-1">
                                 <h3 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{profile?.name || 'Kullanıcı'}</h3>
                                 {profile?.bio && (
-                                    <p className="text-gray-600 dark:text-gray-400 mt-2">{profile.bio}</p>
+                                    <p className="text-gray-600 dark:text-gray-400 mt-2 break-words">{profile.bio}</p>
                                 )}
                                 <p className="text-sm text-gray-500 dark:text-gray-500 mt-2">
                                     Üyelik tarihi: {profile?.createdAt ? formatDate(profile.createdAt) : '-'}

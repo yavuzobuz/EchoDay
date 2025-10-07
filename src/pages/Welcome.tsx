@@ -117,7 +117,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
         ))}
       </div>
       
-      <div className="text-center max-w-7xl mx-auto relative z-10 w-full px-2 sm:px-4">
+      <div className="text-center max-w-7xl mx-auto relative z-10 w-full px-2 sm:px-4 break-words">
         {/* Logo with pulse animation - BÜYÜTÜLDÜ */}
         <div className={`inline-block p-8 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-3xl mb-8 glow-primary transform transition-all duration-1000 ${
           isLoaded ? 'scale-100 opacity-100 rotate-0' : 'scale-0 opacity-0 rotate-180'
@@ -135,14 +135,14 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
         </div>
 
         {/* Main Title with gradient animation */}
-        <h1 className={`text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black mb-4 gradient-text animate-gradient-x transform transition-all duration-1000 break-words ${
+        <h1 className={`text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black mb-4 gradient-text animate-gradient-x transform transition-all duration-1000 break-words hyphens-auto ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           EchoDay
         </h1>
         
         {/* Subtitle with typing effect feel */}
-        <div className={`flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-4 transform transition-all duration-1000 delay-200 px-4 ${
+        <div className={`flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-4 transform transition-all duration-1000 delay-200 px-4 break-words ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           <svg className="w-6 h-6 sm:w-10 sm:h-10 text-[hsl(var(--accent))] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -154,7 +154,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
         </div>
         
         {/* Description with fade in */}
-        <p className={`text-lg md:text-xl text-[hsl(var(--muted-foreground))] mb-12 max-w-3xl mx-auto leading-relaxed transform transition-all duration-1000 delay-300 ${
+        <p className={`text-lg md:text-xl text-[hsl(var(--muted-foreground))] mb-12 max-w-3xl mx-auto leading-relaxed transform transition-all duration-1000 delay-300 break-words hyphens-auto ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           <span className="inline-flex items-center gap-2 font-semibold text-[hsl(var(--primary))]">
@@ -212,7 +212,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
         <div className={`mb-16 transform transition-all duration-1000 delay-500 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
-          <div className="relative max-w-6xl mx-auto w-full">
+            <div className="relative max-w-6xl mx-auto w-full overflow-hidden">
             {/* Navigation Arrows */}
             <button 
               onClick={prevScene}
@@ -400,14 +400,14 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
                           <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%]">
+                      <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%] break-words">
                         <p className="text-sm text-[hsl(var(--foreground))]">Elbette, "hastane randevusu saat 12.35'te boğaz kontrolü diş kontrolü için hastaneye gidilecek" görevi listeye eklendi.</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Chat Input */}
-                  <div className="flex gap-2 pt-2 border-t border-[hsl(var(--border))]">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-[hsl(var(--border))]">
                     <input 
                       type="text" 
                       placeholder="Mesajınızı yazın..."
@@ -456,7 +456,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
                           <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
                         </svg>
                       </div>
-                      <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%]">
+                      <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%] break-words">
                         <p className="text-sm text-[hsl(var(--foreground))]">Elbette, "hastane randevusu saat 12.35'te boğaz kontrolü diş kontrolü için hastaneye gidilecek" görevi listeye eklendi.</p>
                       </div>
                     </div>
@@ -519,7 +519,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth }) => 
                 </div>
 
                 {/* Input Area */}
-                <div className="flex gap-2 pt-4 border-t border-[hsl(var(--border))]">
+                  <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-[hsl(var(--border))]">
                   <input 
                     type="text" 
                     placeholder="Yeni not ekle veya sesli görev yarat..."
