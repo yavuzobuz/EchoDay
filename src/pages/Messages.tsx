@@ -249,6 +249,57 @@ const MessagesPage: React.FC = () => {
     return 'Mesajlar';
   }, [other]);
 
+  // Pretty date label for separators
+  const formatDateLabel = (d: Date) => {
+    const today = new Date();
+    const yday = new Date();
+    yday.setDate(today.getDate() - 1);
+    const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    if (sameDay(d, today)) return 'Bugün';
+    if (sameDay(d, yday)) return 'Dün';
+    return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+  };
+
+  // Render messages with date separators and improved bubbles
+  const renderedMessages = useMemo(() => {
+    const nodes: JSX.Element[] = [];
+    let lastKey: string | null = null;
+    messages.forEach((m) => {
+      const dt = new Date(m.created_at);
+      const dayKey = dt.toDateString();
+      if (dayKey !== lastKey) {
+        nodes.push(
+          <div key={`sep-${dayKey}-${m.id}`} className="flex items-center justify-center my-2">
+            <span className="px-3 py-1 text-xs rounded-full bg-gray-200/60 dark:bg-gray-700/60 text-gray-700 dark:text-gray-200">
+              {formatDateLabel(dt)}
+            </span>
+          </div>
+        );
+        lastKey = dayKey;
+      }
+
+      const mine = m.sender_id === myId;
+      nodes.push(
+        <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+          <div className={`max-w-[78%] rounded-2xl px-4 py-2 shadow-sm ${mine ? 'bg-[var(--accent-color-600)] text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100'}`}>
+            {m.type === 'text' ? (
+              <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+            ) : (
+              <div className="text-sm flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M8 4a3 3 0 00-3 3v6a3 3 0 103 3h4a3 3 0 000-6H8a1 1 0 010-2h4a3 3 0 100-6H8z" /></svg>
+                <span>{m.body || 'Dosya'}</span>
+                <button onClick={() => handleDownload(m.attachment_path)} className="underline text-xs">indir</button>
+              </div>
+            )}
+            <div className={`text-[10px] opacity-70 mt-1 ${mine ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>{dt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</div>
+          </div>
+        </div>
+      );
+    });
+    nodes.push(<div key="end" ref={endRef} />);
+    return nodes;
+  }, [messages, myId]);
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
       <div className="max-w-4xl mx-auto p-4">
@@ -389,43 +440,49 @@ const MessagesPage: React.FC = () => {
         )}
 
         {conversation && (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex flex-col h-[70vh]">
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {messages.map((m) => (
-                <div key={m.id} className={`flex ${m.sender_id === myId ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] px-3 py-2 rounded-lg ${m.sender_id === myId ? 'bg-[var(--accent-color-600)] text-white' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                    {m.type === 'text' ? (
-                      <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
-                    ) : (
-                      <div className="text-sm flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M8 4a3 3 0 00-3 3v6a3 3 0 103 3h4a3 3 0 000-6H8a1 1 0 010-2h4a3 3 0 100-6H8z" /></svg>
-                        <span>{m.body || 'Dosya'}</span>
-                        <button onClick={() => handleDownload(m.attachment_path)} className="underline text-xs">indir</button>
-                      </div>
-                    )}
-                    <div className="text-[10px] opacity-70 mt-1">{new Date(m.created_at).toLocaleString('tr-TR')}</div>
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+            <div className="flex flex-col h-[75vh]">
+              {/* Chat header */}
+              <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-[var(--accent-color-600)] text-white flex items-center justify-center font-semibold">
+                    {other?.display_name?.[0]?.toUpperCase() || other?.email?.[0]?.toUpperCase() || '📨'}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold truncate">{title}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">Doğrudan mesaj</div>
                   </div>
                 </div>
-              ))}
-              <div ref={endRef} />
-            </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={handleCloseConversation} className="px-3 py-1.5 text-xs rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600">
+                    Kapat
+                  </button>
+                </div>
+              </div>
 
-            <form onSubmit={handleSendText} className="border-t border-gray-200 dark:border-gray-700 p-3 flex items-center gap-2">
-              <input
-                type="text"
-                value={newText}
-                onChange={(e) => setNewText(e.target.value)}
-                placeholder="Mesaj yaz..."
-                className="flex-1 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-              />
-              <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="px-3 py-2 rounded-md bg-gray-200 dark:bg-gray-700">
-                Dosya
-              </button>
-              <button type="submit" className="px-3 py-2 rounded-md bg-[var(--accent-color-600)] text-white">
-                Gönder
-              </button>
-            </form>
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {renderedMessages}
+              </div>
+
+              {/* Composer */}
+              <form onSubmit={handleSendText} className="border-t border-gray-200 dark:border-gray-700 p-3 flex items-center gap-2 bg-white/60 dark:bg-gray-800/60 backdrop-blur">
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-2 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600" title="Dosya ekle">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M8 5a3 3 0 00-3 3v4a2 2 0 104 0V9a1 1 0 00-2 0v3a1 1 0 11-2 0V8a5 5 0 1110 0v4a4 4 0 11-8 0V9a3 3 0 016 0v3a2 2 0 11-4 0V9a1 1 0 112 0v3a4 4 0 108 0V8a6 6 0 10-12 0v4a5 5 0 1010 0V9a7 7 0 10-14 0v3a6 6 0 1012 0V9a8 8 0 10-16 0v3a7 7 0 1014 0V9a9 9 0 10-18 0v3a8 8 0 1016 0V9"/></svg>
+                </button>
+                <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
+                <input
+                  type="text"
+                  value={newText}
+                  onChange={(e) => setNewText(e.target.value)}
+                  placeholder="Mesaj yaz..."
+                  className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-600)]/50"
+                />
+                <button type="submit" className="px-4 py-2 rounded-lg bg-[var(--accent-color-600)] text-white font-medium hover:opacity-90">
+                  Gönder
+                </button>
+              </form>
+            </div>
           </div>
         )}
       </div>
