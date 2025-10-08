@@ -226,6 +226,13 @@ const MessagesPage: React.FC = () => {
       alert('Dosya indirilemedi');
     }
   }
+
+  // Close current conversation
+  function handleCloseConversation() {
+    setConversation(null);
+    setOther(null);
+    setMessages([]);
+  }
   
   // Test notification function
   function testNotification() {
@@ -273,6 +280,9 @@ const MessagesPage: React.FC = () => {
                   Test
                 </button>
               </div>
+            )}
+            {conversation && (
+              <button onClick={handleCloseConversation} className="px-3 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-sm">Kapat</button>
             )}
             <button onClick={() => navigate('/app')} className="px-3 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-sm">Geri</button>
           </div>
