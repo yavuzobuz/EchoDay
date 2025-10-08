@@ -73,6 +73,7 @@ export interface Todo {
   datetime: string | null;
   completed: boolean;
   createdAt: string;
+  isDeleted?: boolean; // Soft delete flag - geçici silme için
   aiMetadata?: AIMetadata;
   reminders?: ReminderConfig[];
   recurrence?: RecurrenceRule; // yinelenen görev

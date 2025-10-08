@@ -53,6 +53,14 @@ export const supabase = hasValidConfig ? createClient(rawUrl as string, rawKey a
   }
 }) : (console.warn('[Supabase] Not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for web builds'), null as any);
 
+// Dev helper: expose Supabase client for quick console testing (safe for dev)
+try {
+  if (supabase && typeof window !== 'undefined') {
+    (window as any).supa = supabase;
+    console.log('[Supabase] Dev helper attached: window.supa');
+  }
+} catch {}
+
 export const isSupabaseConfigured = !!supabase;
 
 export async function getUserId(): Promise<string | null> {
@@ -67,6 +75,31 @@ export function onAuthStateChange(cb: (userId: string | null) => void) {
     cb(session?.user?.id || null);
   });
   return () => sub.subscription.unsubscribe();
+}
+
+// Helper: UUID doğrulama
+function isUuid(value?: string | null): boolean {
+  if (!value) return false;
+  // UUID v1-5 desteği (geniş regex) - case-insensitive
+  const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return re.test(value);
+}
+
+// Helper: Oturum doğrulama - verilen userId ile Supabase oturumu eşleşiyor mu?
+async function ensureSessionFor(userId: string): Promise<boolean> {
+  if (!supabase) return false;
+  try {
+    const { data } = await supabase.auth.getUser();
+    const sessionUserId = data.user?.id || null;
+    if (!sessionUserId) return false;
+    if (sessionUserId !== userId) {
+      console.warn(`[Supabase] Oturum kullanıcı ID uyuşmazlığı: session=${sessionUserId}, arg=${userId}`);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 // Helper function to validate and sanitize datetime values
@@ -94,8 +127,73 @@ function validateDatetime(datetime: any): string | null {
   return null;
 }
 
+// New function to update a single todo field (works around RLS issues)
+export async function updateTodo(userId: string, todoId: string, updates: Partial<any>) {
+  if (!supabase || !isUuid(userId)) {
+    console.warn('[Supabase] Invalid userId or no supabase client - updateTodo skipped');
+    return;
+  }
+  
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Supabase] Session invalid - updateTodo skipped');
+    return;
+  }
+
+  try {
+    // Try RLS-safe update approach: only filter by id, let RLS handle user restriction
+    const { data, error } = await supabase
+      .from('todos')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', todoId)
+      .select();
+
+    if (error) {
+      console.error('Supabase updateTodo error:', error);
+      
+      // If that fails, try the upsert approach as fallback
+      console.log('[Supabase] Trying upsert fallback for todo update');
+      const fallbackPayload = {
+        id: todoId,
+        user_id: userId,
+        updated_at: new Date().toISOString(),
+        ...updates
+      };
+      
+      const { data: upsertData, error: upsertError } = await supabase
+        .from('todos')
+        .upsert(fallbackPayload)
+        .select();
+        
+      if (upsertError) {
+        console.error('Supabase updateTodo upsert fallback error:', upsertError);
+        throw upsertError;
+      }
+      
+      return upsertData;
+    }
+    
+    return data;
+  } catch (error: any) {
+    console.error('Supabase updateTodo failed:', error);
+    throw error;
+  }
+}
+
 export async function upsertTodos(userId: string, todos: any[]) {
-  if (!supabase) return;
+  if (!supabase || todos.length === 0) return;
+  if (!isUuid(userId)) {
+    console.warn('[Supabase] Geçersiz userId (guest modu?) - upsertTodos atlandı');
+    return;
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Supabase] Oturum yok veya userId uyuşmuyor - upsertTodos atlandı');
+    return;
+  }
   const now = new Date().toISOString();
   // Map app fields (camelCase) to DB columns (snake_case) and whitelist known columns only
   const payload = todos.map((t) => {
@@ -128,7 +226,7 @@ export async function upsertTodos(userId: string, todos: any[]) {
       ai_metadata: aiMetadata || null,
       recurrence: recurrence || null,
       parent_id: parentId || null,
-      reminders: reminders || null,
+      reminders: reminders || null
     };
   });
 
@@ -141,7 +239,16 @@ export async function upsertTodos(userId: string, todos: any[]) {
 }
 
 export async function upsertNotes(userId: string, notes: any[]) {
-  if (!supabase) return;
+  if (!supabase || notes.length === 0) return;
+  if (!isUuid(userId)) {
+    console.warn('[Supabase] Geçersiz userId (guest modu?) - upsertNotes atlandı');
+    return;
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Supabase] Oturum yok veya userId uyuşmuyor - upsertNotes atlandı');
+    return;
+  }
   const now = new Date().toISOString();
   // Map to actual DB columns - after adding id and user_id columns to notes table
   const payload = notes.map((n) => {
@@ -181,6 +288,15 @@ export async function upsertNotes(userId: string, notes: any[]) {
 
 export async function deleteNotes(userId: string, noteIds: string[]) {
   if (!supabase || noteIds.length === 0) return;
+  if (!isUuid(userId)) {
+    console.warn('[Supabase] Geçersiz userId (guest modu?) - deleteNotes atlandı');
+    return;
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Supabase] Oturum yok veya userId uyuşmuyor - deleteNotes atlandı');
+    return;
+  }
   const { error } = await supabase.from('notes').delete().eq('user_id', userId).in('id', noteIds);
   if (error) {
     console.error('Supabase deleteNotes error:', error);
@@ -188,92 +304,209 @@ export async function deleteNotes(userId: string, noteIds: string[]) {
   }
 }
 
+export async function deleteTodos(userId: string, todoIds: string[]) {
+  if (!supabase || todoIds.length === 0) return;
+  if (!isUuid(userId)) {
+    console.warn('[Supabase] Geçersiz userId (guest modu?) - deleteTodos atlandı');
+    return;
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Supabase] Oturum yok veya userId uyuşmuyor - deleteTodos atlandı');
+    return;
+  }
+
+  const now = new Date().toISOString();
+
+  // 1) Önce HARD DELETE dene (RLS'in DELETE'e izin verdiği ama UPDATE'e izin vermediği durumda daha temiz)
+  try {
+    const { error: delErr } = await supabase
+      .from('todos')
+      .delete()
+      .in('id', todoIds);
+    if (delErr) throw delErr;
+
+    console.log('[deleteTodos] Hard delete başarılı:', todoIds);
+    return;
+  } catch (error: any) {
+    const isPermissionIssue = error?.status === 403 || error?.code === '42501' || /permission|denied|row-level|RLS|not allowed/i.test(String(error?.message || ''));
+    // Eğer delete'e izin yoksa, 2) Soft delete dene (is_deleted=true)
+    if (isPermissionIssue || true /* diğer hatalarda da soft delete deneyelim */) {
+      console.warn('[deleteTodos] Hard delete mümkün değil veya başarısız, soft delete denenecek (is_deleted=true)');
+      const { data: updData, error: updErr, count } = await supabase
+        .from('todos')
+        .update({ is_deleted: true, updated_at: now })
+        .in('id', todoIds)
+        .select('id', { count: 'exact' });
+      if (updErr) {
+        console.error('Supabase deleteTodos (soft) error:', updErr);
+        throw updErr;
+      }
+      const updatedCount = typeof count === 'number' ? count : (updData?.length || 0);
+      console.log(`[deleteTodos] Soft delete başarılı: ${updatedCount} satır`, todoIds);
+      return;
+    }
+    // Diğer hataları dışarı fırlat
+    throw error;
+  }
+}
+
 // ========== ARCHIVE (Supabase) ==========
 export async function archiveUpsertNotes(userId: string, notes: any[]) {
   if (!supabase || notes.length === 0) return;
-  const now = new Date().toISOString();
-  const payload = notes.map((n) => {
-    const { id, text, imageUrl, createdAt } = n;
-    return {
-      id, // use original id as primary key for de-duplication
-      user_id: userId,
-      text: text || '',
-      image_url: imageUrl || null,
-      created_at: createdAt || now,
-      archived_at: now,
-    };
-  });
-  const { error } = await supabase.from('archived_notes').upsert(payload);
-  if (error) {
-    console.error('Supabase archiveUpsertNotes error:', error);
-    throw error;
+  if (!isUuid(userId)) {
+    console.warn('[Archive] Geçersiz userId (guest modu?) - archiveUpsertNotes atlandı');
+    return;
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Archive] Oturum yok veya userId uyuşmuyor - archiveUpsertNotes atlandı');
+    return;
+  }
+  try {
+    const now = new Date().toISOString();
+    const payload = notes.map((n) => {
+      const { id, text, imageUrl, createdAt } = n;
+      return {
+        id, // use original id as primary key for de-duplication
+        user_id: userId,
+        text: text || '',
+        image_url: imageUrl || null,
+        created_at: createdAt || now,
+        archived_at: now,
+      };
+    });
+    const { error } = await supabase.from('archived_notes').upsert(payload);
+    if (error) throw error;
+    
+    console.log('[Archive] ✅ Notlar başarıyla arşivlendi:', notes.length);
+  } catch (error: any) {
+    console.warn('[Archive] ⚠️ Arşiv tablosu mevcut değil, arşivleme atlandı:', error.message);
+    // Hata fırlatmak yerine sessizce geç - arşiv opsiyonel
   }
 }
 
 export async function archiveUpsertTodos(userId: string, todos: any[]) {
   if (!supabase || todos.length === 0) return;
-  const now = new Date().toISOString();
-  const payload = todos.map((t) => {
-    const { id, text, priority, datetime, createdAt } = t;
-    return {
-      id, // use original id
-      user_id: userId,
-      text: text || '',
-      priority: priority || 'medium',
-      datetime: datetime || null,
-      created_at: createdAt || now,
-      archived_at: now,
-    };
-  });
-  const { error } = await supabase.from('archived_todos').upsert(payload);
-  if (error) {
-    console.error('Supabase archiveUpsertTodos error:', error);
-    throw error;
+  if (!isUuid(userId)) {
+    console.warn('[Archive] Geçersiz userId (guest modu?) - archiveUpsertTodos atlandı');
+    return;
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Archive] Oturum yok veya userId uyuşmuyor - archiveUpsertTodos atlandı');
+    return;
+  }
+  try {
+    const now = new Date().toISOString();
+    const payload = todos.map((t) => {
+      const { id, text, priority, datetime, createdAt } = t;
+      return {
+        id, // use original id
+        user_id: userId,
+        text: text || '',
+        priority: priority || 'medium',
+        datetime: datetime || null,
+        created_at: createdAt || now,
+        archived_at: now,
+      };
+    });
+    const { error } = await supabase.from('archived_todos').upsert(payload);
+    if (error) throw error;
+    
+    console.log('[Archive] ✅ Görevler başarıyla arşivlendi:', todos.length);
+  } catch (error: any) {
+    console.warn('[Archive] ⚠️ Arşiv tablosu mevcut değil, arşivleme atlandı:', error.message);
+    // Hata fırlatmak yerine sessizce geç - arşiv opsiyonel
   }
 }
 
 export async function archiveFetchByDate(userId: string, date: string) {
   if (!supabase) return { todos: [], notes: [] };
-  const start = new Date(date); start.setHours(0,0,0,0);
-  const end = new Date(date); end.setHours(23,59,59,999);
-  const startISO = start.toISOString();
-  const endISO = end.toISOString();
+  if (!isUuid(userId)) {
+    console.warn('[Archive] Geçersiz userId (guest modu?) - archiveFetchByDate atlandı');
+    return { todos: [], notes: [] };
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Archive] Oturum yok veya userId uyuşmuyor - archiveFetchByDate atlandı');
+    return { todos: [], notes: [] };
+  }
+  try {
+    const start = new Date(date); start.setHours(0,0,0,0);
+    const end = new Date(date); end.setHours(23,59,59,999);
+    const startISO = start.toISOString();
+    const endISO = end.toISOString();
 
-  const [tRes, nRes] = await Promise.all([
-    supabase.from('archived_todos').select('*').eq('user_id', userId).gte('archived_at', startISO).lte('archived_at', endISO),
-    supabase.from('archived_notes').select('*').eq('user_id', userId).gte('archived_at', startISO).lte('archived_at', endISO),
-  ]);
-  const todos = (tRes.data || []).map((row: any) => ({
-    ...row,
-    createdAt: row.created_at ?? row.createdAt,
-    archivedAt: row.archived_at ?? row.archivedAt,
-    userId: row.user_id ?? row.userId,
-  }));
-  const notes = (nRes.data || []).map((row: any) => ({
-    ...row,
-    createdAt: row.created_at ?? row.createdAt,
-    archivedAt: row.archived_at ?? row.archivedAt,
-    userId: row.user_id ?? row.userId,
-    imageUrl: row.image_url ?? row.imageUrl,
-  }));
-  return { todos, notes };
+    const [tRes, nRes] = await Promise.all([
+      supabase.from('archived_todos').select('*').eq('user_id', userId).gte('archived_at', startISO).lte('archived_at', endISO),
+      supabase.from('archived_notes').select('*').eq('user_id', userId).gte('archived_at', startISO).lte('archived_at', endISO),
+    ]);
+    
+    const todos = (tRes.data || []).map((row: any) => ({
+      ...row,
+      createdAt: row.created_at ?? row.createdAt,
+      archivedAt: row.archived_at ?? row.archivedAt,
+      userId: row.user_id ?? row.userId,
+    }));
+    const notes = (nRes.data || []).map((row: any) => ({
+      ...row,
+      createdAt: row.created_at ?? row.createdAt,
+      archivedAt: row.archived_at ?? row.archivedAt,
+      userId: row.user_id ?? row.userId,
+      imageUrl: row.image_url ?? row.imageUrl,
+    }));
+    
+    console.log('[Archive] ✅ Tarih bazında arşiv getirildi:', { todosCount: todos.length, notesCount: notes.length });
+    return { todos, notes };
+  } catch (error: any) {
+    console.warn('[Archive] ⚠️ Arşiv tablolarına erişilemiyor:', error.message);
+    return { todos: [], notes: [] }; // Boş sonuç döndür
+  }
 }
 
 export async function archiveSearch(userId: string, query: string) {
   if (!supabase) return { todos: [], notes: [] };
-  const [tRes, nRes] = await Promise.all([
-    supabase.from('archived_todos').select('*').eq('user_id', userId).ilike('text', `%${query}%`),
-    supabase.from('archived_notes').select('*').eq('user_id', userId).ilike('text', `%${query}%`),
-  ]);
-  const todos = (tRes.data || []).map((row: any) => ({ ...row, imageUrl: row.image_url ?? row.imageUrl }));
-  const notes = (nRes.data || []).map((row: any) => ({ ...row, imageUrl: row.image_url ?? row.imageUrl }));
-  return { todos, notes };
+  if (!isUuid(userId)) {
+    console.warn('[Archive] Geçersiz userId (guest modu?) - archiveSearch atlandı');
+    return { todos: [], notes: [] };
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Archive] Oturum yok veya userId uyuşmuyor - archiveSearch atlandı');
+    return { todos: [], notes: [] };
+  }
+  
+  try {
+    const [tRes, nRes] = await Promise.all([
+      supabase.from('archived_todos').select('*').eq('user_id', userId).ilike('text', `%${query}%`),
+      supabase.from('archived_notes').select('*').eq('user_id', userId).ilike('text', `%${query}%`),
+    ]);
+    
+    const todos = (tRes.data || []).map((row: any) => ({ ...row, imageUrl: row.image_url ?? row.imageUrl }));
+    const notes = (nRes.data || []).map((row: any) => ({ ...row, imageUrl: row.image_url ?? row.imageUrl }));
+    
+    console.log('[Archive] ✅ Arama tamamlandı:', { query, todosCount: todos.length, notesCount: notes.length });
+    return { todos, notes };
+  } catch (error: any) {
+    console.warn('[Archive] ⚠️ Arşiv arama hatası:', error.message);
+    return { todos: [], notes: [] }; // Boş sonuç döndür
+  }
 }
 
 export async function fetchAll(userId: string) {
   if (!supabase) return { todos: [], notes: [] };
+  if (!isUuid(userId)) {
+    console.warn('[Supabase] Geçersiz userId (guest modu?) - fetchAll atlandı');
+    return { todos: [], notes: [] };
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Supabase] Oturum yok veya userId uyuşmuyor - fetchAll atlandı');
+    return { todos: [], notes: [] };
+  }
   const [tRes, nRes] = await Promise.all([
-    supabase.from('todos').select('*').eq('user_id', userId),
+    supabase.from('todos').select('*').eq('user_id', userId).neq('is_deleted', true),
     supabase.from('notes').select('*').eq('user_id', userId)
   ]);
 
@@ -298,6 +531,10 @@ export async function fetchAll(userId: string) {
 
 export function subscribeToChanges(userId: string, onTodo: (record: any, type: string) => void, onNote: (record: any, type: string) => void) {
   if (!supabase) return () => {};
+  if (!isUuid(userId)) {
+    console.warn('[Supabase] Geçersiz userId (guest modu?) - realtime abonelik başlatılmadı');
+    return () => {};
+  }
   const channel = supabase.channel('realtime:echoday');
   channel.on('postgres_changes', { event: '*', schema: 'public', table: 'todos', filter: `user_id=eq.${userId}` }, (payload: any) => {
     onTodo(payload.new || payload.old, payload.eventType);

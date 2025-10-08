@@ -278,7 +278,7 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
       // Remove from archive DB then restore
       try {
         console.log(`[DailyNotepad] Removing ${items.length} notes from archive for user ${userId}`);
-        await archiveService.removeNotes(items.map(n => n.id));
+        await archiveService.removeNotes(items.map(n => n.id), userId);
         setNotes(prev => [...items, ...prev]);
         if (setNotification) {
           setNotification({ message: `${items.length} not arşivden geri yüklendi`, type: 'success' });
@@ -340,7 +340,7 @@ setNewNoteImageDataUrl(reader.result as string);
 
   const handleSaveEdit = () => {
     if (editingNoteId) {
-      setNotes(notes.map(n => n.id === editingNoteId ? { ...n, text: editText } : n));
+      setNotes(notes.map(n => n.id === editingNoteId ? { ...n, text: editText, updatedAt: new Date().toISOString() } : n));
       setEditingNoteId(null);
       setEditText('');
     }
@@ -628,7 +628,7 @@ setNewNoteImageDataUrl(reader.result as string);
                     </button>
                     {/* Archive (single) */}
                     <button onClick={(e) => { e.stopPropagation(); handleArchiveSingle(note); }} className="p-1 rounded-full text-gray-400 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-amber-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-amber-500" title="Arşivle">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                     </button>
                     {/* Delete */}
                     <button onClick={() => handleDeleteNote(note.id)} className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-red-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-red-500" title="Sil">
@@ -693,7 +693,7 @@ setNewNoteImageDataUrl(reader.result as string);
                     {/* Archive (mobile single) */}
                     <div className="relative group">
                       <button onClick={() => handleArchiveSingle(note)} className="p-1 rounded-full text-gray-400 hover:text-amber-600 hover:bg-white/10 dark:hover:bg-white/10" aria-label="Arşivle" >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd" /></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                       </button>
                       <span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">Arşivle</span>
                     </div>

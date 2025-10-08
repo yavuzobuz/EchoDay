@@ -19,7 +19,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 }) => {
   return (
     // Fixed bottom navigation - sadece mobilde göster
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 safe-area-inset-bottom md:hidden">
+    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-50 safe-area-bottom android-nav-padding md:hidden">
       <div className="grid grid-cols-5 h-16">
         {/* Voice Command */}
         <button
@@ -147,3 +147,6 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 };
 
 export default MobileBottomNav;
+
+// Mobil cihazlarda native haptic feedback ve gestures eklenmesi
+// Bu component'in TouchEvent desteği ile geliştirilmesi önerilir

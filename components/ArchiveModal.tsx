@@ -70,9 +70,17 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
   
   const fetchStats = async () => {
     setIsLoading(true);
-    const data = await archiveService.getDashboardStats(currentTodos);
-    setStats(data);
-    setIsLoading(false);
+    try {
+      const data = await archiveService.getDashboardStats(currentTodos);
+      console.log('[ArchiveModal] Dashboard stats loaded:', data);
+      setStats(data);
+    } catch (error) {
+      console.error('[ArchiveModal] Failed to load dashboard stats:', error);
+      // Set empty stats as fallback
+      setStats({ totalCompleted: 0, currentStreak: 0, last7Days: [] });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSearch = async (e: React.FormEvent) => {

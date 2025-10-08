@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import Header from './components/Header';
 import TodoList from './components/TodoList';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ActionBar from './components/ActionBar';
 import TaskModal from './components/TaskModal';
 import ChatModal from './components/ChatModal';
@@ -15,6 +16,7 @@ import Loader from './components/Loader';
 import NotificationPopup from './components/NotificationPopup';
 import ReminderPopup from './components/ReminderPopup';
 import DailyNotepad from './components/DailyNotepad';
+import ToastNotification from './components/ToastNotification';
 import TimelineView from './components/TimelineView';
 import ArchiveModal from './components/ArchiveModal';
 import InfoBanner from './components/InfoBanner';
@@ -24,12 +26,14 @@ import ProactiveSuggestionsModal from './components/ProactiveSuggestionsModal';
 import MobileBottomNav from './components/MobileBottomNav';
 
 import useLocalStorage from './hooks/useLocalStorage';
+import { useToast } from './hooks/useToast';
 import { useSpeechRecognition } from './hooks/useSpeechRecognitionUnified';
 import { geminiService } from './services/geminiService';
 import { pdfService } from './services/pdfService';
 import { archiveService } from './services/archiveService';
 import { contextMemoryService } from './services/contextMemoryService';
 import { reminderService, ActiveReminder } from './services/reminderService';
+import { subscribeToIncomingMessagesForUser } from './services/messagesService';
 import { useAuth } from './contexts/AuthContext';
 // import { smartPriorityService } from './services/smartPriorityService';
 // import { proactiveSuggestionsService } from './services/proactiveSuggestionsService';
@@ -53,6 +57,8 @@ interface MainProps {
 type ViewMode = 'list' | 'timeline';
 
 const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, onNavigateToProfile, onShowWelcome }) => {
+    const navigate = useNavigate();
+    const location = useLocation();
     // Get authenticated user
     const { user } = useAuth();
     const userId = user?.id || 'guest';
@@ -80,13 +86,17 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [activeReminders, setActiveReminders] = useState<ActiveReminder[]>([]);
 
+    // Global toast notifications
+    const { toasts, removeToast, showMessage } = useToast();
+
     // Tasks UI state (filter + search)
     const [taskFilter, setTaskFilter] = useState<'all' | 'active' | 'completed'>('all');
     const [taskQuery, setTaskQuery] = useState('');
 
     const visibleTodos = React.useMemo(() => {
         const q = taskQuery.trim().toLowerCase();
-        let list = todos;
+        // İlk olarak silinmiş görevleri filtrele
+        let list = todos.filter(t => !t.isDeleted);
         if (taskFilter === 'active') list = list.filter(t => !t.completed);
         if (taskFilter === 'completed') list = list.filter(t => t.completed);
         if (q) list = list.filter(t => t.text.toLowerCase().includes(q));
@@ -271,20 +281,77 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         return newTodo;
     };
 
-    const handleToggleTodo = (id: string) => {
-        setTodos(prev => prev.flatMap(todo => {
-            if (todo.id !== id) return [todo];
-            const toggled = { ...todo, completed: !todo.completed } as Todo;
-            if (!todo.completed && toggled.completed) {
+    const handleToggleTodo = async (id: string) => {
+        const todo = todos.find(t => t.id === id);
+        if (!todo) return;
+        
+        const newCompleted = !todo.completed;
+        
+        // Update local state immediately for responsive UI
+        setTodos(prev => prev.flatMap(t => {
+            if (t.id !== id) return [t];
+            const toggled = { ...t, completed: newCompleted } as Todo;
+            if (!t.completed && toggled.completed) {
                 const next = createNextOccurrence(toggled);
                 return next ? [toggled, next] : [toggled];
             }
             return [toggled];
         }));
+        
+        // Sync to Supabase if not in guest mode
+        if (userId !== 'guest') {
+            try {
+                const { updateTodo } = await import('./services/supabaseClient');
+                await updateTodo(userId, id, { completed: newCompleted });
+                console.log('[Main] Todo update synced to Supabase');
+            } catch (error: any) {
+                console.error('[Main] Failed to sync todo update:', error);
+                
+                // Revert local state on sync failure
+                setTodos(prev => prev.map(t => 
+                    t.id === id ? { ...t, completed: !newCompleted } : t
+                ));
+                
+                setNotification({ 
+                    message: 'Güncelleme kaydedilemedi. İnternet bağlantınızı kontrol edin.', 
+                    type: 'error' 
+                });
+            }
+        }
     };
 
-    const handleDeleteTodo = (id: string) => {
-        setTodos(todos.filter(todo => todo.id !== id));
+    const handleDeleteTodo = async (id: string) => {
+        // Geçici silme - görevi isDeleted flag ile işaretle
+        setTodos(todos.map(todo => 
+            todo.id === id 
+                ? { ...todo, isDeleted: true } 
+                : todo
+        ));
+        
+        // Supabase'e silme senkronizasyonu (soft/hard otomatik)
+        if (userId && userId !== 'guest') {
+            try {
+                const { deleteTodos } = await import('./services/supabaseClient');
+                await deleteTodos(userId, [id]);
+                setNotification({ 
+                    message: 'Görev silindi.', 
+                    type: 'success' 
+                });
+            } catch (error) {
+                console.error('[Main] Failed to delete todo from backend:', error);
+                // Geri al (revert) – sunucu silinemediyse yerelde isDeleted=false yap
+                setTodos(prev => prev.map(t => t.id === id ? { ...t, isDeleted: false } : t));
+                setNotification({ 
+                    message: 'Görev sunucuya silinemedi. Lütfen tekrar deneyin.', 
+                    type: 'error' 
+                });
+            }
+        } else {
+            setNotification({ 
+                message: 'Görev geçici olarak silindi.', 
+                type: 'success' 
+            });
+        }
     };
 
     const handleEditTodo = (id: string, newText: string) => {
@@ -302,7 +369,8 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
   const handleExportICS = () => {
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        const events = todos.filter(t => !!t.datetime).map(t => ({ id: t.id, title: t.text, start: t.datetime, durationMinutes: t.aiMetadata?.estimatedDuration || 60 }));
+        // Silinmiş görevleri dışlamak
+        const events = todos.filter(t => !!t.datetime && !t.isDeleted).map(t => ({ id: t.id, title: t.text, start: t.datetime, durationMinutes: t.aiMetadata?.estimatedDuration || 60 }));
         import('./utils/ics' /* webpackChunkName: "ics" */).then(({ generateICS, downloadICS }) => {
             const ics = generateICS(events, { calendarName: 'EchoDay', timezone: tz });
             downloadICS(`echoday-${new Date().toISOString().slice(0,10)}`, ics);
@@ -555,7 +623,9 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
     const handleGetDailyBriefing = async () => {
         if (!checkApiKey()) return;
         setIsLoading(true);
-        const briefing = await geminiService.getDailyBriefing(apiKey, todos.filter(t => !t.completed));
+        // Silinmiş görevleri dışla
+        const activeTodos = todos.filter(t => !t.completed && !t.isDeleted);
+        const briefing = await geminiService.getDailyBriefing(apiKey, activeTodos);
         setIsLoading(false);
 
         if (briefing) {
@@ -637,15 +707,20 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
             const timeToMidnight = midnight.getTime() - Date.now();
             
             const timer = setTimeout(async () => {
-                const completedTodos = todos.filter(t => t.completed);
-                if (completedTodos.length > 0 || notes.length > 0) {
+                // Silinmiş görevleri aralarında hariç tutarak tamamlanmış görevleri bul
+                const completedTodos = todos.filter(t => t.completed && !t.isDeleted);
+                // Sabitlenen ve favorilenen notları hariç tut
+                const notesToArchive = notes.filter(note => !note.pinned && !note.favorite);
+                if (completedTodos.length > 0 || notesToArchive.length > 0) {
                     try {
-                        await archiveService.archiveItems(completedTodos, notes, userId);
-                        setTodos(todos.filter(t => !t.completed));
-                        setNotes([]);
+                        await archiveService.archiveItems(completedTodos, notesToArchive, userId);
+                        // Tamamlanmış görevleri ve silinmiş görevleri local state'ten kaldır
+                        setTodos(todos.filter(t => !t.completed && !t.isDeleted));
+                        // Arşivlenen notları kaldır, sabitlenmiş ve favorileri koru
+                        setNotes(notes.filter(note => note.pinned || note.favorite));
                         setLastArchiveDate(todayStr);
                         setNotification({
-                            message: `${completedTodos.length} görev ve ${notes.length} not arşivlendi.`, 
+                            message: `${completedTodos.length} görev ve ${notesToArchive.length} not arşivlendi. Sabitlenmiş ve favori notlar korundu.`, 
                             type: 'success' 
                         });
                     } catch (error: any) {
@@ -676,8 +751,8 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
             const last = localStorage.getItem(key);
             if (last === today) return;
             if (now.getHours() === (hh || 8) && Math.abs(now.getMinutes() - (mm || 0)) < 2) {
-                const pending = todos.filter(t => !t.completed).length;
-                const overdue = todos.filter(t => !t.completed && t.datetime && new Date(t.datetime) < now).length;
+                const pending = todos.filter(t => !t.completed && !t.isDeleted).length;
+                const overdue = todos.filter(t => !t.completed && !t.isDeleted && t.datetime && new Date(t.datetime) < now).length;
                 setNotification({ message: `Günaydın! ${pending} görev, ${overdue} gecikmiş. Başlayalım mı?`, type: 'success' });
                 localStorage.setItem(key, today);
             }
@@ -687,19 +762,46 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
         return () => clearInterval(interval);
     }, [todos, userId]);
 
-    // Push todos/notes to Supabase on change (if configured)
+    // Push notes to Supabase on change (todos are handled explicitly to avoid conflicts)
     useEffect(() => {
         (async () => {
             try {
-                const { supabase, upsertTodos, upsertNotes } = await import('./services/supabaseClient');
+                const { supabase, upsertNotes } = await import('./services/supabaseClient');
                 if (!supabase || !userId || userId === 'guest') return;
-                await upsertTodos(userId, todos);
+                // Only sync notes automatically - todos are handled explicitly in handleToggleTodo
                 await upsertNotes(userId, notes);
             } catch (error) {
-                console.error('[Main] Supabase sync error:', error);
+                console.error('[Main] Supabase notes sync error:', error);
             }
         })();
-    }, [todos, notes, userId]);
+    }, [notes, userId]);
+    
+    // Sync new todos to Supabase (but not updates)
+    useEffect(() => {
+        (async () => {
+            if (!userId || userId === 'guest') return;
+            
+            // Only sync todos that don't exist in Supabase yet (new todos)
+            const newTodos = todos.filter(t => {
+                // Check if this todo was created very recently (within last 5 seconds)
+                const createdAt = new Date(t.createdAt);
+                const fiveSecondsAgo = new Date(Date.now() - 5000);
+                return createdAt > fiveSecondsAgo;
+            });
+            
+            if (newTodos.length > 0) {
+                try {
+                    const { supabase, upsertTodos } = await import('./services/supabaseClient');
+                    if (supabase) {
+                        await upsertTodos(userId, newTodos);
+                        console.log('[Main] Synced', newTodos.length, 'new todos to Supabase');
+                    }
+                } catch (error) {
+                    console.error('[Main] Failed to sync new todos:', error);
+                }
+            }
+        })();
+    }, [todos, userId]);
 
     // Supabase initial fetch (if configured)
     useEffect(() => {
@@ -714,20 +816,24 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                 const remote = await fetchAll(userId);
                 
                 if (remote.todos.length || remote.notes.length) {
-                    // naive merge: prefer newer createdAt
-                    const byId: any = {};
-                    [...todos, ...remote.todos].forEach((t: any) => {
-                        const cur = byId[t.id];
-                        if (!cur || new Date(t.createdAt) > new Date(cur.createdAt)) byId[t.id] = t;
-                    });
-                    setTodos(Object.values(byId));
-
-                    const byN: any = {};
-                    [...notes, ...remote.notes].forEach((n: any) => {
-                        const cur = byN[n.id];
-                        if (!cur || new Date(n.createdAt) > new Date(cur.createdAt)) byN[n.id] = n;
-                    });
-                    setNotes(Object.values(byN));
+                    console.log('[Main] Merging remote data with local state');
+                    
+                    // Improved merge: only add truly new items (not present locally)
+                    const currentTodoIds = new Set(todos.map(t => t.id));
+                    const newRemoteTodos = remote.todos.filter((rt: any) => !currentTodoIds.has(rt.id));
+                    
+                    const currentNoteIds = new Set(notes.map(n => n.id));
+                    const newRemoteNotes = remote.notes.filter((rn: any) => !currentNoteIds.has(rn.id));
+                    
+                    if (newRemoteTodos.length > 0) {
+                        console.log(`[Main] Adding ${newRemoteTodos.length} new remote todos`);
+                        setTodos(prev => [...prev, ...newRemoteTodos]);
+                    }
+                    
+                    if (newRemoteNotes.length > 0) {
+                        console.log(`[Main] Adding ${newRemoteNotes.length} new remote notes`);
+                        setNotes(prev => [...prev, ...newRemoteNotes]);
+                    }
                 }
             } catch (error) {
                 console.error('[Main] Supabase fetch error:', error);
@@ -736,17 +842,54 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [userId]);
 
-    // Request notification permission on mount
+    // Initialize NotificationService and wire custom toast callback globally
     useEffect(() => {
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
+        (async () => {
+            try {
+                const { NotificationService } = await import('./services/notificationService');
+                await NotificationService.initialize();
+                NotificationService.setCustomToastCallback((title, message, avatar, duration) => {
+                    showMessage(title, message, avatar, duration);
+                });
+            } catch (e) {
+                console.warn('[Main] NotificationService init failed:', e);
+            }
+        })();
     }, []);
+
+    // Global incoming messages subscription (show notifications even when Messages page is closed)
+    useEffect(() => {
+        let unsubscribe: (() => void) | undefined;
+        (async () => {
+            try {
+                if (!userId || userId === 'guest') return;
+                unsubscribe = await subscribeToIncomingMessagesForUser(userId, async (msg: any) => {
+                    try {
+                        // Skip own messages
+                        if (msg.sender_id === userId) return;
+                        // If on Messages page and app has focus, suppress extra notification (page handles it)
+                        if (location.pathname.includes('/messages') && document.hasFocus()) return;
+                        const title = 'Yeni mesaj';
+                        const text = msg.type === 'text' ? (msg.body || '') : 'Dosya gönderdi';
+                        const { NotificationService } = await import('./services/notificationService');
+                        NotificationService.notifyMessage(title, text);
+                    } catch (e) {
+                        console.warn('[Main] Failed to notify incoming message:', e);
+                    }
+                });
+            } catch (e) {
+                console.warn('[Main] Global message subscription failed:', e);
+            }
+        })();
+        return () => { try { unsubscribe && unsubscribe(); } catch {} };
+    }, [userId, location.pathname]);
 
     // New reminder system with reminderService
     useEffect(() => {
         const checkReminders = () => {
-            const activeRems = reminderService.checkReminders(todos);
+            // Silinmiş görevlerin hatırlatmalarını kontrol etmeyelim
+            const activeTodos = todos.filter(t => !t.isDeleted);
+            const activeRems = reminderService.checkReminders(activeTodos);
             
             if (activeRems.length > 0) {
                 // Update active reminders state
@@ -756,9 +899,9 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                     return [...prev, ...newReminders];
                 });
                 
-                // Send browser notifications
+                // Send notifications (Electron native or web toast)
                 activeRems.forEach(reminder => {
-                    reminderService.sendBrowserNotification(reminder);
+                    reminderService.sendNotification(reminder);
                 });
             }
         };
@@ -806,7 +949,7 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
 
 
     return (
-        <div className="min-h-screen overflow-x-hidden bg-gray-100 text-gray-900 dark:text-gray-100 transition-colors duration-300 dark:bg-gradient-to-br dark:from-[hsl(var(--gradient-from))] dark:via-[hsl(var(--gradient-via))] dark:to-[hsl(var(--gradient-to))]">
+        <div className="min-h-screen overflow-x-hidden bg-gray-100 text-gray-900 dark:text-gray-100 transition-colors duration-300 dark:bg-gradient-to-br dark:from-[hsl(var(--gradient-from))] dark:via-[hsl(var(--gradient-via))] dark:to-[hsl(var(--gradient-to))] safe-area-top">
             {isLoading && <Loader message={loadingMessage} />}
             {notification && <NotificationPopup message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
             
@@ -833,7 +976,7 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
 
             <Header theme={theme} setTheme={setTheme} accentColor={accentColor} setAccentColor={setAccentColor} onNavigateToProfile={onNavigateToProfile} onShowWelcome={onShowWelcome} />
             
-            <main className="container mx-auto p-4 sm:p-6 lg:p-8 pb-20 md:pb-8">
+            <main className="container mx-auto p-3 sm:p-4 md:p-6 lg:p-8 pb-24 md:pb-8 safe-area-bottom">
                 {showInfoBanner && <InfoBanner assistantName={assistantName} onClose={() => setShowInfoBanner(false)} />}
                 <ActionBar
                     onSimpleVoiceCommand={() => { if(checkApiKey()) setIsTaskModalOpen(true); }}
@@ -843,45 +986,121 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                 />
                 {aiMessage && <AiAssistantMessage message={aiMessage} onClose={() => setAiMessage(null)} />}
 
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
-                        <h2 className="text-lg sm:text-xl font-bold flex items-center gap-2">
+                <div className="flex flex-col gap-4 mb-6">
+                    {/* Header Row with Title and View Mode Switcher */}
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3">
                             Görevlerim
-                            <span className="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-[var(--accent-color-600)]/15 text-[var(--accent-color-600)]">{visibleTodos.length}</span>
+                            <span className="text-xs sm:text-sm px-2.5 py-1 rounded-lg bg-[var(--accent-color-600)]/10 text-[var(--accent-color-600)] font-medium">
+                                {visibleTodos.length}
+                            </span>
                         </h2>
-                        <div className="flex gap-1.5 flex-wrap">
-<button onClick={handleGetDailyBriefing} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                                <span className="hidden sm:inline">Günün Özetini Al</span>
-                                <span className="sm:hidden">Özet</span>
+                        <div className="flex items-center p-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                            <button 
+                                onClick={() => setViewMode('list')} 
+                                className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
+                                    viewMode === 'list' 
+                                    ? 'bg-[var(--accent-color-600)] text-white shadow-sm' 
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                }`}
+                            >
+                                Liste
                             </button>
-<button onClick={() => setShowContextInsights(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600">
-  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" /><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" /></svg>
-  <span className="hidden sm:inline">📊 İçgörüler</span>
-  <span className="sm:hidden">İçgörü</span>
-</button>
-                            {proactiveSuggestions.length > 0 && (
-<button onClick={() => setShowProactiveSuggestions(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-indigo-200/60 dark:border-indigo-700/60 bg-white/60 dark:bg-gray-800/60 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:border-indigo-300 dark:hover:border-indigo-600 animate-pulse">
-<svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-                                    <span className="hidden sm:inline">🤖 AI Önerileri ({proactiveSuggestions.length})</span>
-                                    <span className="sm:hidden">🤖 ({proactiveSuggestions.length})</span>
-                                </button>
-                            )}
-<button onClick={() => setIsArchiveModalOpen(true)} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 sm:h-5 w-4 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                                <span className="hidden sm:inline">Arşivi Görüntüle</span>
-                                <span className="sm:hidden">Arşiv</span>
-                            </button>
-<button onClick={handleExportICS} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 text-[11px] sm:text-xs text-gray-700 dark:text-gray-300 hover:bg-white/80 dark:hover:bg-gray-700/80 hover:border-gray-300 dark:hover:border-gray-600">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 3a1 1 0 011-1h2a1 1 0 011 1v1h6V3a1 1 0 112 0v1h1a2 2 0 012 2v11a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2h1V3zm0 5h14v9H3V8z" clipRule="evenodd" /></svg>
-                                <span className="hidden sm:inline">Takvime Dışa Aktar (.ics)</span>
-                                <span className="sm:hidden">ICS</span>
+                            <button 
+                                onClick={() => setViewMode('timeline')} 
+                                className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
+                                    viewMode === 'timeline' 
+                                    ? 'bg-[var(--accent-color-600)] text-white shadow-sm' 
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                }`}
+                            >
+                                Zaman Çizelgesi
                             </button>
                         </div>
                     </div>
-                    <div className="flex items-center p-1 bg-gray-200 dark:bg-gray-700 rounded-lg self-start sm:self-auto">
-                        <button onClick={() => setViewMode('list')} className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-semibold rounded-md transition-colors ${viewMode === 'list' ? 'bg-white dark:bg-gray-800 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Liste</button>
-                        <button onClick={() => setViewMode('timeline')} className={`px-2 sm:px-3 py-1 text-xs sm:text-sm font-semibold rounded-md transition-colors ${viewMode === 'timeline' ? 'bg-white dark:bg-gray-800 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Zaman Çizelgesi</button>
+
+                    {/* Action Buttons - Modern Grid Layout */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                        <button 
+                            onClick={() => navigate('/messages')} 
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-[var(--accent-color-600)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2H7l-3.5 2.333A1 1 0 012 17.5V5z"/>
+                            </svg>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                                Mesajlar
+                            </span>
+                        </button>
+
+                        <button 
+                            onClick={handleGetDailyBriefing} 
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                                <span className="hidden sm:inline">Günün Özeti</span>
+                                <span className="sm:hidden">Özet</span>
+                            </span>
+                        </button>
+
+                        <button 
+                            onClick={() => setShowContextInsights(true)} 
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-500 group-hover:text-purple-600" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
+                                <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                                İçgörüler
+                            </span>
+                        </button>
+
+                        {proactiveSuggestions.length > 0 && (
+                            <button 
+                                onClick={() => setShowProactiveSuggestions(true)} 
+                                className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-200 dark:border-indigo-700 rounded-xl hover:shadow-md transition-all duration-200 group animate-pulse"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600 dark:text-indigo-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                </svg>
+                                <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                                    AI Önerileri
+                                    <span className="ml-1 text-xs bg-indigo-600 text-white px-1.5 py-0.5 rounded-full">
+                                        {proactiveSuggestions.length}
+                                    </span>
+                                </span>
+                            </button>
+                        )}
+
+                        <button 
+                            onClick={() => setIsArchiveModalOpen(true)} 
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-[var(--accent-color-600)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                                <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                                Arşiv
+                            </span>
+                        </button>
+
+                        <button 
+                            onClick={handleExportICS} 
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-[var(--accent-color-600)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                                <span className="hidden sm:inline">Takvim Dışa Aktar</span>
+                                <span className="sm:hidden">Dışa Aktar</span>
+                            </span>
+                        </button>
                     </div>
                 </div>
 
@@ -902,10 +1121,10 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
                     <div className="lg:col-span-2">
                         {viewMode === 'list' ? (
-                            <div className="bg-white/80 dark:bg-gray-800/60 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-2xl shadow-lg p-3 sm:p-4">
+                            <div className="bg-white/80 dark:bg-gray-800/60 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4">
                                 <TodoList
                                     todos={visibleTodos}
                                     onToggle={handleToggleTodo}
@@ -917,10 +1136,10 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                                 />
                             </div>
                         ) : (
-                            <TimelineView todos={todos} />
+                            <TimelineView todos={todos.filter(t => !t.isDeleted)} />
                         )}
                     </div>
-                    <div className="lg:col-span-3 mt-4 lg:mt-0">
+                    <div className="lg:col-span-3 mt-6 lg:mt-0">
                        <DailyNotepad
                            notes={notes}
                            setNotes={setNotes}
@@ -940,8 +1159,9 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                            onDeleteNotesRemote={async (ids) => {
                                try {
                                    const { deleteNotes } = await import('./services/supabaseClient');
-                                   if (userId && userId !== 'guest') {
+                                   if (userId) {
                                        await deleteNotes(userId, ids);
+                                       console.log(`[Main] Remote deleted ${ids.length} notes for user ${userId}`);
                                    }
                                } catch (e) {
                                    console.warn('[Main] Remote delete (bulk) failed:', e);
@@ -988,6 +1208,8 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                     onDismissSuggestion={handleDismissSuggestion}
                 />
             )}
+        {/* Global Toast Container */}
+        <ToastNotification messages={toasts} onRemove={removeToast} />
         </div>
     );
 };

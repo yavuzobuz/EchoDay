@@ -1,3 +1,6 @@
+/* Import mobil optimizasyon stilleri */
+@import url('./styles/mobile-enhancements.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

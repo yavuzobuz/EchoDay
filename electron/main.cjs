@@ -1,8 +1,32 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
 const isDev = process.env.NODE_ENV === 'development';
+
+// Electron Store for persistent settings
+let Store;
+try {
+  Store = require('electron-store');
+} catch (error) {
+  console.warn('[Main] electron-store not available:', error.message);
+}
+
+// Initialize store
+let store;
+if (Store) {
+  store = new Store({
+    name: 'echoday-settings',
+    defaults: {
+      isFirstRun: true,
+      windowBounds: { width: 1200, height: 800 },
+      theme: 'dark'
+    }
+  });
+  console.log('[Main] Electron store initialized');
+} else {
+  console.warn('[Main] Electron store not available, settings will not persist');
+}
 
 // Basit JSON depolama sistemi
 const dataPath = path.join(os.homedir(), 'AppData', 'Roaming', 'SesliGunlukPlanlayici');
@@ -68,8 +92,8 @@ function createWindow() {
   // Load the app
   console.log('Loading app, isDev:', isDev);
   if (isDev) {
-    console.log('Loading from localhost:5173');
-    mainWindow.loadURL('http://localhost:5173').then(() => {
+    console.log('Loading from localhost:5174');
+    mainWindow.loadURL('http://localhost:5174').then(() => {
       console.log('Loaded successfully');
     }).catch(err => {
       console.error('Failed to load:', err);
@@ -371,6 +395,114 @@ ipcMain.handle('settings:delete', (event, key) => {
     console.error('Error deleting setting:', error);
     return false;
   }
+});
+
+// ============ STORE Handlers ============
+
+// Store get handler
+ipcMain.handle('store:get', (event, key, defaultValue) => {
+  try {
+    if (!store) {
+      console.warn('[IPC] Store not available for get operation');
+      return defaultValue;
+    }
+    const value = store.get(key, defaultValue);
+    console.log(`[Store] Retrieved ${key}:`, value);
+    return value;
+  } catch (error) {
+    console.error('[Store] Error getting value:', error);
+    return defaultValue;
+  }
+});
+
+// Store set handler
+ipcMain.handle('store:set', (event, key, value) => {
+  try {
+    if (!store) {
+      console.warn('[IPC] Store not available for set operation');
+      return false;
+    }
+    store.set(key, value);
+    console.log(`[Store] Saved ${key}:`, value);
+    return true;
+  } catch (error) {
+    console.error('[Store] Error setting value:', error);
+    return false;
+  }
+});
+
+// Store delete handler
+ipcMain.handle('store:delete', (event, key) => {
+  try {
+    if (!store) {
+      console.warn('[IPC] Store not available for delete operation');
+      return false;
+    }
+    store.delete(key);
+    console.log(`[Store] Deleted ${key}`);
+    return true;
+  } catch (error) {
+    console.error('[Store] Error deleting value:', error);
+    return false;
+  }
+});
+
+// Store clear handler
+ipcMain.handle('store:clear', () => {
+  try {
+    if (!store) {
+      console.warn('[IPC] Store not available for clear operation');
+      return false;
+    }
+    store.clear();
+    console.log('[Store] Cleared all data');
+    return true;
+  } catch (error) {
+    console.error('[Store] Error clearing store:', error);
+    return false;
+  }
+});
+
+// ============ Notification Handlers ============
+
+// Show native notification
+ipcMain.handle('notification:show', async (event, options) => {
+  try {
+    if (!Notification.isSupported()) {
+      console.warn('[Notification] Native notifications not supported');
+      return false;
+    }
+
+    const notification = new Notification({
+      title: options.title || 'EchoDay',
+      body: options.body || '',
+      icon: options.icon || undefined,
+      silent: options.silent || false,
+      urgency: options.urgency || 'normal', // low, normal, critical
+      timeoutType: options.timeoutType || 'default', // default, never
+    });
+
+    // Handle click event
+    notification.on('click', () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+        mainWindow.show();
+      }
+    });
+
+    notification.show();
+    console.log('[Notification] Shown:', options.title);
+    return true;
+  } catch (error) {
+    console.error('[Notification] Error showing notification:', error);
+    return false;
+  }
+});
+
+// Check if notifications are supported
+ipcMain.handle('notification:isSupported', () => {
+  return Notification.isSupported();
 });
 
 // ============ PDF Handlers ============

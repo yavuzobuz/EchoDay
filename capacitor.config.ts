@@ -1,15 +1,56 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.smarttodo.assistant',
-  appName: 'Sesli Asistan',
+  appId: 'com.echoday.assistant',
+  appName: 'EchoDay',
   webDir: 'dist',
+  server: {
+    androidScheme: 'https',
+    cleartext: true // Development için gerekli
+  },
   plugins: {
     SpeechRecognition: {
       locale: 'tr-TR',
       prompt: 'Size nasıl yardımcı olabilirim?',
       partialResults: true,
     },
+    Camera: {
+      permissions: ['camera', 'photos'],
+    },
+    Geolocation: {
+      permissions: ['location'],
+    },
+    Clipboard: {
+      // Native clipboard kullanımı için
+    },
+    // Native performans iyileştirmeleri
+    StatusBar: {
+      style: 'dark',
+      backgroundColor: '#1a1a1a',
+    },
+    SplashScreen: {
+      launchShowDuration: 2000,
+      backgroundColor: '#1a1a1a',
+      showSpinner: true,
+      androidSpinnerStyle: 'small',
+      spinnerColor: '#ffffff',
+    },
+  },
+  android: {
+    allowMixedContent: true,
+    captureInput: true,
+    webContentsDebuggingEnabled: true, // Development için true
+    buildOptions: {
+      keystorePath: undefined,
+      keystoreAlias: undefined,
+      keystoreAliasPassword: undefined,
+      keystorePassword: undefined,
+      releaseType: 'APK'
+    }
+  },
+  ios: {
+    contentInset: 'automatic',
+    scrollEnabled: true,
   },
 };
 

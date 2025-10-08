@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Todo, Note, Priority, DashboardStats } from '../types';
 import { archiveService } from '../services/archiveService';
+import { useAuth } from '../contexts/AuthContext';
 import PeriodicReportView from './PeriodicReportView';
 
 interface ArchiveModalProps {
@@ -38,6 +39,9 @@ const BarChart: React.FC<{ data: DashboardStats['last7Days'] }> = ({ data }) => 
 };
 
 const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTodos, currentNotes = [] }) => {
+  const { user } = useAuth();
+  const userId = user?.id || 'guest';
+  
   const [results, setResults] = useState<{ todos: Todo[]; notes: Note[] }>({ todos: [], notes: [] });
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -61,7 +65,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
   useEffect(() => {
     if (isOpen) {
         // Check DB health when modal opens
-        archiveService.checkDatabaseHealth().then(h => {
+        archiveService.checkDatabaseHealth(userId).then(h => {
           setDbHealthy(h.isHealthy);
           setDbErrors(h.errors || []);
         }).catch(() => {
@@ -91,7 +95,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
 
   const fetchByDate = async (date: string) => {
     setIsLoading(true);
-    const data = await archiveService.getArchivedItemsForDate(date);
+    const data = await archiveService.getArchivedItemsForDate(date, userId);
     setResults(data);
     setIsLoading(false);
   };
@@ -118,7 +122,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
   const fetchAllArchived = async () => {
     setIsLoading(true);
     setSearchMode('all');
-    const data = await archiveService.getAllArchivedItems();
+    const data = await archiveService.getAllArchivedItems(userId);
     setResults(data);
     setIsLoading(false);
   };
@@ -148,7 +152,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
     
     try {
       setIsLoading(true);
-      await archiveService.archiveItems(completedTodos, notesToArchive);
+      await archiveService.archiveItems(completedTodos, notesToArchive, userId);
       
       const successMessage = completedTodos.length > 0 && notesToArchive.length > 0
         ? `${completedTodos.length} görev ve ${notesToArchive.length} not başarıyla arşivlendi!`
@@ -181,7 +185,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
   
   const fetchStats = async () => {
     setIsLoading(true);
-    const data = await archiveService.getDashboardStats(currentTodos);
+    const data = await archiveService.getDashboardStats(currentTodos, userId);
     setStats(data);
     setIsLoading(false);
   };
@@ -191,7 +195,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
     if (!searchQuery.trim()) return;
     setSearchMode('query');
     setIsLoading(true);
-    const data = await archiveService.searchArchive(searchQuery);
+    const data = await archiveService.searchArchive(searchQuery, userId);
     setResults(data);
     setIsLoading(false);
   };
@@ -232,7 +236,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
     
     try {
       setIsLoading(true);
-      const result = await archiveService.deleteArchivedItems(selectedTodoIds, selectedNoteIds);
+      const result = await archiveService.deleteArchivedItems(selectedTodoIds, selectedNoteIds, userId);
       
       // Remove deleted items from current results
       setResults(prev => ({
@@ -270,7 +274,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
       const todoIds = type === 'todo' ? [id] : [];
       const noteIds = type === 'note' ? [id] : [];
       
-      await archiveService.deleteArchivedItems(todoIds, noteIds);
+      await archiveService.deleteArchivedItems(todoIds, noteIds, userId);
       
       // Remove from results
       setResults(prev => ({

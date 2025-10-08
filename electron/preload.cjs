@@ -37,4 +37,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // File System API for Electron
   readFileAsBase64: (filePath) => ipcRenderer.invoke('fs:readFileAsBase64', filePath),
+  
+  // Store API for persistent settings
+  store: {
+    get: (key, defaultValue) => ipcRenderer.invoke('store:get', key, defaultValue),
+    set: (key, value) => ipcRenderer.invoke('store:set', key, value),
+    delete: (key) => ipcRenderer.invoke('store:delete', key),
+    clear: () => ipcRenderer.invoke('store:clear')
+  },
+  
+  // Notification API
+  notification: {
+    show: (options) => ipcRenderer.invoke('notification:show', options),
+    isSupported: () => ipcRenderer.invoke('notification:isSupported')
+  },
 });

@@ -3,6 +3,7 @@ import { ChatMessage, Note } from '../types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognitionUnified';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { pdfService } from '../services/pdfService';
+import { MobileModal, ModalSection, ModalActions } from './MobileModal';
 
 // Convert a base64 data URL to a Blob without performing any network request
 function dataURLToBlob(dataUrl: string): Blob {
@@ -197,78 +198,79 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
     if (pdfInputRef.current) pdfInputRef.current.value = '';
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl h-[90vh] sm:h-[80vh] flex flex-col">
-        <header className="p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-shrink-0">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">AI Asistan</h2>
-            {notes.length > 0 && onProcessNotes && (
-              <button
-                onClick={() => setShowNoteProcessor(!showNoteProcessor)}
-                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 text-xs sm:text-sm bg-[var(--accent-color-100)] dark:bg-[var(--accent-color-900)] text-[var(--accent-color-700)] dark:text-[var(--accent-color-300)] rounded-md hover:bg-[var(--accent-color-200)] dark:hover:bg-[var(--accent-color-800)] transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                  <path fillRule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2H6a2 2 0 00-2 2v6a2 2 0 002 2h2a1 1 0 100 2H6a4 4 0 01-4-4V5a4 4 0 014-4h4a1 1 0 001-1h2a1 1 0 011 1 1 1 0 001 1h4a4 4 0 014 4v8a4 4 0 01-4 4h-4a1 1 0 110-2h4a2 2 0 002-2V7a2 2 0 00-2-2h-2a1 1 0 110-2h2a4 4 0 014 4v8a4 4 0 01-4 4H9.5a1 1 0 00-.707.293l-2 2a1 1 0 01-1.414-1.414l2-2A3 3 0 019 13h5a2 2 0 002-2V7a2 2 0 00-2-2H6z" clipRule="evenodd" />
-                </svg>
-                <span className="hidden sm:inline">Notu AI ile işle</span>
-                <span className="sm:hidden">Not işle</span>
-              </button>
-            )}
-          </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-        </header>
+    <MobileModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={(
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span>AI Asistan</span>
+          {notes.length > 0 && onProcessNotes && (
+            <button
+              onClick={() => setShowNoteProcessor(!showNoteProcessor)}
+              className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 text-xs sm:text-sm bg-[var(--accent-color-100)] dark:bg-[var(--accent-color-900)] text-[var(--accent-color-700)] dark:text-[var(--accent-color-300)] rounded-md hover:bg-[var(--accent-color-200)] dark:hover:bg-[var(--accent-color-800)] transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                <path fillRule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2H6a2 2 0 00-2 2v6a2 2 0 002 2h2a1 1 0 100 2H6a4 4 0 01-4-4V5a4 4 0 014-4h4a1 1 0 001-1h2a1 1 0 011 1 1 1 0 001 1h4a4 4 0 014 4v8a4 4 0 01-4 4h-4a1 1 0 110-2h4a2 2 0 002-2V7a2 2 0 00-2-2h-2a1 1 0 110-2h2a4 4 0 014 4v8a4 4 0 01-4 4H9.5a1 1 0 00-.707.293l-2 2a1 1 0 01-1.414-1.414l2-2A3 3 0 019 13h5a2 2 0 002-2V7a2 2 0 00-2-2H6z" clipRule="evenodd" />
+              </svg>
+              <span className="hidden sm:inline">Notu AI ile işle</span>
+              <span className="sm:hidden">Not işle</span>
+            </button>
+          )}
+        </div>
+      )}
+      fullScreen={true}
+      swipeToClose={true}
+    >
 
-        {showNoteProcessor && notes.length > 0 && (
-          <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-600">
-            <h3 className="text-xs sm:text-sm font-semibold mb-2 text-gray-700 dark:text-gray-300">Notları Seç ve AI'ya Komut Ver:</h3>
-            <div className="grid gap-2 sm:gap-3">
-              <div className="max-h-24 sm:max-h-32 overflow-y-auto space-y-1 p-2 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-600">
+      {showNoteProcessor && notes.length > 0 && (
+        <ModalSection>
+          <div className="p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg">
+            <h3 className="text-sm font-semibold mb-3 text-gray-700 dark:text-gray-300">Notları Seç ve AI'ya Komut Ver:</h3>
+            <div className="space-y-3">
+              <div className="max-h-32 overflow-y-auto space-y-2 p-3 bg-white dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-600">
                 {notes.map((note) => (
-                  <label key={note.id} className="flex items-center gap-2 p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                  <label key={note.id} className="flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer touch-manipulation">
                     <input
                       type="checkbox"
                       checked={selectedNoteIds.includes(note.id)}
                       onChange={() => handleToggleNoteSelection(note.id)}
-                      className="h-4 w-4 flex-shrink-0 rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)]"
+                      className="h-5 w-5 flex-shrink-0 rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)]"
                     />
-                    <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 truncate">{note.text || '(Resimli Not)'}</span>
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{note.text || '(Resimli Not)'}</span>
                   </label>
                 ))}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input
                   type="text"
                   value={notePrompt}
                   onChange={(e) => setNotePrompt(e.target.value)}
                   placeholder="Seçili notlarla ne yapmamı istersiniz?"
-                  className="flex-1 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
+                  className="flex-1 px-3 py-3 sm:py-2 text-base sm:text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
                 />
                 <button
                   onClick={handleProcessSelectedNotes}
                   disabled={selectedNoteIds.length === 0 || !notePrompt.trim()}
-                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-3 sm:py-2 text-base sm:text-sm bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] sm:min-h-[44px] font-medium"
                 >
                   İşle
                 </button>
               </div>
             </div>
           </div>
-        )}
+        </ModalSection>
+      )}
 
-        <main className="flex-grow p-4 overflow-y-auto space-y-4">
-          {chatHistory.length === 0 && !isLoading && (
-            <div className="max-w-xl mx-auto p-4 sm:p-5 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600">
-              <div className="flex items-start gap-3">
-                <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[var(--accent-color-500)] flex items-center justify-center text-white">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9.5 3C7 3 5 5 5 7.5c0 1.5 0.5 2.5 0.5 4s-0.5 2-0.5 3.5c0 2 1.5 4 4 4.5" />
-                    <path d="M14.5 3C17 3 19 5 19 7.5c0 1.5-0.5 2.5-0.5 4s0.5 2 0.5 3.5c0 2-1.5 4-4 4.5" />
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-4 custom-scrollbar">
+        {chatHistory.length === 0 && !isLoading && (
+          <div className="p-4 sm:p-5 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-9 h-9 rounded-full bg-[var(--accent-color-500)] flex items-center justify-center text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9.5 3C7 3 5 5 5 7.5c0 1.5 0.5 2.5 0.5 4s-0.5 2-0.5 3.5c0 2 1.5 4 4 4.5" />
+                  <path d="M14.5 3C17 3 19 5 19 7.5c0 1.5-0.5 2.5-0.5 4s0.5 2 0.5 3.5c0 2-1.5 4-4 4.5" />
                     <circle cx="7" cy="8" r="1" fill="currentColor" />
                     <circle cx="12" cy="6" r="1" fill="currentColor" />
                     <circle cx="17" cy="8" r="1" fill="currentColor" />
@@ -405,69 +407,70 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
               </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
-        </main>
+        <div ref={messagesEndRef} />
+      </div>
 
-        <footer className="p-3 sm:p-4 border-t border-gray-200 dark:border-gray-700 flex-shrink-0">
-          {isListening && isElectron && (
-            <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md">
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                💡 İpucu: Konuşmanızı bitirmek için <strong>"tamam"</strong>, <strong>"bitti"</strong>, <strong>"kaydet"</strong> veya <strong>"gönder"</strong> deyin.
-              </p>
-            </div>
-          )}
+      <ModalActions className="mt-0 sticky bottom-0 bg-white dark:bg-gray-800">
+        {isListening && isElectron && (
+          <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              💡 İpuçu: Konuşmanızı bitirmek için <strong>"tamam"</strong>, <strong>"bitti"</strong>, <strong>"kaydet"</strong> veya <strong>"gönder"</strong> deyin.
+            </p>
+          </div>
+        )}
           
-          {/* PDF Preview */}
-          {selectedPdfFile && (
-            <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-md border border-gray-200 dark:border-gray-600">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-600 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
-                  </svg>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{selectedPdfFile.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{pdfService.formatFileSize(selectedPdfFile.size)}</p>
-                  </div>
+        {/* PDF Preview */}
+        {selectedPdfFile && (
+          <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-red-600 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{selectedPdfFile.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{pdfService.formatFileSize(selectedPdfFile.size)}</p>
                 </div>
-                <button
-                  onClick={handleRemovePdf}
-                  className="p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 flex-shrink-0"
-                  title="PDF'i kaldır"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </button>
               </div>
-              <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                🤖 PDF analiz edilecek. İsteğe bağlı olarak anlatım ekleyebilirsiniz.
-              </p>
+              <button
+                onClick={handleRemovePdf}
+                className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 flex-shrink-0 min-h-[44px] min-w-[44px] touch-manipulation"
+                title="PDF'i kaldır"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
             </div>
-          )}
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+              🤖 PDF analiz edilecek. İsteğe bağlı olarak anlatım ekleyebilirsiniz.
+            </p>
+          </div>
+        )}
 
-          {/* PDF Error */}
-          {pdfError && (
-            <div className="mb-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-              <p className="text-xs text-red-700 dark:text-red-300">⚠️ {pdfError}</p>
-            </div>
-          )}
+        {/* PDF Error */}
+        {pdfError && (
+          <div className="mb-3 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-700 dark:text-red-300">⚠️ {pdfError}</p>
+          </div>
+        )}
 
-          <form onSubmit={handleSubmit} className="space-y-2">
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="text"
+              value={userInput}
+              onChange={(e) => setUserInput(e.target.value)}
+              placeholder={selectedPdfFile ? 'PDF hakkında soru sorun (isteğe bağlı)...' : isListening ? 'Dinleniyor...' : 'Mesajınızı yazın...'}
+              className="flex-1 px-3 py-3 sm:py-2 text-base sm:text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
+              disabled={isLoading || isListening}
+            />
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={userInput}
-                onChange={(e) => setUserInput(e.target.value)}
-                placeholder={selectedPdfFile ? 'PDF hakkında soru sorun (isteğe bağlı)...' : isListening ? 'Dinleniyor...' : 'Mesajınızı yazın...'}
-                className="flex-grow p-2 sm:p-3 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
-                disabled={isLoading || isListening}
-              />
               {hasSupport && !selectedPdfFile && (
                 <button
                   type="button"
                   onClick={handleMicClick}
-                  className={`p-3 rounded-md transition-colors duration-200 flex items-center justify-center ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
+                  className={`p-3 rounded-lg transition-all duration-200 flex items-center justify-center min-h-[48px] min-w-[48px] touch-manipulation ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
                   disabled={isLoading}
                   title="Sesli mesaj"
                 >
@@ -492,7 +495,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                   <button
                     type="button"
                     onClick={isElectron ? handleElectronPdfPicker : () => pdfInputRef.current?.click()}
-                    className="p-3 rounded-md bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors flex items-center justify-center"
+                    className="p-3 rounded-lg bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500 transition-all flex items-center justify-center min-h-[48px] min-w-[48px] touch-manipulation"
                     disabled={isLoading || isListening}
                     title={isElectron ? 'PDF seç ve analiz et' : 'PDF yükle ve analiz et'}
                   >
@@ -508,19 +511,19 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                 <button
                   type="button"
                   onClick={handleSendPdfAnalysis}
-                  className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="px-4 py-3 sm:py-2 bg-[var(--accent-color-600)] text-white rounded-lg hover:bg-[var(--accent-color-700)] disabled:opacity-50 flex items-center justify-center gap-2 min-h-[48px] font-medium touch-manipulation"
                   disabled={isLoading}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
                     <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
                   </svg>
-                  <span className="hidden sm:inline">Analiz Et</span>
+                  <span className="sm:inline">Analiz Et</span>
                 </button>
               ) : (
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 flex items-center justify-center"
+                  className="px-4 py-3 sm:py-2 bg-[var(--accent-color-600)] text-white rounded-lg hover:bg-[var(--accent-color-700)] disabled:opacity-50 flex items-center justify-center min-h-[48px] min-w-[48px] touch-manipulation"
                   disabled={isLoading || (isListening ? false : !userInput.trim())}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -529,10 +532,10 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                 </button>
               )}
             </div>
-          </form>
-        </footer>
-      </div>
-    </div>
+          </div>
+        </form>
+      </ModalActions>
+    </MobileModal>
   );
 };
 

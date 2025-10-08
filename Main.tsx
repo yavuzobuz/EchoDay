@@ -34,12 +34,13 @@ interface MainProps {
   setAccentColor: (color: AccentColor) => void;
   apiKey: string;
   assistantName: string;
+  userId: string;
   onNavigateToProfile: () => void;
 }
 
 type ViewMode = 'list' | 'timeline';
 
-const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, onNavigateToProfile }) => {
+const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, userId, onNavigateToProfile }) => {
     const [todos, setTodos] = useLocalStorage<Todo[]>('todos', []);
     const [notes, setNotes] = useLocalStorage<Note[]>('notes', []);
     const [chatHistory, setChatHistory] = useLocalStorage<ChatMessage[]>('chatHistory', []);
@@ -328,7 +329,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             const timer = setTimeout(() => {
                 const completedTodos = todos.filter(t => t.completed);
                 if (completedTodos.length > 0 || notes.length > 0) {
-                    archiveService.archiveItems(completedTodos, notes).then(() => {
+                    archiveService.archiveItems(completedTodos, notes, userId).then(() => {
                         setTodos(todos.filter(t => !t.completed));
                         setNotes([]);
                         setLastArchiveDate(todayStr);

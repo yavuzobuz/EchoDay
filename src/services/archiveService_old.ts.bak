@@ -1,0 +1,1085 @@
+import { Todo, Note, DashboardStats, DayStat, CategoryStats, TimeAnalysis, PeriodicReport } from '../types';
+import { supabase, archiveUpsertNotes, archiveUpsertTodos, archiveFetchByDate, archiveSearch } from './supabaseClient';
+
+// ==================== HELPER FUNCTIONS ====================
+
+// Helper: Get current user ID from AuthContext or localStorage
+const getCurrentUserId = (): string => {
+  // Try to get from Supabase session first
+  try {
+    const supabaseUser = localStorage.getItem('sb-sdtntnqcdyjhzlhgbofp-auth-token');
+    if (supabaseUser) {
+      const userData = JSON.parse(supabaseUser);
+      if (userData?.user?.id) {
+        console.log('[Archive] User ID found:', userData.user.id);
+        return userData.user.id;
+      }
+    }
+  } catch (e) {
+    console.warn('[Archive] Could not parse Supabase auth token:', e);
+  }
+  
+  // Fallback to 'guest'
+  console.warn('[Archive] No authenticated user found, using guest mode');
+  return 'guest';
+};
+
+// Helper: UUID kontrolü (guest modunu ve hatalı ID'leri ayıkla)
+const isUuid = (value?: string | null): boolean => {
+  if (!value) return false;
+  const re = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return re.test(value);
+};
+
+const isSupabaseOn = () => !!supabase;
+
+// Helper: Supabase kullanılabilir mi ve kullanıcı geçerli mi kontrol et
+const canUseSupabase = (userId: string): boolean => {
+  const hasSupabase = isSupabaseOn();
+  const validUser = isUuid(userId);
+  
+  if (!hasSupabase) {
+    console.warn('[Archive] Supabase not configured');
+    return false;
+  }
+  
+  if (!validUser) {
+    console.warn(`[Archive] ⚠️ Guest mode detected (userId: ${userId}). Archive features require authentication. Please sign in to use archive features.`);
+    return false;
+  }
+  
+  return true;
+};
+
+const archiveItems = async (todos: Todo[], notes: Note[], userId?: string): Promise<void> => {
+  const currentUserId = userId || getCurrentUserId();
+  console.log(`[Archive] Starting archive for user ${currentUserId}: ${todos.length} todos, ${notes.length} notes`);
+
+  if (!canUseSupabase(currentUserId)) {
+    throw new Error('⚠️ Arşivleme için giriş yapmanız gerekiyor. Lütfen hesabınıza giriş yapın.');
+  }
+
+  try {
+    await Promise.all([
+      archiveUpsertTodos(currentUserId, todos),
+      archiveUpsertNotes(currentUserId, notes),
+    ]);
+    console.log(`[Archive] ✅ Successfully archived ${todos.length} todos and ${notes.length} notes for user ${currentUserId}`);
+  } catch (error: any) {
+    console.error('[Archive] ❌ Failed to archive items:', error);
+    throw new Error(`Arşivleme başarısız: ${error?.message || 'Bilinmeyen hata'}`);
+  }
+};
+
+const getArchivedItemsForDate = async (date: string, userId?: string): Promise<{ todos: Todo[], notes: Note[] }> => {
+    const currentUserId = userId || getCurrentUserId();
+
+    // Prefer Supabase if available
+    if (isSupabaseOn()) {
+      try {
+        const result = await archiveFetchByDate(currentUserId, date);
+        console.log(`[Archive] Supabase fetch by date for user ${currentUserId}: ${result.todos.length} todos, ${result.notes.length} notes`);
+        return result;
+      } catch (e) {
+        console.warn('[Archive] Supabase fetch by date failed, fallback to IndexedDB:', e);
+      }
+    }
+
+    // Fallback: IndexedDB (Dexie)
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) { console.error('[Archive] Database not available for date query'); return { todos: [], notes: [] }; }
+    
+    // ✅ Fixed: Use broader date range to catch items archived on the selected date
+    // Items are archived with current timestamp, so we need to check the full date range
+    const startDate = new Date(date + 'T00:00:00');
+    const endDate = new Date(date + 'T23:59:59.999');
+    
+    console.log(`[Archive] Searching for date ${date} (${startDate.toLocaleString()} to ${endDate.toLocaleString()}) for user ${currentUserId}`);
+
+    // First, get all items for this user and then filter by date in memory
+    // This is more reliable than IndexedDB date range queries
+    const [allTodos, allNotes] = await Promise.all([
+        db.todos.where('userId').equals(currentUserId).toArray(),
+        db.notes.where('userId').equals(currentUserId).toArray()
+    ]);
+    
+    // Filter by creation date
+    const todos = allTodos.filter(t => {
+        const itemDate = new Date(t.createdAt);
+        return itemDate >= startDate && itemDate <= endDate;
+    });
+    
+    const notes = allNotes.filter(n => {
+        const itemDate = new Date(n.createdAt);
+        return itemDate >= startDate && itemDate <= endDate;
+    });
+    
+    console.log(`[Archive] Found ${todos.length} todos and ${notes.length} notes for date ${date}`);
+    
+    // Debug: Log first few items to verify dates
+    if (notes.length > 0) {
+        console.log('[Archive] Sample note dates:', notes.slice(0, 3).map(n => ({ id: n.id, createdAt: n.createdAt })));
+    }
+    if (todos.length > 0) {
+        console.log('[Archive] Sample todo dates:', todos.slice(0, 3).map(t => ({ id: t.id, createdAt: t.createdAt })));
+    }
+    
+    return { todos, notes };
+};
+
+const searchArchive = async (query: string, userId?: string): Promise<{ todos: Todo[], notes: Note[] }> => {
+    if (!query.trim()) return { todos: [], notes: [] };
+    const currentUserId = userId || getCurrentUserId();
+
+    // Prefer Supabase if available
+    if (isSupabaseOn()) {
+      try {
+        const result = await archiveSearch(currentUserId, query);
+        console.log(`[Archive] Supabase search for user ${currentUserId}: ${result.todos.length} todos, ${result.notes.length} notes found`);
+        return result;
+      } catch (e) {
+        console.warn('[Archive] Supabase search failed, fallback to IndexedDB:', e);
+      }
+    }
+
+    // Fallback: IndexedDB (Dexie)
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) { console.error('[Archive] Database not available for search'); return { todos: [], notes: [] }; }
+    const lowerCaseQuery = query.toLowerCase();
+    
+    // ✅ Improved search: Full-text search instead of just prefix match
+    const [allTodos, allNotes] = await Promise.all([
+        db.todos.where('userId').equals(currentUserId).toArray(),
+        db.notes.where('userId').equals(currentUserId).toArray()
+    ]);
+
+    const todos = allTodos.filter(t => 
+        t.text.toLowerCase().includes(lowerCaseQuery)
+    );
+    
+    const notes = allNotes.filter(n => 
+        n.text && n.text.toLowerCase().includes(lowerCaseQuery)
+    );
+    
+    console.log(`[Archive] Search for "${query}" found ${todos.length} todos and ${notes.length} notes`);
+    return { todos, notes };
+};
+
+const removeNotes = async (ids: string[]): Promise<void> => {
+  try {
+    if (!ids.length) return;
+
+    if (isSupabaseOn() && supabase && isUuid(getCurrentUserId())) {
+      await supabase.from('archived_notes').delete().in('id', ids);
+      console.log(`[Archive] (Supabase) Removed ${ids.length} notes from archive for user ${getCurrentUserId()}`);
+      return;
+    } else if (isSupabaseOn() && !isUuid(getCurrentUserId())) {
+      console.warn('[Archive] Skipping Supabase removeNotes in guest mode');
+    }
+    
+    // Ensure database is open
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
+    
+    await db.notes.where('id').anyOf(ids).delete();
+    console.log(`[Archive] Removed ${ids.length} notes from archive`);
+  } catch (error) {
+    console.error('[Archive] Failed to remove notes from archive:', error);
+    throw error;
+  }
+};
+
+const removeTodos = async (ids: string[]): Promise<void> => {
+  try {
+    if (!ids.length) return;
+
+    if (isSupabaseOn() && supabase && isUuid(getCurrentUserId())) {
+      await supabase.from('archived_todos').delete().in('id', ids);
+      console.log(`[Archive] (Supabase) Removed ${ids.length} todos from archive for user ${getCurrentUserId()}`);
+      return;
+    } else if (isSupabaseOn() && !isUuid(getCurrentUserId())) {
+      console.warn('[Archive] Skipping Supabase removeTodos in guest mode');
+    }
+    
+    // Ensure database is open
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
+    
+    await db.todos.where('id').anyOf(ids).delete();
+    console.log(`[Archive] Removed ${ids.length} todos from archive`);
+  } catch (error) {
+    console.error('[Archive] Failed to remove todos from archive:', error);
+    throw error;
+  }
+};
+
+const deleteArchivedItems = async (todoIds: string[], noteIds: string[]): Promise<{ todosDeleted: number; notesDeleted: number }> => {
+  try {
+    if (isSupabaseOn() && supabase && isUuid(getCurrentUserId())) {
+      await Promise.all([
+        todoIds.length ? supabase.from('archived_todos').delete().in('id', todoIds) : Promise.resolve(null),
+        noteIds.length ? supabase.from('archived_notes').delete().in('id', noteIds) : Promise.resolve(null),
+      ]);
+      console.log(`[Archive] (Supabase) Delete completed for user ${getCurrentUserId()}: ${todoIds.length} todos and ${noteIds.length} notes deleted`);
+      return { todosDeleted: todoIds.length, notesDeleted: noteIds.length };
+    } else if (isSupabaseOn() && !isUuid(getCurrentUserId())) {
+      console.warn('[Archive] Skipping Supabase deleteArchivedItems in guest mode');
+    }
+
+    // Ensure database is open
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
+    
+    console.log(`[Archive] Deleting ${todoIds.length} todos and ${noteIds.length} notes from archive`);
+    
+    let todosDeleted = 0;
+    let notesDeleted = 0;
+    
+    await db.transaction('rw', db.todos, db.notes, async () => {
+      if (todoIds.length > 0) {
+        todosDeleted = await db.todos.where('id').anyOf(todoIds).delete();
+        console.log(`[Archive] Deleted ${todosDeleted} todos`);
+      }
+      if (noteIds.length > 0) {
+        notesDeleted = await db.notes.where('id').anyOf(noteIds).delete();
+        console.log(`[Archive] Deleted ${notesDeleted} notes`);
+      }
+    });
+    
+    console.log(`[Archive] Delete completed: ${todosDeleted} todos and ${notesDeleted} notes deleted`);
+    
+    return { todosDeleted, notesDeleted };
+  } catch (error: any) {
+    console.error('[Archive] Failed to delete items:', error);
+    throw new Error(`Arşivden silme başarısız: ${error?.message || 'Bilinmeyen hata'}`);
+  }
+};
+
+const getDashboardStats = async (currentTodos: Todo[], userId?: string): Promise<DashboardStats> => {
+  try {
+    const currentUserId = userId || getCurrentUserId();
+
+    let archivedCompletedDates: string[] = [];
+    if (isSupabaseOn() && supabase && isUuid(currentUserId)) {
+      const tRes = await supabase
+        .from('archived_todos')
+        .select('id, created_at')
+        .eq('user_id', currentUserId);
+      archivedCompletedDates = (tRes.data || []).map((r: any) => (r.created_at || new Date().toISOString()));
+    } else {
+      // Dexie fallback
+      const isOpen = await ensureDbOpen();
+      if (!isOpen) {
+        console.error('[Archive] Database not available for dashboard stats');
+        return { totalCompleted: 0, currentStreak: 0, last7Days: [] };
+      }
+      const completedArchived = await db.todos
+        .where('completed')
+        .equals(1)
+        .filter(t => t.userId === currentUserId)
+        .toArray();
+      archivedCompletedDates = completedArchived.map(t => t.createdAt);
+    }
+
+    const currentCompleted = currentTodos.filter(t => t.completed);
+    const completedTasksDates = [
+      ...currentCompleted.map(t => t.createdAt),
+      ...archivedCompletedDates,
+    ];
+
+// Calculate total completed
+    const totalCompleted = completedTasksDates.length;
+
+    // Calculate streak
+    const completionDates = new Set(
+      completedTasksDates.map(d => new Date(d).toISOString().split('T')[0])
+    );
+    
+    let currentStreak = 0;
+    const today = new Date();
+    if (completionDates.has(today.toISOString().split('T')[0])) {
+        currentStreak = 1;
+        let previousDay = new Date(today);
+        previousDay.setDate(today.getDate() - 1);
+        while (completionDates.has(previousDay.toISOString().split('T')[0])) {
+            currentStreak++;
+            previousDay.setDate(previousDay.getDate() - 1);
+        }
+    }
+
+// Calculate last 7 days activity
+    const last7Days: DayStat[] = [];
+    const dateCounts = new Map<string, number>();
+
+    for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = d.toISOString().split('T')[0];
+        dateCounts.set(dateStr, 0);
+    }
+    
+    completedTasksDates.forEach(dateStrRaw => {
+        const taskDateStr = new Date(dateStrRaw).toISOString().split('T')[0];
+        if (dateCounts.has(taskDateStr)) {
+            dateCounts.set(taskDateStr, (dateCounts.get(taskDateStr) || 0) + 1);
+        }
+    });
+    
+    for (const [date, count] of dateCounts.entries()) {
+        last7Days.push({ date, count });
+    }
+    last7Days.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+
+    return { totalCompleted, currentStreak, last7Days };
+
+  } catch (error) {
+    console.error("Failed to calculate dashboard stats:", error);
+    return { totalCompleted: 0, currentStreak: 0, last7Days: [] };
+  }
+};
+
+const getAllArchivedItems = async (userId?: string): Promise<{ todos: Todo[], notes: Note[] }> => {
+  try {
+    const currentUserId = userId || getCurrentUserId();
+
+    if (isSupabaseOn() && supabase && isUuid(currentUserId)) {
+      const [tRes, nRes] = await Promise.all([
+        supabase.from('archived_todos').select('*').eq('user_id', currentUserId),
+        supabase.from('archived_notes').select('*').eq('user_id', currentUserId),
+      ]);
+      const todos = (tRes.data || []).map((row: any) => ({
+        ...row,
+        createdAt: row.created_at ?? row.createdAt,
+        archivedAt: row.archived_at ?? row.archivedAt,
+        userId: row.user_id ?? row.userId,
+      }));
+      const notes = (nRes.data || []).map((row: any) => ({
+        ...row,
+        createdAt: row.created_at ?? row.createdAt,
+        archivedAt: row.archived_at ?? row.archivedAt,
+        userId: row.user_id ?? row.userId,
+        imageUrl: row.image_url ?? row.imageUrl,
+      }));
+      console.log(`[Archive] (Supabase) Total archived items for user ${currentUserId}: ${todos.length} todos, ${notes.length} notes`);
+      return { todos, notes };
+    }
+
+    // Dexie fallback
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      console.error('[Archive] Database not available');
+      return { todos: [], notes: [] };
+    }
+    
+    const [todos, notes] = await Promise.all([
+      db.todos.where('userId').equals(currentUserId).toArray(),
+      db.notes.where('userId').equals(currentUserId).toArray()
+    ]);
+    
+    console.log(`[Archive] Total archived items: ${todos.length} todos, ${notes.length} notes`);
+    
+    return { todos, notes };
+  } catch (error) {
+    console.error('[Archive] Failed to get all archived items:', error);
+    return { todos: [], notes: [] };
+  }
+};
+
+const clearOldArchives = async (daysToKeep: number = 90): Promise<number> => {
+  try {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+    const cutoffISO = cutoffDate.toISOString();
+    
+    console.log(`[Archive] Clearing archives older than ${cutoffDate.toLocaleDateString('tr-TR')}`);
+
+    if (isSupabaseOn() && supabase && isUuid(getCurrentUserId())) {
+      await Promise.all([
+        supabase.from('archived_todos').delete().lt('archived_at', cutoffISO),
+        supabase.from('archived_notes').delete().lt('archived_at', cutoffISO),
+      ]);
+      console.log('[Archive] (Supabase) Cleared old archived items');
+      return 0;
+    }
+
+    // Dexie fallback
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
+    
+    const deletedTodos = await db.todos
+      .where('createdAt')
+      .below(cutoffISO)
+      .delete();
+      
+    const deletedNotes = await db.notes
+      .where('createdAt')
+      .below(cutoffISO)
+      .delete();
+    
+    const totalDeleted = deletedTodos + deletedNotes;
+    console.log(`[Archive] Cleared ${totalDeleted} old items (${deletedTodos} todos, ${deletedNotes} notes)`);
+    return totalDeleted;
+  } catch (error) {
+    console.error('[Archive] Failed to clear old archives:', error);
+    throw error;
+  }
+};
+
+const checkDatabaseHealth = async (): Promise<{
+  isHealthy: boolean;
+  todoCount: number;
+  noteCount: number;
+  totalItems: number;
+  estimatedSizeMB: number;
+  errors: string[];
+}> => {
+  const errors: string[] = [];
+  let todoCount = 0;
+  let noteCount = 0;
+  
+  try {
+    if (isSupabaseOn() && supabase && isUuid(getCurrentUserId())) {
+      const [tRes, nRes] = await Promise.all([
+        supabase.from('archived_todos').select('*', { count: 'exact', head: true }),
+        supabase.from('archived_notes').select('*', { count: 'exact', head: true }),
+      ]);
+      todoCount = tRes.count || 0;
+      noteCount = nRes.count || 0;
+      const totalItems = todoCount + noteCount;
+      const estimatedSizeMB = (totalItems * 1024) / (1024 * 1024);
+      return { isHealthy: true, todoCount, noteCount, totalItems, estimatedSizeMB, errors };
+    }
+
+    // Dexie fallback
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      errors.push('Database could not be opened');
+      return {
+        isHealthy: false,
+        todoCount: 0,
+        noteCount: 0,
+        totalItems: 0,
+        estimatedSizeMB: 0,
+        errors
+      };
+    }
+    
+    [todoCount, noteCount] = await Promise.all([
+      db.todos.count(),
+      db.notes.count()
+    ]);
+    
+    const totalItems = todoCount + noteCount;
+    // Estimate size: ~1KB per item (conservative estimate)
+    const estimatedSizeMB = (totalItems * 1024) / (1024 * 1024);
+    
+    console.log(`[Archive Health] Database health check completed`);
+    console.log(`  - Todos: ${todoCount}`);
+    console.log(`  - Notes: ${noteCount}`);
+    console.log(`  - Total items: ${totalItems}`);
+    console.log(`  - Estimated size: ${estimatedSizeMB.toFixed(2)} MB`);
+    
+    return {
+      isHealthy: true,
+      todoCount,
+      noteCount,
+      totalItems,
+      estimatedSizeMB,
+      errors
+    };
+  } catch (error: any) {
+    console.error('[Archive Health] Health check failed:', error);
+    errors.push(error.message || 'Unknown error');
+    return {
+      isHealthy: false,
+      todoCount: 0,
+      noteCount: 0,
+      totalItems: 0,
+      estimatedSizeMB: 0,
+      errors
+    };
+  }
+};
+
+const exportArchive = async (): Promise<string> => {
+  try {
+    console.log('[Archive] Starting export...');
+
+    if (isSupabaseOn() && supabase && isUuid(getCurrentUserId())) {
+      const [tRes, nRes] = await Promise.all([
+        supabase.from('archived_todos').select('*'),
+        supabase.from('archived_notes').select('*'),
+      ]);
+      const todos = (tRes.data || []).map((row: any) => ({
+        ...row,
+        createdAt: row.created_at ?? row.createdAt,
+        archivedAt: row.archived_at ?? row.archivedAt,
+        userId: row.user_id ?? row.userId,
+      }));
+      const notes = (nRes.data || []).map((row: any) => ({
+        ...row,
+        createdAt: row.created_at ?? row.createdAt,
+        archivedAt: row.archived_at ?? row.archivedAt,
+        userId: row.user_id ?? row.userId,
+        imageUrl: row.image_url ?? row.imageUrl,
+      }));
+      const exportData = {
+        version: 2,
+        exportDate: new Date().toISOString(),
+        appName: 'EchoDay',
+        todoCount: todos.length,
+        noteCount: notes.length,
+        todos,
+        notes
+      };
+      const jsonString = JSON.stringify(exportData, null, 2);
+      console.log(`[Archive] (Supabase) Export completed: ${todos.length} todos, ${notes.length} notes`);
+      return jsonString;
+    }
+
+    // Dexie fallback
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
+    
+    const [todos, notes] = await Promise.all([
+      db.todos.toArray(),
+      db.notes.toArray()
+    ]);
+    
+    const exportData = {
+      version: 2,
+      exportDate: new Date().toISOString(),
+      appName: 'EchoDay',
+      todoCount: todos.length,
+      noteCount: notes.length,
+      todos,
+      notes
+    };
+    
+    const jsonString = JSON.stringify(exportData, null, 2);
+    console.log(`[Archive] Export completed: ${todos.length} todos, ${notes.length} notes`);
+    console.log(`[Archive] Export size: ${(jsonString.length / 1024).toFixed(2)} KB`);
+    
+    return jsonString;
+  } catch (error) {
+    console.error('[Archive] Export failed:', error);
+    throw new Error(`Arşiv dışa aktarılamadı: ${error}`);
+  }
+};
+
+const importArchive = async (jsonData: string): Promise<{ todosImported: number; notesImported: number }> => {
+  try {
+    console.log('[Archive] Starting import...');
+    
+    const data = JSON.parse(jsonData);
+    
+    // Validate data structure
+    if (!data.version || !Array.isArray(data.todos) || !Array.isArray(data.notes)) {
+      throw new Error('Geçersiz arşiv formatı. Lütfen geçerli bir arşiv dosyası seçin.');
+    }
+    
+    console.log(`[Archive] Importing ${data.todos.length} todos and ${data.notes.length} notes...`);
+
+    if (isSupabaseOn() && supabase && getCurrentUserId() !== 'guest') {
+      const currentUserId = getCurrentUserId();
+      await Promise.all([
+        archiveUpsertTodos(currentUserId, data.todos || []),
+        archiveUpsertNotes(currentUserId, data.notes || []),
+      ]);
+      console.log('[Archive] (Supabase) Import completed successfully');
+      return { todosImported: data.todos.length, notesImported: data.notes.length };
+    }
+
+    // Dexie fallback
+    const isOpen = await ensureDbOpen();
+    if (!isOpen) {
+      throw new Error('Database not available');
+    }
+    
+    await db.transaction('rw', db.todos, db.notes, async () => {
+      if (data.todos.length > 0) {
+        await db.todos.bulkPut(data.todos);
+      }
+      if (data.notes.length > 0) {
+        await db.notes.bulkPut(data.notes);
+      }
+    });
+    
+    console.log(`[Archive] Import completed successfully`);
+    
+    return {
+      todosImported: data.todos.length,
+      notesImported: data.notes.length
+    };
+  } catch (error: any) {
+    console.error('[Archive] Import failed:', error);
+    if (error instanceof SyntaxError) {
+      throw new Error('Geçersiz JSON formatı. Dosya bozulmuş olabilir.');
+    }
+    throw new Error(`Arşiv içe aktarılamadı: ${error.message || error}`);
+  }
+};
+
+// ==================== GELİŞMİŞ ANALİTİK METODLARI ====================
+
+/**
+ * Kategori bazlı istatistikleri hesaplar
+ */
+const getCategoryStats = async (currentTodos: Todo[], userId?: string): Promise<CategoryStats[]> => {
+  try {
+    const currentUserId = userId || getCurrentUserId();
+    console.log(`[Archive] Calculating category stats for user ${currentUserId}...`);
+
+    let archivedTodos: Todo[] = [];
+    if (isSupabaseOn() && supabase && isUuid(currentUserId)) {
+      // Archived todos in Supabase don't carry ai metadata; will default categories
+      const tRes = await supabase.from('archived_todos').select('*').eq('user_id', currentUserId);
+      archivedTodos = (tRes.data || []).map((row: any) => ({
+        id: row.id,
+        text: row.text || '',
+        priority: 'medium' as any,
+        datetime: row.datetime || null,
+        completed: true,
+        createdAt: row.created_at || new Date().toISOString(),
+      }));
+    } else {
+      // Dexie fallback
+      const isOpen = await ensureDbOpen();
+      if (!isOpen) {
+        console.error('[Archive] Database not available for category stats');
+        return [];
+      }
+      archivedTodos = await db.todos.where('userId').equals(currentUserId).toArray();
+    }
+
+    const allTodos = [...currentTodos, ...archivedTodos];
+    
+    // Kategorilere göre grupla
+    const categoryMap = new Map<string, {
+      todos: Todo[];
+      completed: Todo[];
+    }>();
+    
+    allTodos.forEach(todo => {
+      const category = todo.aiMetadata?.category || 'Kategorizsyız';
+      
+      if (!categoryMap.has(category)) {
+        categoryMap.set(category, { todos: [], completed: [] });
+      }
+      
+      const catData = categoryMap.get(category)!;
+      catData.todos.push(todo);
+      if (todo.completed) {
+        catData.completed.push(todo);
+      }
+    });
+    
+    // Her kategori için istatistikleri hesapla
+    const stats: CategoryStats[] = [];
+    
+    categoryMap.forEach((data, category) => {
+      const totalTasks = data.todos.length;
+      const completedTasks = data.completed.length;
+      const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0;
+      
+      // Tamamlanma sürelerini hesapla
+      let totalTimeSpent = 0;
+      let taskCount = 0;
+      
+      data.completed.forEach(todo => {
+        if (todo.datetime && todo.createdAt) {
+          const created = new Date(todo.createdAt);
+          const scheduled = new Date(todo.datetime);
+          const timeDiff = Math.abs(scheduled.getTime() - created.getTime()) / (1000 * 60); // Dakika
+          
+          // Makul bir süre aralığında ise hesaba kat (0-7 gün)
+          if (timeDiff <= 10080) {
+            totalTimeSpent += timeDiff;
+            taskCount++;
+          }
+        }
+      });
+      
+      const averageCompletionTime = taskCount > 0 ? totalTimeSpent / taskCount : 0;
+      
+      // Son görev tarihi
+      const lastTaskDate = data.todos.length > 0
+        ? data.todos.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0].createdAt
+        : new Date().toISOString();
+      
+      stats.push({
+        category,
+        totalTasks,
+        completedTasks,
+        completionRate,
+        averageCompletionTime,
+        totalTimeSpent,
+        lastTaskDate
+      });
+    });
+    
+    // Toplam görev sayısına göre sırala
+    stats.sort((a, b) => b.totalTasks - a.totalTasks);
+    
+    console.log('[Archive] Category stats calculated:', stats.length, 'categories');
+    return stats;
+  } catch (error) {
+    console.error('[Archive] Failed to calculate category stats:', error);
+    return [];
+  }
+};
+
+/**
+ * Zaman analizi yapar
+ */
+const getTimeAnalysis = async (currentTodos: Todo[], userId?: string): Promise<TimeAnalysis> => {
+  try {
+    const currentUserId = userId || getCurrentUserId();
+    console.log(`[Archive] Analyzing time data for user ${currentUserId}...`);
+
+    let archivedTodos: Todo[] = [];
+    if (isSupabaseOn() && supabase && isUuid(currentUserId)) {
+      const tRes = await supabase.from('archived_todos').select('*').eq('user_id', currentUserId);
+      archivedTodos = (tRes.data || []).map((row: any) => ({
+        id: row.id,
+        text: row.text || '',
+        priority: 'medium' as any,
+        datetime: row.datetime || null,
+        completed: true,
+        createdAt: row.created_at || new Date().toISOString(),
+      }));
+    } else {
+      // Dexie fallback
+      const isOpen = await ensureDbOpen();
+      if (!isOpen) {
+        console.error('[Archive] Database not available for time analysis');
+        return {
+          averageCompletionTime: 0,
+          fastestTask: null,
+          slowestTask: null,
+          categoryAverages: {},
+          timeDistribution: {
+            under15min: 0,
+            between15and60min: 0,
+            between1and3hours: 0,
+            over3hours: 0
+          }
+        };
+      }
+      archivedTodos = await db.todos.where('userId').equals(currentUserId).toArray();
+    }
+    const allCompletedTodos = [...currentTodos, ...archivedTodos].filter(t => t.completed);
+    
+    const completionTimes: { todo: Todo; time: number }[] = [];
+    const categoryTimes = new Map<string, number[]>();
+    
+    let under15min = 0;
+    let between15and60min = 0;
+    let between1and3hours = 0;
+    let over3hours = 0;
+    
+    allCompletedTodos.forEach(todo => {
+      if (todo.datetime && todo.createdAt) {
+        const created = new Date(todo.createdAt);
+        const scheduled = new Date(todo.datetime);
+        const timeDiff = Math.abs(scheduled.getTime() - created.getTime()) / (1000 * 60);
+        
+        // Makul aralıkta ise hesaba kat (0-7 gün)
+        if (timeDiff <= 10080) {
+          completionTimes.push({ todo, time: timeDiff });
+          
+          // Kategori ortalaması
+          const category = todo.aiMetadata?.category || 'Kategorizsyz';
+          if (!categoryTimes.has(category)) {
+            categoryTimes.set(category, []);
+          }
+          categoryTimes.get(category)!.push(timeDiff);
+          
+          // Zaman dağılımı
+          if (timeDiff < 15) under15min++;
+          else if (timeDiff < 60) between15and60min++;
+          else if (timeDiff < 180) between1and3hours++;
+          else over3hours++;
+        }
+      }
+    });
+    
+    // Ortalama tamamlanma süresi
+    const averageCompletionTime = completionTimes.length > 0
+      ? completionTimes.reduce((sum, ct) => sum + ct.time, 0) / completionTimes.length
+      : 0;
+    
+    // En hızlı ve en yavaş görevler
+    const sorted = [...completionTimes].sort((a, b) => a.time - b.time);
+    const fastestTask = sorted.length > 0
+      ? {
+          id: sorted[0].todo.id,
+          text: sorted[0].todo.text,
+          completionTime: sorted[0].time,
+          category: sorted[0].todo.aiMetadata?.category
+        }
+      : null;
+    
+    const slowestTask = sorted.length > 0
+      ? {
+          id: sorted[sorted.length - 1].todo.id,
+          text: sorted[sorted.length - 1].todo.text,
+          completionTime: sorted[sorted.length - 1].time,
+          category: sorted[sorted.length - 1].todo.aiMetadata?.category
+        }
+      : null;
+    
+    // Kategori ortalamaları
+    const categoryAverages: { [category: string]: number } = {};
+    categoryTimes.forEach((times, category) => {
+      categoryAverages[category] = times.reduce((sum, t) => sum + t, 0) / times.length;
+    });
+    
+    console.log('[Archive] Time analysis completed');
+    return {
+      averageCompletionTime,
+      fastestTask,
+      slowestTask,
+      categoryAverages,
+      timeDistribution: {
+        under15min,
+        between15and60min,
+        between1and3hours,
+        over3hours
+      }
+    };
+  } catch (error) {
+    console.error('[Archive] Failed to analyze time:', error);
+    return {
+      averageCompletionTime: 0,
+      fastestTask: null,
+      slowestTask: null,
+      categoryAverages: {},
+      timeDistribution: {
+        under15min: 0,
+        between15and60min: 0,
+        between1and3hours: 0,
+        over3hours: 0
+      }
+    };
+  }
+};
+
+/**
+ * Periyodik rapor oluşturur (haftalık veya aylık)
+ */
+const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[], userId?: string): Promise<PeriodicReport> => {
+  try {
+    const currentUserId = userId || getCurrentUserId();
+    console.log(`[Archive] Generating ${period} report for user ${currentUserId}...`);
+    
+    // Tarih aralığını belirle
+    const endDate = new Date();
+    const startDate = new Date();
+    
+    if (period === 'week') {
+      startDate.setDate(endDate.getDate() - 7);
+    } else {
+      startDate.setMonth(endDate.getMonth() - 1);
+    }
+    
+    const startISO = startDate.toISOString();
+    const endISO = endDate.toISOString();
+    
+    // Belirtilen periyot içindeki todoları al (kullanıcıya özel)
+    let archivedTodos: Todo[] = [];
+    if (isSupabaseOn() && supabase && isUuid(currentUserId)) {
+      const tRes = await supabase
+        .from('archived_todos')
+        .select('*')
+        .eq('user_id', currentUserId)
+        .gte('archived_at', startISO)
+        .lte('archived_at', endISO);
+      archivedTodos = (tRes.data || []).map((row: any) => ({
+        id: row.id,
+        text: row.text || '',
+        priority: 'medium' as any,
+        datetime: row.datetime || null,
+        completed: true,
+        createdAt: row.created_at || new Date().toISOString(),
+      }));
+    } else {
+      // Dexie fallback
+      const isOpen = await ensureDbOpen();
+      if (!isOpen) {
+        console.error('[Archive] Database not available for periodic report');
+        return {
+          period,
+          startDate: new Date().toISOString(),
+          endDate: new Date().toISOString(),
+          totalTasks: 0,
+          completedTasks: 0,
+          completionRate: 0,
+          categoryBreakdown: [],
+          timeAnalysis: {
+            averageCompletionTime: 0,
+            fastestTask: null,
+            slowestTask: null,
+            categoryAverages: {},
+            timeDistribution: {
+              under15min: 0,
+              between15and60min: 0,
+              between1and3hours: 0,
+              over3hours: 0
+            }
+          },
+          topCategories: [],
+          productivityScore: 0,
+          insights: []
+        };
+      }
+      archivedTodos = await db.todos
+        .where('createdAt')
+        .between(startISO, endISO, true, true)
+        .filter(t => t.userId === currentUserId)
+        .toArray();
+    }
+    
+    const periodTodos = [
+      ...currentTodos.filter(t => t.createdAt >= startISO && t.createdAt <= endISO),
+      ...archivedTodos
+    ];
+    
+    const totalTasks = periodTodos.length;
+    const completedTasks = periodTodos.filter(t => t.completed).length;
+    const completionRate = totalTasks > 0 ? completedTasks / totalTasks : 0;
+    
+    // Kategori analizi
+    const categoryBreakdown = await getCategoryStats(periodTodos, currentUserId);
+    
+    // Zaman analizi
+    const timeAnalysis = await getTimeAnalysis(periodTodos, currentUserId);
+    
+    // En çok kullanılan kategoriler
+    const topCategories = categoryBreakdown
+      .sort((a, b) => b.totalTasks - a.totalTasks)
+      .slice(0, 5)
+      .map(c => c.category);
+    
+    // Verimlilik skoru (0-100)
+    const productivityScore = Math.round(
+      completionRate * 40 + // Tamamlanma oranı %40
+      Math.min((completedTasks / (period === 'week' ? 7 : 30)) * 20, 20) + // Günlük ortalama %20
+      Math.min((categoryBreakdown.length / 5) * 20, 20) + // Kategori çeşitliliği %20
+      (timeAnalysis.averageCompletionTime > 0 && timeAnalysis.averageCompletionTime < 1440 ? 20 : 10) // Zaman yönetimi %20
+    );
+    
+    // AI öngörüleri
+    const insights: string[] = [];
+    
+    if (completionRate > 0.8) {
+      insights.push('🎉 Mükemmel tamamlanma oranı! Çok başarılısınız.');
+    } else if (completionRate < 0.5) {
+      insights.push('⚠️ Tamamlanma oranınız düşük. Daha küçük hedefler belirlemeyi deneyin.');
+    }
+    
+    if (timeAnalysis.averageCompletionTime < 60) {
+      insights.push('⏱️ Görevlerinizi hızlı tamamlıyorsunuz. Harika zaman yönetimi!');
+    }
+    
+    if (categoryBreakdown.length > 5) {
+      insights.push('🎯 Gününüzü çeşitli alanlarda dengeli geçiriyorsunuz.');
+    }
+    
+    if (topCategories.length > 0) {
+      insights.push(`🔥 En aktif kategoriniz: ${topCategories[0]}`);
+    }
+    
+    console.log('[Archive] Periodic report generated');
+    return {
+      period,
+      startDate: startISO,
+      endDate: endISO,
+      totalTasks,
+      completedTasks,
+      completionRate,
+      categoryBreakdown,
+      timeAnalysis,
+      topCategories,
+      productivityScore,
+      insights
+    };
+  } catch (error) {
+    console.error('[Archive] Failed to generate periodic report:', error);
+    // Varsayılan boş rapor
+    return {
+      period,
+      startDate: new Date().toISOString(),
+      endDate: new Date().toISOString(),
+      totalTasks: 0,
+      completedTasks: 0,
+      completionRate: 0,
+      categoryBreakdown: [],
+      timeAnalysis: {
+        averageCompletionTime: 0,
+        fastestTask: null,
+        slowestTask: null,
+        categoryAverages: {},
+        timeDistribution: {
+          under15min: 0,
+          between15and60min: 0,
+          between1and3hours: 0,
+          over3hours: 0
+        }
+      },
+      topCategories: [],
+      productivityScore: 0,
+      insights: []
+    };
+  }
+};
+
+// Database repair: delete and recreate IndexedDB (will remove all archived items)
+const resetArchiveDatabase = async (): Promise<boolean> => {
+  try {
+    console.warn('[Archive] ⚠️ Resetting archive database. All archived items will be deleted.');
+    if (db.isOpen()) {
+      db.close();
+    }
+    await Dexie.delete(db.name);
+    // Re-open to recreate schema
+    await db.open();
+    console.log('[Archive] ✅ Archive database reset and reopened successfully');
+    return true;
+  } catch (error) {
+    console.error('[Archive] ❌ Failed to reset archive database:', error);
+    return false;
+  }
+};
+
+export const archiveService = {
+  archiveItems,
+  getArchivedItemsForDate,
+  getAllArchivedItems,
+  searchArchive,
+  getDashboardStats,
+  removeNotes,
+  removeTodos,
+  deleteArchivedItems,
+  clearOldArchives,
+  checkDatabaseHealth,
+  exportArchive,
+  importArchive,
+  // Yeni analitik metodlar
+  getCategoryStats,
+  getTimeAnalysis,
+  getPeriodicReport,
+  // Maintenance
+  resetArchiveDatabase,
+};

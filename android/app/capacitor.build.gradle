@@ -12,6 +12,9 @@ dependencies {
     implementation project(':capacitor-community-speech-recognition')
     implementation project(':capacitor-clipboard')
     implementation project(':capacitor-geolocation')
+    implementation project(':capacitor-haptics')
+    implementation project(':capacitor-splash-screen')
+    implementation project(':capacitor-status-bar')
 
 }
 

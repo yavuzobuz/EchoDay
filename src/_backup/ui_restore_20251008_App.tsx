@@ -1,10 +1,12 @@
+// Backup taken before restoring UI from origin/master
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSettingsStorage } from './hooks/useSettingsStorage';
+import { useFirstRun } from './hooks/useFirstRun';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Welcome from './pages/Welcome';
-import Main from './Main';
+import Main from '../Main';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -33,7 +35,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppContent() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { isFirstRun, loading: firstRunLoading, markAsNotFirstRun } = useFirstRun();
   const userId = user?.id || 'guest';
   
   // User-specific settings
@@ -99,6 +102,32 @@ function AppContent() {
     root.style.setProperty('--accent-color-900', `var(--${currentTheme}-900)`);
   }, [accentColor]);
 
+  // Loading state - hem auth hem first-run yüklenene kadar bekle
+  if (authLoading || firstRunLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-500 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400 font-medium">
+            {authLoading ? 'Kullanıcı bilgileri kontrol ediliyor...' : 'İlk açılış kontrolü yapılıyor...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // First-run onboarding handler
+  const handleFinishOnboarding = async () => {
+    console.log('[App] Finishing onboarding, marking as not first run');
+    await markAsNotFirstRun();
+    // Auth durumuna göre yönlendirme
+    if (user) {
+      navigate('/app');
+    } else {
+      navigate('/login');
+    }
+  };
+
   return (
     <div className="app">
       <Routes>
@@ -110,6 +139,8 @@ function AppContent() {
             <Welcome
               onGetStarted={() => navigate('/app')}
               onNavigateToAuth={() => navigate('/login')}
+              isFirstRun={isFirstRun === true}
+              onFinishOnboarding={handleFinishOnboarding}
             />
           }
         />
@@ -124,15 +155,22 @@ function AppContent() {
                 setAccentColor={setAccentColor}
                 apiKey={apiKey}
                 assistantName={assistantName}
+                userId={userId}
                 onNavigateToProfile={() => navigate('/profile')}
-                onShowWelcome={() => navigate('/welcome')}
               />
             </ProtectedRoute>
           }
         />
         <Route
           path="/"
-          element={<Navigate to="/welcome" replace />}
+          element={
+            // İlk açılış ise welcome sayfasına yönlendir
+            isFirstRun === true 
+              ? <Navigate to="/welcome" replace /> 
+              : user 
+                ? <Navigate to="/app" replace /> 
+                : <Navigate to="/login" replace />
+          }
         />
         <Route
           path="/profile"

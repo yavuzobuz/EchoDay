@@ -1,4 +1,5 @@
 import { Todo } from '../types';
+import { NotificationService } from './notificationService';
 
 export interface ActiveReminder {
   taskId: string;
@@ -167,25 +168,14 @@ class ReminderService {
     this.notifiedReminders.clear();
   }
   
-  /**
-   * Send browser notification if permission granted
+/**
+   * Send notification (Electron native or web custom toast) via NotificationService
    */
-  sendBrowserNotification(reminder: ActiveReminder) {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const options: NotificationOptions = {
-        body: reminder.message,
-        icon: '/icon-192.png',
-        badge: '/icon-192.png',
-        tag: `${reminder.taskId}_${reminder.reminderId}`,
-        requireInteraction: reminder.priority === 'high',
-        // vibrate: reminder.priority === 'high' ? [200, 100, 200] : [200] // Not supported in all browsers
-      };
-      
-      try {
-        new Notification('EchoDay Hatırlatma', options);
-      } catch (error) {
-        console.error('[ReminderService] Failed to send notification:', error);
-      }
+  sendNotification(reminder: ActiveReminder) {
+    try {
+      NotificationService.notifyMessage('Hatırlatma', reminder.message);
+    } catch (error) {
+      console.error('[ReminderService] Failed to send notification:', error);
     }
   }
 }

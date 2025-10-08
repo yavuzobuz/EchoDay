@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from 'react';
 interface MobileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
+  title?: string | React.ReactNode;
   children: React.ReactNode;
   showCloseButton?: boolean;
   fullScreen?: boolean;
@@ -134,9 +134,9 @@ export const MobileModal: React.FC<MobileModalProps> = ({
         {(title || showCloseButton) && (
           <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
             {title && (
-              <h2 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white">
-                {title}
-              </h2>
+              <div className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white">
+                {typeof title === 'string' ? <h2>{title}</h2> : title}
+              </div>
             )}
             {showCloseButton && (
               <button

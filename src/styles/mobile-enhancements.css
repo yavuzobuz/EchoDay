@@ -1,0 +1,193 @@
+/* Mobil Responsive İyileştirmeler */
+
+/* Touch-friendly buton boyutları */
+.btn-touch-friendly {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 12px 16px;
+}
+
+/* Mobil için optimized text size */
+.mobile-text-optimized {
+  font-size: clamp(14px, 4vw, 18px);
+  line-height: 1.5;
+}
+
+/* Mobil scroll iyileştirmeleri */
+.mobile-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Mobil keyboard için viewport ayarları */
+.mobile-keyboard-fix {
+  height: 100vh;
+  height: calc(var(--vh, 1vh) * 100);
+}
+
+/* Touch gesture optimizasyonları */
+.touch-pan-y {
+  touch-action: pan-y;
+}
+
+.touch-pan-x {
+  touch-action: pan-x;
+}
+
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Mobil için haptic feedback simulation */
+.haptic-light {
+  transition: transform 0.1s ease;
+}
+
+.haptic-light:active {
+  transform: scale(0.98);
+}
+
+/* iOS safe area desteği */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Android navigation bar desteği */
+@supports (padding: max(0px)) {
+  .android-nav-padding {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Global mobile responsive fixes */
+body {
+  /* iOS double-tap zoom engelleme */
+  touch-action: manipulation;
+  /* Overscroll davranışı kontrol */
+  overscroll-behavior-y: contain;
+  /* Webkit tap highlight kaldırma */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Input zoom engelleme (iOS) */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+textarea {
+  font-size: 16px !important;
+}
+
+/* Mobil responsive text boyutları */
+@media (max-width: 640px) {
+  /* Touch-friendly buton boyutları */
+  button, .btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Mobil metin boyutları */
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.5rem; }
+  h3 { font-size: 1.25rem; }
+  
+  /* Mobil spacing'ler */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+/* Mobil için optimize edilmiş card design */
+.mobile-card {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 8px;
+}
+
+/* Pull-to-refresh görsel ipucu */
+.pull-to-refresh-indicator {
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+  text-align: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 0 0 12px 12px;
+}
+
+.pull-to-refresh-indicator.visible {
+  transform: translateY(0);
+}
+
+/* Mobil form optimizasyonları */
+.mobile-form-input {
+  font-size: 16px; /* iOS zoom'u önlemek için */
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+}
+
+.mobile-form-input:focus {
+  border-color: #3b82f6;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Swipe gesture indications */
+.swipe-hint {
+  position: relative;
+}
+
+.swipe-hint::after {
+  content: "← Kaydır";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  color: #6b7280;
+  opacity: 0.7;
+  animation: swipe-pulse 2s infinite;
+}
+
+@keyframes swipe-pulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 0.3; }
+}
+
+/* Loading states optimized for mobile */
+.mobile-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.mobile-loading-spinner {
+  width: 24px;
+  height: 24px;
+  margin-right: 12px;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
