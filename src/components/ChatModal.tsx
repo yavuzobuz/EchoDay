@@ -457,13 +457,22 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
+            <textarea
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               placeholder={selectedPdfFile ? 'PDF hakkında soru sorun (isteğe bağlı)...' : isListening ? 'Dinleniyor...' : 'Mesajınızı yazın...'}
-              className="flex-1 px-3 py-3 sm:py-2 text-base sm:text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
+              className="flex-1 px-3 py-3 text-base border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none resize-none leading-6 min-h-[56px] max-h-[180px]"
+              rows={3}
               disabled={isLoading || isListening}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  if (!isLoading && userInput.trim() && !isListening) {
+                    onSendMessage(userInput.trim());
+                    setUserInput('');
+                  }
+                }
+              }}
             />
             <div className="flex gap-2">
               {hasSupport && !selectedPdfFile && (
