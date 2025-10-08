@@ -280,7 +280,7 @@ const MessagesPage: React.FC = () => {
 
       const mine = m.sender_id === myId;
       nodes.push(
-        <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+        <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'} mb-2`}>
           <div className={`max-w-[78%] rounded-2xl px-4 py-2 shadow-sm ${mine ? 'bg-[var(--accent-color-600)] text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100'}`}>
             {m.type === 'text' ? (
               <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
