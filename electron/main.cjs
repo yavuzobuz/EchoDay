@@ -82,7 +82,7 @@ function createWindow() {
       spellcheck: false,
       backgroundThrottling: false,
       sandbox: true,
-      devTools: isDev,
+      devTools: false,
     },
     title: 'Sesli Günlük Planlayıcı',
     backgroundColor: '#1a1a1a',
@@ -98,8 +98,7 @@ function createWindow() {
     }).catch(err => {
       console.error('Failed to load:', err);
     });
-    // Open DevTools in development
-    mainWindow.webContents.openDevTools();
+    // DevTools disabled intentionally
   } else {
     // Production: Load from packaged dist folder
     const indexPath = path.join(__dirname, '../dist/index.html');

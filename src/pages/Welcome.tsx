@@ -59,10 +59,11 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
     windows: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/sesli-gunluk-planlayici-dist.zip',
     mac: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_macOS.dmg',
     linux: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_Linux.AppImage',
+    android: '/apk/EchoDay-debug.apk',
   } as const;
 
-  const primaryDownloadHref = os === 'mac' ? downloadLinks.mac : os === 'linux' ? downloadLinks.linux : downloadLinks.windows;
-  const primaryLabel = os === 'mac' ? 'macOS için İndir' : os === 'linux' ? 'Linux için İndir' : 'Windows için İndir';
+  const primaryDownloadHref = os === 'mac' ? downloadLinks.mac : os === 'linux' ? downloadLinks.linux : os === 'android' ? downloadLinks.android : downloadLinks.windows;
+  const primaryLabel = os === 'mac' ? 'macOS için İndir' : os === 'linux' ? 'Linux için İndir' : os === 'android' ? 'Android için İndir (APK)' : 'Windows için İndir';
   
 
   useEffect(() => {
@@ -755,7 +756,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
             Linux (.AppImage)
           </a>
           <span className="opacity-50">|</span>
-          <a className="underline hover:opacity-80 flex items-center gap-1" href="/sesli-asistan.apk" download>
+          <a className="underline hover:opacity-80 flex items-center gap-1" href={downloadLinks.android} download>
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.6 10.81L16.19 9.4l-3.56 3.55V1h-2v11.95l-3.56-3.55L5.66 10.81 12 17.17l6.34-6.36M23 19v2H1v-2h22z"/></svg>
             Android (.apk)
           </a>
