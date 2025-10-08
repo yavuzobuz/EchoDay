@@ -25,7 +25,7 @@ export async function listFriends(): Promise<Friend[]> {
   if (!friendsData || friendsData.length === 0) return [];
 
   // Get friend profiles separately
-  const friendIds = friendsData.map(f => f.friend_id);
+  const friendIds = friendsData.map((f: any) => f.friend_id);
   const { data: profiles, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -34,8 +34,8 @@ export async function listFriends(): Promise<Friend[]> {
   if (profileError) throw profileError;
 
   // Combine data
-  const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
-  return friendsData.map(f => ({
+  const profileMap = new Map((profiles as any[] | null | undefined)?.map((p: any) => [p.id, p]) || []);
+  return friendsData.map((f: any) => ({
     ...f,
     friend_profile: profileMap.get(f.friend_id)
   })) as Friend[];

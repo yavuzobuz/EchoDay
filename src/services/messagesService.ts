@@ -65,8 +65,8 @@ export async function getOrCreateDirectConversationByEmail(recipientEmail: strin
   if (mine.error) throw mine.error;
   if (theirs.error) throw theirs.error;
 
-  const mySet = new Set((mine.data || []).map(r => r.conversation_id as string));
-  const shared = (theirs.data || []).map(r => r.conversation_id as string).find(id => mySet.has(id));
+  const mySet = new Set((mine.data || []).map((r: any) => r.conversation_id as string));
+  const shared = (theirs.data || []).map((r: any) => r.conversation_id as string).find((id: string) => mySet.has(id));
 
   if (shared) {
     const { data: conv, error } = await supabase
@@ -114,7 +114,7 @@ export function subscribeToMessages(conversationId: string, onInsert: (msg: Mess
   ensureClient();
   const channel = supabase
     .channel(`messages_conversation_${conversationId}`)
-    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, (payload) => {
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` }, (payload: any) => {
       onInsert(payload.new as Message);
     })
     .subscribe();
@@ -139,10 +139,10 @@ export async function subscribeToIncomingMessagesForUser(userId: string, onInser
   const convIds = (data || []).map((r: any) => r.conversation_id as string);
 
   // Create a channel per conversation to receive new messages
-  const channels = convIds.map((cid) => {
+  const channels = convIds.map((cid: string) => {
     return supabase
       .channel(`messages_user_${userId}_${cid}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${cid}` }, (payload) => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${cid}` }, (payload: any) => {
         onInsert(payload.new as Message);
       })
       .subscribe();
@@ -150,7 +150,7 @@ export async function subscribeToIncomingMessagesForUser(userId: string, onInser
 
   // Return unsubscribe
   return () => {
-    channels.forEach((ch) => {
+    channels.forEach((ch: any) => {
       try { supabase.removeChannel(ch); } catch {}
     });
   };

@@ -68,7 +68,7 @@ export class NotificationService {
   /**
    * Show message notification
    */
-  static async showMessageNotification(senderName: string, message: string, senderEmail?: string) {
+  static async showMessageNotification(senderName: string, message: string, _senderEmail?: string) {
     if (!this.enabled) return;
 
     try {
@@ -97,7 +97,6 @@ export class NotificationService {
         icon: '/favicon.ico',
         badge: '/favicon.ico',
         tag: 'message',
-        renotify: true,
         requireInteraction: false,
         silent: false
       });
