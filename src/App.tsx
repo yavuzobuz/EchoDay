@@ -107,10 +107,14 @@ function AppContent() {
         <Route
           path="/welcome"
           element={
-            <Welcome
-              onGetStarted={() => navigate('/app')}
-              onNavigateToAuth={() => navigate('/login')}
-            />
+            user ? (
+              <Navigate to="/app" replace />
+            ) : (
+              <Welcome
+                onGetStarted={() => navigate('/app')}
+                onNavigateToAuth={() => navigate('/login')}
+              />
+            )
           }
         />
         <Route
@@ -132,7 +136,7 @@ function AppContent() {
         />
         <Route
           path="/"
-          element={<Navigate to="/welcome" replace />}
+          element={<Navigate to={user ? '/app' : '/welcome'} replace />}
         />
         <Route
           path="/profile"
