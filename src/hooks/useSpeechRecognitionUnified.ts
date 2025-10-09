@@ -236,31 +236,57 @@ export const useSpeechRecognition = (
         }
       }
     } else {
-      // Capacitor kullan (dinamik import)
+      // Capacitor kullan (dinamik import) - Android/iOS
       try {
         const { SpeechRecognition } = await import('@capacitor-community/speech-recognition');
         
-        // İzinleri kontrol et
-        const permission = await SpeechRecognition.checkPermissions();
-        if (permission.speechRecognition !== 'granted') {
-          const permissionResult = await SpeechRecognition.requestPermissions();
-          if (permissionResult.speechRecognition !== 'granted') {
-              console.error("Kullanıcı konuşma tanıma iznini reddetti");
+        // İzinleri kontrol et - güvenli bir şekilde
+        let hasPermission = false;
+        try {
+          const permission = await SpeechRecognition.checkPermissions();
+          hasPermission = permission.speechRecognition === 'granted';
+          
+          if (!hasPermission) {
+            // İzin iste
+            const permissionResult = await SpeechRecognition.requestPermissions();
+            hasPermission = permissionResult.speechRecognition === 'granted';
+            
+            if (!hasPermission) {
+              // İzin reddedildi - kullanıcıya bilgi ver
+              alert('Mikrofon izni gerekli. Lütfen ayarlardan mikrofon iznini açın veya klavye ile yazın.');
               return;
+            }
           }
+        } catch (permError) {
+          // İzin kontrolü/isteği başarısız - graceful fallback
+          console.error('İzin hatası:', permError);
+          alert('Mikrofon iznine erişilemiyor. Lütfen cihaz ayarlarını kontrol edin.');
+          setHasSupport(false);
+          return;
         }
         
-        setIsListening(true);
-        setTranscript('');
-        
-        await SpeechRecognition.start({
-          language: 'tr-TR',
-          partialResults: true,
-          popup: false,
-        });
+        // İzin alındı, şimdi dinlemeyi başlat
+        try {
+          setIsListening(true);
+          setTranscript('');
+          
+          await SpeechRecognition.start({
+            language: 'tr-TR',
+            partialResults: true,
+            popup: false,
+          });
+        } catch (startError) {
+          // Başlatma hatası
+          console.error('Sesli tanıma başlatma hatası:', startError);
+          setIsListening(false);
+          alert('Sesli tanıma başlatılamadı. Lütfen tekrar deneyin.');
+        }
       } catch (e) {
-        console.error("Konuşma tanıma başlatılamadı:", e);
+        // Genel hata - modül yüklenemedi
+        console.error("Konuşma tanıma modülü yüklenemedi:", e);
         setIsListening(false);
+        setHasSupport(false);
+        alert('Sesli tanıma özelliği bu cihazda kullanılamıyor.');
       }
     }
   }, [isListening, hasSupport, isWeb]);

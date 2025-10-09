@@ -1,5 +1,6 @@
 // Notification Service for Message Alerts
 
+import { LocalNotifications } from '@capacitor/local-notifications';
 type CustomToastCallback = (title: string, message: string, avatar?: string, duration?: number) => void;
 
 export class NotificationService {
@@ -221,6 +222,30 @@ export class NotificationService {
     // Fallback to browser notification only if page is not in focus
     if (document.hidden || !document.hasFocus()) {
       this.showMessageNotification(senderName, message, senderEmail);
+    }
+  }
+
+  /**
+   * Cross-platform immediate local notification (uses Capacitor if available)
+   */
+  static async notify(title: string, message: string): Promise<void> {
+    try {
+      // Try Capacitor Local Notifications first (works on iOS/Android, web fallback exists)
+      await LocalNotifications.requestPermissions();
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: Math.floor(Math.random() * 1_000_000),
+            title,
+            body: message,
+            schedule: { at: new Date() },
+          },
+        ],
+      });
+      return;
+    } catch (e) {
+      // Fallback to existing behavior
+      this.notifyMessage(title, message);
     }
   }
 

@@ -28,6 +28,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import useLocalStorage from './hooks/useLocalStorage';
 import { useToast } from './hooks/useToast';
 import { useSpeechRecognition } from './hooks/useSpeechRecognitionUnified';
+import { useGeoReminders } from './hooks/useGeoReminders';
 import { geminiService } from './services/geminiService';
 import { pdfService } from './services/pdfService';
 import { archiveService } from './services/archiveService';
@@ -51,12 +52,12 @@ interface MainProps {
   apiKey: string;
   assistantName: string;
   onNavigateToProfile: () => void;
-  onShowWelcome: () => void;
+  onNavigateToHome?: () => void;
 }
 
 type ViewMode = 'list' | 'timeline';
 
-const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, onNavigateToProfile, onShowWelcome }) => {
+const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, onNavigateToProfile, onNavigateToHome }) => {
     const navigate = useNavigate();
     const location = useLocation();
     // Get authenticated user
@@ -416,7 +417,20 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
         const intentResult = await geminiService.classifyChatIntent(apiKey, message);
 
-        if (intentResult?.intent === 'add_task' && intentResult.description) {
+        // Handle add_task intent
+        if (intentResult?.intent === 'add_task') {
+            // Eğer description eksikse veya boşsa, kullanıcıdan detay iste
+            if (!intentResult.description || intentResult.description.includes('[Kullanıcı görev eklemek istiyor ama içerik belirtmedi]')) {
+                const modelMessage: ChatMessage = { 
+                    role: 'model', 
+                    text: 'Tabii, görev ekleyebilirim. Hangi görevi eklemek istersiniz? Lütfen görev detaylarını belirtin.' 
+                };
+                setChatHistory(prev => [...prev, modelMessage]);
+                setIsLoading(false);
+                return;
+            }
+            
+            // Description varsa görevi ekle
             await handleAddTask(intentResult.description);
             const modelMessage: ChatMessage = { role: 'model', text: `Elbette, "${intentResult.description}" görevi listeye eklendi.` };
             setChatHistory(prev => [...prev, modelMessage]);
@@ -424,7 +438,20 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             return;
         }
         
-        if (intentResult?.intent === 'add_note' && intentResult.description) {
+        // Handle add_note intent
+        if (intentResult?.intent === 'add_note') {
+            // Eğer description eksikse veya boşsa, kullanıcıdan detay iste
+            if (!intentResult.description || intentResult.description.includes('[Kullanıcı not eklemek istiyor ama içerik belirtmedi]')) {
+                const modelMessage: ChatMessage = { 
+                    role: 'model', 
+                    text: 'Elbette, not ekleyebilirim. Hangi notu kaydetmek istersiniz? Lütfen not içeriğini belirtin.' 
+                };
+                setChatHistory(prev => [...prev, modelMessage]);
+                setIsLoading(false);
+                return;
+            }
+            
+            // Description varsa notu ekle
             const newNote: Note = {
                 id: uuidv4(),
                 text: intentResult.description,
@@ -947,6 +974,28 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
         setNotification({ message: 'Hatırlatmalar güncellendi', type: 'success' });
     }, [setTodos]);
 
+    // Geo reminders - location-based notifications
+    const handleLocationReminderFired = useCallback((todoId: string) => {
+        console.log('[Main] Location reminder fired for todo:', todoId);
+        // Update the lastTriggeredAt timestamp for the todo
+        setTodos(prev => prev.map(t => 
+            t.id === todoId && t.locationReminder
+                ? { 
+                    ...t, 
+                    locationReminder: { 
+                        ...t.locationReminder, 
+                        lastTriggeredAt: new Date().toISOString() 
+                    }
+                }
+                : t
+        ));
+    }, [setTodos]);
+    
+    // Initialize geo reminders hook
+    useGeoReminders(todos, handleLocationReminderFired, {
+        intervalMs: 180000 // 3 minutes
+    });
+
 
     return (
         <div className="min-h-screen overflow-x-hidden bg-gray-100 text-gray-900 dark:text-gray-100 transition-colors duration-300 dark:bg-gradient-to-br dark:from-[hsl(var(--gradient-from))] dark:via-[hsl(var(--gradient-via))] dark:to-[hsl(var(--gradient-to))] safe-area-top">
@@ -974,7 +1023,7 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                 />
             ))}
 
-            <Header theme={theme} setTheme={setTheme} accentColor={accentColor} setAccentColor={setAccentColor} onNavigateToProfile={onNavigateToProfile} onShowWelcome={onShowWelcome} />
+            <Header theme={theme} setTheme={setTheme} accentColor={accentColor} setAccentColor={setAccentColor} onNavigateToProfile={onNavigateToProfile} onNavigateToHome={onNavigateToHome} />
             
             <main className="container mx-auto p-3 sm:p-4 md:p-6 lg:p-8 pb-24 md:pb-8 safe-area-bottom">
                 {showInfoBanner && <InfoBanner assistantName={assistantName} onClose={() => setShowInfoBanner(false)} />}

@@ -42,6 +42,10 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
   const [isElectron] = useState(() => {
     return !!(window as any).isElectron || !!(window as any).electronAPI;
   });
+  
+  // Voice mode state
+  const [isVoiceModeActive, setIsVoiceModeActive] = useState(false);
+  const [lastAIMessageIndex, setLastAIMessageIndex] = useState(-1);
 
   const handleTranscriptReady = useCallback((transcript: string) => {
     if (transcript.trim()) {
@@ -102,6 +106,29 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
       setSpeakingMessageIndex(null);
     }
   }, [tts.isSpeaking, speakingMessageIndex]);
+  
+  // AUTO-SPEAK: Automatically speak new AI messages in voice mode
+  useEffect(() => {
+    console.log('🔊 AUTO-SPEAK EFFECT:', { isVoiceModeActive, chatLen: chatHistory.length, isLoading, lastAIMessageIndex });
+    
+    if (!isVoiceModeActive || chatHistory.length === 0 || isLoading) {
+      return;
+    }
+
+    const lastMessage = chatHistory[chatHistory.length - 1];
+    const currentIndex = chatHistory.length - 1;
+    
+    console.log('📝 Last msg:', { role: lastMessage.role, index: currentIndex, lastAI: lastAIMessageIndex });
+    
+    if (lastMessage.role === 'model' && currentIndex > lastAIMessageIndex) {
+      console.log('✅ SPEAKING AI MESSAGE:', lastMessage.text.substring(0, 50));
+      setLastAIMessageIndex(currentIndex);
+      setTimeout(() => {
+        tts.speak(lastMessage.text);
+        setSpeakingMessageIndex(currentIndex);
+      }, 300);
+    }
+  }, [chatHistory, isVoiceModeActive, isLoading, lastAIMessageIndex, tts]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,6 +232,26 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
       title={(
         <div className="flex items-center gap-2 sm:gap-3">
           <span>AI Asistan</span>
+          {/* Voice Mode Toggle */}
+          <button
+            onClick={() => {
+              const newValue = !isVoiceModeActive;
+              console.log('🎤 VOICE MODE TOGGLE CLICKED! Old:', isVoiceModeActive, 'New:', newValue);
+              setIsVoiceModeActive(newValue);
+              if (tts.isSpeaking) tts.cancel();
+            }}
+            className={`flex items-center gap-1 px-2 py-1 text-xs rounded-full transition-colors ${
+              isVoiceModeActive 
+                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+            }`}
+            title="Sesli sohbet modu"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            <span className="hidden sm:inline">{isVoiceModeActive ? '🟢 Sesli Mod' : '⚫ Sesli Mod'}</span>
+          </button>
           {notes.length > 0 && onProcessNotes && (
             <button
               onClick={() => setShowNoteProcessor(!showNoteProcessor)}

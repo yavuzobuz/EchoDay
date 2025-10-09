@@ -20,14 +20,25 @@ const SpeechRecognition =
 
 export const useSpeechRecognition = (
   onTranscriptReady: (transcript: string) => void,
-  options?: { stopOnKeywords?: boolean | string[]; stopOnSilence?: boolean; continuous?: boolean; }
+  options?: { 
+    stopOnKeywords?: boolean | string[]; 
+    stopOnSilence?: boolean; 
+    continuous?: boolean;
+    realTimeMode?: boolean;
+    onUserSpeaking?: (isSpeaking: boolean) => void;
+  }
 ) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const transcriptReadyCalledRef = useRef(false);
   const silenceTimerRef = useRef<number | null>(null);
   const cleanedTranscriptRef = useRef<string | null>(null);
+  const realTimeModeRef = useRef(false);
+  const restartTimerRef = useRef<number | null>(null);
+  const lastTranscriptRef = useRef('');
+  const speakingDetectionTimerRef = useRef<number | null>(null);
 
   const onTranscriptReadyRef = useRef(onTranscriptReady);
   useEffect(() => {
@@ -51,6 +62,8 @@ export const useSpeechRecognition = (
     const useStopWords = stopWordsOption !== false;
     const continuous = options?.continuous ?? true; // Default to continuous for backward compatibility
     const stopOnSilence = options?.stopOnSilence ?? false;
+    const isRealTimeMode = options?.realTimeMode ?? false;
+    realTimeModeRef.current = isRealTimeMode;
 
     rec.continuous = continuous; 
     rec.interimResults = continuous; // Tie interim results to continuous mode for simplicity
@@ -63,9 +76,28 @@ export const useSpeechRecognition = (
         .join('');
       
       setTranscript(currentTranscript);
+      lastTranscriptRef.current = currentTranscript;
 
-      // Only use custom silence detection if in continuous mode
-      if (stopOnSilence && continuous) {
+      // Detect if user is actively speaking
+      const hasNewContent = currentTranscript.length > 0;
+      if (hasNewContent && !isUserSpeaking) {
+        setIsUserSpeaking(true);
+        options?.onUserSpeaking?.(true);
+      }
+
+      // Clear previous speaking detection timer
+      if (speakingDetectionTimerRef.current) {
+        clearTimeout(speakingDetectionTimerRef.current);
+      }
+
+      // Set timer to detect when user stops speaking
+      speakingDetectionTimerRef.current = window.setTimeout(() => {
+        setIsUserSpeaking(false);
+        options?.onUserSpeaking?.(false);
+      }, 1000);
+
+      // Only use custom silence detection if in continuous mode and not in real-time mode
+      if (stopOnSilence && continuous && !isRealTimeMode) {
         if (silenceTimerRef.current) {
           clearTimeout(silenceTimerRef.current);
         }
@@ -76,7 +108,23 @@ export const useSpeechRecognition = (
         }, 1200);
       }
 
-      if (useStopWords) {
+      // In real-time mode, automatically process transcripts
+      if (isRealTimeMode && hasNewContent) {
+        // Clear previous restart timer
+        if (restartTimerRef.current) {
+          clearTimeout(restartTimerRef.current);
+        }
+
+        // Set timer to process transcript after brief pause
+        restartTimerRef.current = window.setTimeout(() => {
+          if (currentTranscript.trim() && !transcriptReadyCalledRef.current) {
+            transcriptReadyCalledRef.current = true;
+            onTranscriptReadyRef.current(currentTranscript.trim());
+          }
+        }, 1500); // Wait 1.5 seconds after last detected speech
+      }
+
+      if (useStopWords && !isRealTimeMode) {
         const lowerCaseTranscript = currentTranscript.toLowerCase().trim();
         
         let stopWords = ['tamam', 'bitti', 'ok'];
@@ -124,8 +172,12 @@ export const useSpeechRecognition = (
         clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = null;
       }
+      if (restartTimerRef.current) {
+        clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
+      }
+      
       // CRITICAL FIX: Set listening to false *before* processing the transcript.
-      // This prevents race conditions where the parent component state doesn't update correctly.
       setIsListening(false);
 
       const transcriptToSend = cleanedTranscriptRef.current ?? finalTranscriptRef.current;
@@ -135,6 +187,23 @@ export const useSpeechRecognition = (
          onTranscriptReadyRef.current(transcriptToSend.trim());
       }
 
+      // Auto-restart in real-time mode
+      if (realTimeModeRef.current) {
+        setTimeout(() => {
+          if (realTimeModeRef.current && recognitionRef.current) {
+            try {
+              transcriptReadyCalledRef.current = false;
+              cleanedTranscriptRef.current = null;
+              setTranscript('');
+              recognitionRef.current.start();
+              setIsListening(true);
+            } catch (e) {
+              console.error('Auto-restart failed:', e);
+            }
+          }
+        }, 1000);
+      }
+
       // Reset for the next session
       cleanedTranscriptRef.current = null;
     };
@@ -142,6 +211,12 @@ export const useSpeechRecognition = (
     return () => {
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
+      }
+      if (restartTimerRef.current) {
+        clearTimeout(restartTimerRef.current);
+      }
+      if (speakingDetectionTimerRef.current) {
+        clearTimeout(speakingDetectionTimerRef.current);
       }
       rec.onresult = null;
       rec.onerror = null;
@@ -176,5 +251,5 @@ export const useSpeechRecognition = (
   
   const hasSupport = !!SpeechRecognition;
 
-  return { isListening, transcript, startListening, stopListening, hasSupport };
+  return { isListening, transcript, startListening, stopListening, hasSupport, isUserSpeaking };
 };

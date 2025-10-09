@@ -6,6 +6,7 @@
   "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
+    "mail:server": "node server/mail-server.cjs",
     "dev:mobile": "vite --host 0.0.0.0 --port 5173",
     "dev:network": "vite --host --port 5173",
     "electron:dev": "concurrently \"cross-env NODE_ENV=development vite --port 5174\" \"wait-on http://localhost:5174 && cross-env NODE_ENV=development electron .\"",
@@ -19,10 +20,11 @@
     "android:apk": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug"
   },
   "build": {
-    "appId": "com.sesligunlukplanlayici.app",
-    "productName": "Sesli Günlük Planlayıcı",
+    "appId": "com.echoday.assistant",
+    "productName": "EchoDay",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
@@ -37,13 +39,8 @@
       "electron/**/*"
     ],
     "win": {
+      "icon": "build/icon.png",
       "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
         {
           "target": "portable",
           "arch": [
@@ -68,28 +65,38 @@
       "language": "1055"
     },
     "mac": {
+      "icon": "build/icon.icns",
       "target": "dmg"
     },
     "linux": {
+      "icon": "build/icon.png",
       "target": "AppImage"
     }
   },
   "dependencies": {
     "@capacitor-community/speech-recognition": "^6.0.0",
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "imapflow": "^1.0.141",
+    "mailparser": "3.7.4",
+    "poplib": "^0.1.7",
     "@capacitor/android": "^6.1.0",
     "@capacitor/clipboard": "^6.0.0",
     "@capacitor/core": "^6.1.0",
     "@capacitor/geolocation": "^6.0.0",
     "@capacitor/haptics": "^6.0.2",
     "@capacitor/ios": "^6.1.0",
+    "@capacitor/local-notifications": "^6.1.2",
     "@capacitor/splash-screen": "^6.0.3",
     "@capacitor/status-bar": "^6.0.2",
     "@google/generative-ai": "^0.24.1",
     "@heroicons/react": "^2.2.0",
     "@supabase/supabase-js": "^2.58.0",
     "@types/dompurify": "^3.0.5",
+    "cordova-plugin-geofence": "^0.7.0",
     "dexie-react-hooks": "^1.1.7",
     "dompurify": "^3.2.7",
+    "es6-promise-plugin": "^4.2.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.9.3",
@@ -109,6 +116,7 @@
     "electron-store": "^8.1.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.18",
+    "terser": "^5.44.0",
     "typescript": "^5.2.2",
     "vite": "^7.1.9",
     "wait-on": "^9.0.1"

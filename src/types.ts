@@ -66,6 +66,29 @@ export interface PdfSourceMetadata {
   extractedData?: Record<string, any>; // Özel alanlar (mahkeme adı, dosya no, vb.)
 }
 
+// Saved location for reuse in geo reminders
+export interface SavedLocation {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  address?: string;
+  createdAt: string;
+  usageCount: number;
+  lastUsedAt?: string;
+  category?: 'home' | 'work' | 'shopping' | 'education' | 'healthcare' | 'entertainment' | 'other';
+}
+
+export interface GeoReminder {
+  lat: number;
+  lng: number;
+  radius: number; // metres
+  trigger: 'enter' | 'exit' | 'near';
+  address?: string;
+  enabled: boolean;
+  lastTriggeredAt?: string;
+}
+
 export interface Todo {
   id: string;
   text: string;
@@ -80,6 +103,8 @@ export interface Todo {
   parentId?: string; // ilk görevin id'si
   userId?: string; // Kullanıcıya özel veri için
   pdfSource?: PdfSourceMetadata; // PDF'den oluşturulan görevler için
+  // Konum tabanlı hatırlatıcı (opsiyonel)
+  locationReminder?: GeoReminder | null;
 }
 
 export interface Note {
@@ -312,4 +337,38 @@ export interface ImageAnalysisResult {
     orientation?: number;
     quality?: 'low' | 'medium' | 'high';
   };
+}
+
+// ==================== EMAIL ANALYSIS ====================
+
+export interface EmailSummary {
+  summary: string; // Kısa özet
+  keyPoints: string[]; // Önemli noktalar
+  actionItems: string[]; // Aksiyon gerektiren konular
+  entities: {
+    dates?: string[]; // Tespit edilen tarihler
+    people?: string[]; // Kişi isimleri
+    organizations?: string[]; // Kurum/şirket isimleri
+    locations?: string[]; // Konum bilgileri
+    amounts?: string[]; // Fiyat/tutar bilgileri
+    contacts?: { // İletişim bilgileri
+      phones?: string[];
+      emails?: string[];
+    };
+  };
+  suggestedTasks?: {
+    text: string;
+    priority: Priority;
+    datetime?: string | null;
+    category?: string;
+    estimatedDuration?: number;
+  }[];
+  suggestedNotes?: {
+    title: string;
+    content: string;
+    tags?: string[];
+  }[];
+  category: 'business' | 'personal' | 'invoice' | 'appointment' | 'notification' | 'marketing' | 'other';
+  urgency: 'low' | 'medium' | 'high';
+  confidence: number; // 0-1 arası analiz güveni
 }

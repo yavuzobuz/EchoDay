@@ -2,7 +2,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SchemaType } from "@google/generative-ai";
 // FIX: Import the new AnalyzedTaskData type.
-import { DailyBriefing, Note, Priority, Todo, AnalyzedTaskData, ChatMessage, ComplexCommandResult, TaskDependency, UserContext, ImageAnalysisResult } from "../types";
+import { DailyBriefing, Note, Priority, Todo, AnalyzedTaskData, ChatMessage, ComplexCommandResult, TaskDependency, UserContext, ImageAnalysisResult, EmailSummary } from "../types";
+import { EmailMessage } from "../types/mail";
 
 // Helper to create a new AI instance for each request, ensuring the user-provided API key is used.
 const getAI = (apiKey: string) => new GoogleGenerativeAI(apiKey);
@@ -86,6 +87,84 @@ const complexCommandSchema = {
     required: ['tasks', 'dependencies', 'suggestedOrder']
 };
 
+const emailSummarySchema = {
+    type: SchemaType.OBJECT as SchemaType.OBJECT,
+    properties: {
+        summary: { type: SchemaType.STRING, description: "E-postanın kısa ve öz özeti (1-2 cümle)" },
+        keyPoints: { 
+            type: SchemaType.ARRAY, 
+            items: { type: SchemaType.STRING }, 
+            description: "Önemli noktaların listesi" 
+        },
+        actionItems: { 
+            type: SchemaType.ARRAY, 
+            items: { type: SchemaType.STRING }, 
+            description: "Aksiyon gerektiren konuların listesi" 
+        },
+        entities: {
+            type: SchemaType.OBJECT,
+            properties: {
+                dates: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true, description: "Tespit edilen tarihler (ISO formatda)" },
+                people: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true, description: "Kişi isimleri" },
+                organizations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true, description: "Kurum/şirket isimleri" },
+                locations: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true, description: "Konum bilgileri" },
+                amounts: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true, description: "Fiyat/tutar bilgileri" },
+                contacts: {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                        phones: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true },
+                        emails: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true }
+                    },
+                    nullable: true
+                }
+            },
+            description: "E-postadan çıkarılan önemli bilgiler"
+        },
+        suggestedTasks: {
+            type: SchemaType.ARRAY,
+            items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                    text: { type: SchemaType.STRING, description: "Görev metni" },
+                    priority: { type: SchemaType.STRING, enum: [Priority.High, Priority.Medium], description: "Görev önceliği" },
+                    datetime: { type: SchemaType.STRING, nullable: true, description: "Görev tarihi (ISO formatda)" },
+                    category: { type: SchemaType.STRING, nullable: true, description: "Görev kategorisi" },
+                    estimatedDuration: { type: SchemaType.NUMBER, nullable: true, description: "Tahmini süre (dakika)" }
+                },
+                required: ['text', 'priority']
+            },
+            nullable: true,
+            description: "Önerilen görevlerin listesi"
+        },
+        suggestedNotes: {
+            type: SchemaType.ARRAY,
+            items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                    title: { type: SchemaType.STRING, description: "Not başlığı" },
+                    content: { type: SchemaType.STRING, description: "Not içeriği" },
+                    tags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING }, nullable: true, description: "Not etiketleri" }
+                },
+                required: ['title', 'content']
+            },
+            nullable: true,
+            description: "Önerilen notların listesi"
+        },
+        category: { 
+            type: SchemaType.STRING, 
+            enum: ['business', 'personal', 'invoice', 'appointment', 'notification', 'marketing', 'other'],
+            description: "E-posta kategorisi" 
+        },
+        urgency: { 
+            type: SchemaType.STRING, 
+            enum: ['low', 'medium', 'high'],
+            description: "Aciliyet derecesi" 
+        },
+        confidence: { type: SchemaType.NUMBER, description: "Analiz güveni (0-1 arası)" }
+    },
+    required: ['summary', 'keyPoints', 'actionItems', 'entities', 'category', 'urgency', 'confidence']
+};
+
 
 function safelyParseJSON<T>(jsonString: string): T | null {
     try {
@@ -115,7 +194,14 @@ const analyzeTask = async (apiKey: string, description: string): Promise<Analyze
         const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
         const offsetMinutes = -now.getTimezoneOffset();
         const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
-        const prompt = `Aşağıdaki görev tanımını analiz et ve özelliklerini çıkar. Özellikle 'text' alanını kullanıcının girdiği orijinal metinle, çeviri yapmadan doldur.
+        const prompt = `Aşağıdaki görev tanımını analiz et ve özelliklerini çıkar. Kullanıcı niyetini AKILLICA anla.
+
+ÖNEMLİ - KULLANICI NİYETİNİ ANLAMA:
+- "önemli", "acil", "kritik" gibi kelimeler priority alanını HIGH yapar, text alanına EKLENMEZ
+- "öncelikli", "hemen", "mutlaka", "ivedi" gibi kelimeler de priority alanını HIGH yapar
+- Bu tür kelimeler text alanından ÇIKARILMALI ve sadece anlamsal ayrıştırma için kullanılmalı
+- text alanı: Temiz, anlamlı görev başlığı olmalı (ör: "Süt al" değil "Süt al önemli!")
+- Eğer kullanıcı sadece meta-kelimeler söylüyorsa ("yeni görev ekle"), daha fazla bilgi gerektiğini belirtmek için text alanına "[Görev detayları eksik - lütfen ne yapmak istediğinizi belirtin]" yaz
 
 ÖNEMLİ - SAAT DİLİMİ BİLGİSİ:
 - Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours})
@@ -133,10 +219,17 @@ ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
 6. KRİTİK: ASLA datetime alanına doğal dil metni yazma ("iki hafta içinde", "İki hafta içinde" gibi). Sadece ISO formatı veya null kullan
 
 TEXT ALANI FORMATLAMA:
+- text alanı TEMİZ ve ÖZ olmalı - meta kelimeleri (önemli, acil, vb.) içermemeli
 - Eğer görevde belirli bir tarih varsa (örn: duruşma, fatura ödemesi vb.), text alanında TARİHİ de BELİRT.
 - Örnek: "Duruşmaya Katıl" yerine "Duruşmaya Katıl - 15 Ocak 2025 Saat 14:30"
 - Örnek: "Elektrik faturası ödemesi" yerine "Elektrik faturası ödemesi - Son Ödeme: 20 Ocak 2025"
 - Kategori "Duruşma", "Mahkeme", "Ödeme" veya "Fatura" ise mutlaka tarihi text'e ekle.
+
+ÖRNEKLER:
+✓ İYİ: Kullanıcı "yeni görev ekle önemli!" derse -> text: "[Görev detayları eksik - lütfen ne yapmak istediğinizi belirtin]", priority: "high"
+✓ İYİ: Kullanıcı "doktora git acil" derse -> text: "Doktora git", priority: "high"
+✓ İYİ: Kullanıcı "süt al" derse -> text: "Süt al", priority: "medium"
+✗ KÖTÜ: "Süt al önemli" -> text'e "önemli" kelimesini ekleme!
 
 Görev: "${description}"`
         
@@ -176,7 +269,13 @@ const analyzeImageForTask = async (apiKey: string, prompt: string, imageBase64: 
         const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
         const offsetMinutes = -now.getTimezoneOffset();
         const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
-        const textPrompt = `Sağlanan resme dayanarak kullanıcının isteğini analiz et. İstekten ve resim içeriğinden görev özelliklerini çıkar. Özellikle 'text' alanını kullanıcının girdiği orijinal metinle, çeviri yapmadan doldur.
+        const textPrompt = `Sağlanan resme dayanarak kullanıcının isteğini analiz et. İstekten ve resim içeriğinden görev özelliklerini çıkar. Kullanıcı niyetini AKILLICA anla.
+
+ÖNEMLİ - KULLANICI NİYETİNİ ANLAMA:
+- "önemli", "acil", "kritik" gibi kelimeler priority alanını HIGH yapar, text alanına EKLENMEZ
+- "öncelikli", "hemen", "mutlaka", "ivedi" gibi kelimeler de priority alanını HIGH yapar
+- Bu tür kelimeler text alanından ÇIKARILMALI ve sadece anlamsal ayrıştırma için kullanılmalı
+- text alanı: Temiz, anlamlı görev başlığı olmalı (ör: "Süt al" değil "Süt al önemli!")
 
 ÖNEMLİ - SAAT DİLİMİ BİLGİSİ:
 - Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours})
@@ -194,6 +293,7 @@ ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
 6. KRİTİK: ASLA datetime alanına doğal dil metni yazma ("iki hafta içinde", "İki hafta içinde" gibi). Sadece ISO formatı veya null kullan
 
 TEXT ALANI FORMATLAMA:
+- text alanı TEMİZ ve ÖZ olmalı - meta kelimeleri (önemli, acil, vb.) içermemeli
 - Eğer görevde belirli bir tarih varsa (örn: duruşma, fatura ödemesi vb.), text alanında TARİHİ de BELİRT.
 - Örnek: "Duruşmaya Katıl" yerine "Duruşmaya Katıl - 15 Ocak 2025 Saat 14:30"
 - Örnek: "Elektrik faturası ödemesi" yerine "Elektrik faturası ödemesi - Son Ödeme: 20 Ocak 2025"
@@ -381,7 +481,37 @@ const classifyChatIntent = async (apiKey: string, message: string): Promise<{ in
             },
         });
         
-        const prompt = `Aşağıdaki mesaj için kullanıcının niyetini sınıflandır. Eyleme geçirilebilir bir görev ('add_task') ile kaydedilecek bir bilgi ('add_note') arasında ayrım yap. Mesaj: "${message}"`;
+        const prompt = `Aşağıdaki mesaj için kullanıcının niyetini sınıflandır. Kullanıcının KESLİKLE ne istediğini anla.
+
+KLASİFİKASYON KURALLARI:
+
+1. 'add_task' - Eylem gerektiren, yapılacak bir görev:
+   - Belirli bir eylemi ima eder (git, ara, al, öde, tamamla, vb.)
+   - "görev ekle", "yeni görev", "task" kelimelerini içerir
+   - Örnekler: "süt al", "doktoru ara", "fatura öde", "görev ekle: rapor yaz"
+
+2. 'add_note' - Bilgi, hatıra veya düşünce kaydedilmesi:
+   - "not", "hatırla", "kaydet", "yazdır", "not ekle" kelimelerini içerir
+   - Eylemden ziyade bilgi saklama amacı güder
+   - Örnekler: "not ekle: burası önemli", "bunu hatırla", "not al", "fikir: yeni proje"
+
+3. 'get_summary' - Günlük özet veya brifing isteği:
+   - "özet", "brifing", "bugün", "günlük" kelimelerini içerir
+   - Örnekler: "bugünün özeti", "günlük brifing"
+
+4. 'chat' - Genel sohbet:
+   - Yukarıdakilerin hiçbirine uymuyor
+   - Örnekler: "merhaba", "nasılsın", "hava nasıl"
+
+KRİTİK ÖRNEKLER:
+✓ "not ekle" -> intent: 'add_note' (description: "[Kullanıcı not eklemek istiyor ama içerik belirtmedi]")
+✓ "görev ekle" -> intent: 'add_task' (description: "[Kullanıcı görev eklemek istiyor ama içerik belirtmedi]")
+✓ "not ekle: toplantı saat 15:00" -> intent: 'add_note' (description: "toplantı saat 15:00")
+✓ "görev: toplantıya katıl" -> intent: 'add_task' (description: "toplantıya katıl")
+✓ "süt al" -> intent: 'add_task' (description: "süt al")
+✓ "bunu hatırla" -> intent: 'add_note' (description: "bunu hatırla")
+
+Mesaj: "${message}"`
         
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -1057,6 +1187,123 @@ ONLY return JSON in the format above. No other text, explanation, or comments!`;
   }
 };
 
+/**
+ * E-posta içeriğini analiz ederek özet ve öneriler çıkarır
+ */
+const analyzeEmail = async (apiKey: string, email: EmailMessage): Promise<EmailSummary | null> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: emailSummarySchema as any,
+                temperature: 0.2,
+            },
+        });
+        
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
+        const now = new Date();
+        const nowISO = now.toISOString();
+        const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
+        const offsetMinutes = -now.getTimezoneOffset();
+        const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
+        
+        // HTML'i temiz metne çevir
+        const htmlToText = (html?: string): string => {
+            if (!html) return '';
+            const el = document.createElement('div');
+            el.innerHTML = html;
+            const text = el.textContent || el.innerText || '';
+            return text.replace(/\s+/g, ' ').trim();
+        };
+        
+        const emailContent = email.bodyHtml ? htmlToText(email.bodyHtml) : (email.body || email.bodyPreview || email.snippet || '');
+        const subject = email.subject || '(Konu yok)';
+        const from = email.from ? `${email.from.name || ''} <${email.from.address}>` : 'Bilinmeyen gönderen';
+        const date = new Date(email.date).toLocaleString('tr-TR');
+        
+        const prompt = `Bu e-postayı analiz et ve önemli bilgileri çıkar. Türkçe yanıt ver.
+
+**ZAMAN BİLGİSİ:**
+- Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours})
+- Kullanıcının şu anki tarihi ve saati: ${nowLocal}
+- Referans için şu anın UTC zamanı: ${nowISO}
+
+**E-POSTA BİLGİLERİ:**
+Konu: ${subject}
+Gönderen: ${from}
+Tarih: ${date}
+
+İçerik:
+${emailContent}
+
+**ANALİZ KURALLARI:**
+
+1. **ÖZET:** E-postanın ana konusunu 1-2 cümlede özetle
+
+2. **ÖNEMLİ NOKTALAR:** E-postadaki önemli bilgileri listele:
+   - Ana konular
+   - Önemli detaylar
+   - Dikkat çeken bilgiler
+
+3. **AKSİYON MADDE:**
+   - Kullanıcının yapması gereken işler
+   - Yanıtlanması gereken sorular
+   - Takip edilmesi gereken konular
+
+4. **ENTİTELER - ÖNEMLİ BİLGİLER:**
+   - **Tarihler:** E-postada geçen tüm tarihleri ISO formatında çıkar ("15 Ocak 2025" → "2025-01-15")
+   - **Kişiler:** Bahsedilen kişi isimleri
+   - **Organizasyonlar:** Kurum, şirket, marka isimleri
+   - **Lokasyonlar:** Adres, şehir, ülke bilgileri
+   - **Tutarlar:** Fiyat, para, sayısal değerler ("150 TL", "€50", "100 adet")
+   - **İletişim:** Telefon numaraları ve email adresleri
+
+5. **GÖREV ÖNERİLERİ:**
+   - E-postadan çıkarılan aksiyon maddelerini görev olarak formatla
+   - Tarih varsa datetime alanına ekle (yerel saatten UTC'ye çevir)
+   - Kategori: "E-posta" veya konuya uygun kategori
+   - Öncelik: Aciliyete göre belirle
+
+6. **NOT ÖNERİLERİ:**
+   - Önemli bilgilerin notlar halinde kaydedilmesi için önerileri formatla
+   - Başlık ve içerik olarak ayır
+   - Uygun etiketler ekle
+
+7. **KATEGORİ SINIFLANDIRMASI:**
+   - business: İş, çalışma, profesyonel konular
+   - personal: Kişisel, aile, arkadaş konuları
+   - invoice: Fatura, ödeme, mali konular
+   - appointment: Randevu, toplantı, etkinlik
+   - notification: Bildirim, sistem mesajları
+   - marketing: Reklam, promosyon, pazarlama
+   - other: Diğer
+
+8. **ACİLİYET DEĞERLENDİRMESİ:**
+   - high: Acil, hemen aksiyon gerekli
+   - medium: Önemli ama acil değil
+   - low: Bilgilendirme amaçlı
+
+**ZAMAN DÖNÜŞTÜRMESİ:**
+- E-postada belirli tarih/saat varsa yerel zamanda yorumla
+- UTC'ye çevir: Yerel zamandan ${offsetHours} saat çıkar
+- ISO formatında döndür: YYYY-MM-DDTHH:mm:00.000Z
+
+**ÖRNEK:**
+E-posta: "Yarın saat 14:00'te toplantımız var"
+Yarın: 2025-01-16 14:00 (yerel) → 2025-01-16T11:00:00.000Z (UTC)`;
+        
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const text = response.text();
+        
+        return safelyParseJSON<EmailSummary>(text);
+    } catch (error) {
+        console.error('Error analyzing email with Gemini:', error);
+        return null;
+    }
+};
+
 export const geminiService = {
     analyzeTask,
     analyzeImageForTask,
@@ -1079,7 +1326,9 @@ export const geminiService = {
     digitizeHandwriting,
     // PDF Analysis
     analyzePdfDocument,
+    // Email Analysis
+    analyzeEmail,
 };
 
-// Export PdfAnalysisResult type
-export type { PdfAnalysisResult };
+// Export types
+export type { PdfAnalysisResult, EmailSummary };

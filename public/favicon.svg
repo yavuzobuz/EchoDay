@@ -1,0 +1,32 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="32" height="32" rx="4" fill="#3b82f6"/>
+  
+  <!-- Calendar Base -->
+  <rect x="6" y="8" width="20" height="20" rx="1.5" fill="white" opacity="0.95"/>
+  
+  <!-- Calendar Header -->
+  <rect x="6" y="8" width="20" height="4" rx="1.5" fill="#1e40af"/>
+  <rect x="6" y="10.5" width="20" height="1.5" fill="#1e40af"/>
+  
+  <!-- Calendar Rings -->
+  <circle cx="10" cy="7" r="1" fill="#64748b" stroke="white" stroke-width="0.25"/>
+  <circle cx="16" cy="7" r="1" fill="#64748b" stroke="white" stroke-width="0.25"/>
+  <circle cx="22" cy="7" r="1" fill="#64748b" stroke="white" stroke-width="0.25"/>
+  
+  <!-- Tasks -->
+  <rect x="8" y="14" width="16" height="0.5" rx="0.25" fill="#e2e8f0"/>
+  <rect x="8" y="16" width="12" height="0.5" rx="0.25" fill="#e2e8f0"/>
+  <rect x="8" y="18" width="14" height="0.5" rx="0.25" fill="#e2e8f0"/>
+  
+  <!-- Checkbox -->
+  <rect x="8" y="21" width="1.5" height="1.5" rx="0.375" fill="#10b981"/>
+  <path d="M8.25 21.75 l0.25 0.25 l0.5 -0.5" stroke="white" stroke-width="0.2" stroke-linecap="round"/>
+  <rect x="10.5" y="21" width="11.5" height="0.5" rx="0.25" fill="#e2e8f0"/>
+  
+  <!-- Microphone (simplified) -->
+  <circle cx="24" cy="24" r="2.5" fill="#ef4444"/>
+  <rect x="23.25" y="23" width="1.5" height="2" rx="0.75" fill="white"/>
+  <path d="M22.5 24.5 C22.5 25.25 23.25 26 24 26 C24.75 26 25.5 25.25 25.5 24.5" stroke="white" stroke-width="0.2" fill="none"/>
+  <rect x="23.9" y="26" width="0.2" height="0.5" fill="white"/>
+</svg>

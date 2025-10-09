@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSettingsStorage } from './hooks/useSettingsStorage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -9,6 +9,7 @@ import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Messages from './pages/Messages';
+import GmailCallback from './components/auth/GmailCallback';
 
 export type AccentColor = 'blue' | 'green' | 'red';
 
@@ -107,14 +108,10 @@ function AppContent() {
         <Route
           path="/welcome"
           element={
-            user ? (
-              <Navigate to="/app" replace />
-            ) : (
-              <Welcome
-                onGetStarted={() => navigate('/app')}
-                onNavigateToAuth={() => navigate('/login')}
-              />
-            )
+            <Welcome
+              onGetStarted={() => navigate(user ? '/app' : '/login')}
+              onNavigateToAuth={() => navigate('/login')}
+            />
           }
         />
         <Route
@@ -129,7 +126,7 @@ function AppContent() {
                 apiKey={apiKey}
                 assistantName={assistantName}
                 onNavigateToProfile={() => navigate('/profile')}
-                onShowWelcome={() => navigate('/welcome')}
+                onNavigateToHome={() => navigate('/welcome')}
               />
             </ProtectedRoute>
           }
@@ -154,7 +151,6 @@ function AppContent() {
                 followSystemTheme={followSystemTheme}
                 setFollowSystemTheme={setFollowSystemTheme}
                 onNavigateBack={() => navigate('/app')}
-                onShowWelcome={() => navigate('/welcome')}
               />
             </ProtectedRoute>
           }
@@ -167,6 +163,10 @@ function AppContent() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/auth/gmail/callback"
+          element={<GmailCallback />}
+        />
       </Routes>
     </div>
   );
@@ -174,11 +174,11 @@ function AppContent() {
 
 const App: React.FC = () => {
   return (
-    <HashRouter>
+    <BrowserRouter>
       <AuthProvider>
         <AppContent />
       </AuthProvider>
-    </HashRouter>
+    </BrowserRouter>
   );
 };
 

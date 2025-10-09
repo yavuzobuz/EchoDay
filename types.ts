@@ -49,6 +49,18 @@ export interface Note {
 export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
+  timestamp?: string;
+  isVoiceInput?: boolean;
+}
+
+export interface VoiceModeSettings {
+  enabled: boolean;
+  autoStartListening: boolean;
+  speechRate: number;
+  speechPitch: number;
+  speechVolume: number;
+  preferredVoiceId?: string;
+  language: string;
 }
 
 export interface DayStat {

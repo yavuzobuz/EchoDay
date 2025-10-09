@@ -7,6 +7,10 @@ import { DayStat } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserProfile, updateUserProfile, getUserStats, createDefaultProfile, createDefaultStats } from '../services/profileService';
 import { UserProfile, UserStats, DEFAULT_AVATARS } from '../types/profile';
+import MailList from '../components/MailList';
+import MailConnectModal from '../components/MailConnectModal';
+import { mailService } from '../services/mailService';
+import { EmailAccount } from '../types/mail';
 
 interface ProfileProps {
   theme: 'light' | 'dark';
@@ -18,7 +22,6 @@ interface ProfileProps {
   assistantName: string;
   setAssistantName: (name: string) => void;
   onNavigateBack: () => void;
-  onShowWelcome: () => void;
   followSystemTheme: boolean;
   setFollowSystemTheme: (v: boolean) => void;
 }
@@ -35,7 +38,6 @@ const Profile: React.FC<ProfileProps> = ({
   apiKey, setApiKey,
   assistantName, setAssistantName,
   onNavigateBack,
-  onShowWelcome,
   followSystemTheme,
   setFollowSystemTheme
 }) => {
@@ -59,6 +61,90 @@ const Profile: React.FC<ProfileProps> = ({
   const [localBio, setLocalBio] = useState('');
   const [localAvatar, setLocalAvatar] = useState('😊');
   const [profileLoading, setProfileLoading] = useState(true);
+  
+  // Mail state
+  const [isMailModalOpen, setIsMailModalOpen] = useState(false);
+  const [isMailListOpen, setIsMailListOpen] = useState(false);
+  const [openMailGuide, setOpenMailGuide] = useState(false);
+  // Email accounts state (connected + local custom)
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+
+  const loadEmailAccounts = async () => {
+    setLoadingAccounts(true);
+    setAccountError(null);
+    try {
+      const response = await mailService.getEmailAccounts();
+      const remote = response.success && response.data ? response.data : [];
+      const custom = JSON.parse(localStorage.getItem('customMailAccounts') || '[]').map((c: any) => ({ id: c.id, provider: 'custom', emailAddress: c.user, displayName: c.user, customConfig: c }));
+      const merged = [...custom, ...remote];
+      setEmailAccounts(merged as any);
+      if (!response.success && response.error) setAccountError(response.error);
+    } catch (e) {
+      setAccountError('Hesaplar yüklenemedi');
+    } finally {
+      setLoadingAccounts(false);
+    }
+  };
+
+  const handleRemoveAccount = async (acc: EmailAccount) => {
+    try {
+      if (acc.provider === 'custom') {
+        const list = JSON.parse(localStorage.getItem('customMailAccounts') || '[]');
+        const filtered = list.filter((x: any) => x.id !== acc.id);
+        localStorage.setItem('customMailAccounts', JSON.stringify(filtered));
+        await loadEmailAccounts();
+        setNotification('Hesap silindi.');
+        setTimeout(() => setNotification(null), 2500);
+        return;
+      }
+      const res = await mailService.deleteEmailAccount(acc.id);
+      if (!res.success) {
+        setNotification(res.error || 'Hesap silinemedi');
+        setTimeout(() => setNotification(null), 3000);
+      } else {
+        await loadEmailAccounts();
+        setNotification('Hesap silindi.');
+        setTimeout(() => setNotification(null), 2500);
+      }
+    } catch {
+      setNotification('Hesap silinemedi');
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+
+  const getProviderIcon = (provider: string) => {
+    if (provider === 'gmail') {
+      return (
+        <svg className="w-4 h-4" viewBox="0 0 24 24">
+          <path fill="#EA4335" d="M5,5 L7,6.5 L12,10 L17,6.5 L19,5 L12,0 Z" />
+          <path fill="#FBBC05" d="M0,8 L5,5 L5,17 L0,20 Z" />
+          <path fill="#34A853" d="M24,8 L19,5 L19,17 L24,20 Z" />
+        </svg>
+      );
+    }
+    if (provider === 'outlook') {
+      return (
+        <svg className="w-4 h-4" viewBox="0 0 24 24">
+          <rect width="24" height="24" fill="#0078D4" />
+          <rect x="6" y="6" width="5" height="5" fill="#FFF" />
+          <rect x="13" y="6" width="5" height="5" fill="#FFF" />
+          <rect x="6" y="13" width="5" height="5" fill="#FFF" />
+          <rect x="13" y="13" width="5" height="5" fill="#FFF" />
+        </svg>
+      );
+    }
+    return (
+      <svg className="w-4 h-4" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="#6B7280" />
+      </svg>
+    );
+  };
+
+  useEffect(() => {
+    loadEmailAccounts();
+  }, []);
 
   const handleSignOut = async () => {
     if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
@@ -69,6 +155,9 @@ const Profile: React.FC<ProfileProps> = ({
 
   // Follow system theme toggle (stored in localStorage)
   const [followSystem, setFollowSystem] = useState<boolean>(followSystemTheme);
+
+  // Collapsible states
+  const [isTtsOpen, setIsTtsOpen] = useState<boolean>(false);
 
   // Usage stats
   const [stats, setStats] = useState({
@@ -421,16 +510,6 @@ const Profile: React.FC<ProfileProps> = ({
                     ))}
                     </div>
                 </div>
-                 <div className="flex items-center justify-between flex-wrap gap-3 pt-4 border-t dark:border-gray-700">
-                    <label htmlFor="show-welcome" className="font-semibold text-lg">Karşılama Ekranı</label>
-                    <button
-                        id="show-welcome"
-                        onClick={onShowWelcome}
-                        className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 text-sm"
-                    >
-                        Tekrar Göster
-                    </button>
-                </div>
                 <div className="flex items-center justify-between flex-wrap gap-3 pt-4 border-t dark:border-gray-700">
                     <div>
                         <label className="font-semibold text-lg block">Tarayıcı Bildirimleri</label>
@@ -670,7 +749,53 @@ const Profile: React.FC<ProfileProps> = ({
                 </div>
             </div>
 
-            {/* Assistant Settings */}
+
+            {/* E-posta Hesapları */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">📧 E-posta Hesapları</h2>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Gmail, Outlook veya IMAP/POP hesabı ekleyin.</p>
+                    <div className="flex gap-2">
+                        <button onClick={() => setIsMailModalOpen(true)} className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)]">Hesap Ekle</button>
+                        <button onClick={() => setIsMailListOpen(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">📬 Maillerimi Gör</button>
+                        <button onClick={() => { setOpenMailGuide(true); setIsMailModalOpen(true); }} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">📘 Rehber</button>
+                    </div>
+                </div>
+
+                {/* Accounts list */}
+                {loadingAccounts ? (
+                  <div className="flex items-center justify-center py-6">
+                    <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                ) : emailAccounts.length === 0 ? (
+                  <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 text-sm">
+                    Bağlı hesap yok. Başlamak için “Hesap Ekle”ye tıklayın.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {emailAccounts.map((acc) => (
+                      <li key={acc.id} className="py-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="inline-flex items-center justify-center w-8 h-8 rounded bg-gray-100 dark:bg-gray-700">
+                            {getProviderIcon(acc.provider)}
+                          </span>
+                          <div>
+                            <div className="font-medium">{acc.emailAddress || (acc as any).displayName}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 capitalize">{acc.provider}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => setIsMailListOpen(true)} className="px-3 py-1.5 text-sm rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500">Görüntüle</button>
+                          <button onClick={() => handleRemoveAccount(acc)} className="px-3 py-1.5 text-sm rounded bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/70">Sil</button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {accountError && <div className="text-sm text-red-500">{accountError}</div>}
+            </div>
+
+            {/* Voice Response Settings */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Asistan Ayarları</h2>
                 <form onSubmit={handleSaveAssistantName} className="space-y-3">
@@ -690,196 +815,256 @@ const Profile: React.FC<ProfileProps> = ({
                 </form>
             </div>
 
-            {/* TTS Settings */}
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
-                <div className="flex items-center justify-between flex-wrap gap-3 border-b pb-2 dark:border-gray-600">
+            {/* TTS Settings (Collapsible) */}
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+                {/* Header */}
+                <div className="px-4 py-3 flex items-center justify-between border-b dark:border-gray-600">
                     <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">Sesli Yanıtlar (TTS)</h2>
-                    <button
-                        onClick={() => {
-                            tts.updateSettings({ enabled: !tts.settings.enabled });
-                            setNotification(tts.settings.enabled ? 'Sesli yanıtlar devre dışı!' : 'Sesli yanıtlar aktif!');
-                            setTimeout(() => setNotification(null), 3000);
-                        }}
-                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                            tts.settings.enabled
-                                ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
-                                : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
-                        }`}
-                    >
-                        {tts.settings.enabled ? '✓ Aktif' : 'Devre Dışı'}
-                    </button>
-                </div>
-
-                {/* Reminder sound selection */}
-                <div className="pt-4 border-t dark:border-gray-700">
-                    <h3 className="font-semibold mb-2">Hatırlatma Sesi</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                        <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
-                            <input
-                                type="radio"
-                                name="reminderSound"
-                                defaultChecked={(localStorage.getItem(`reminderSound_${user?.id}`) || 'tts') === 'tts'}
-                                onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'tts')}
-                            />
-                            <span>Sesli hatırlatma (TTS)</span>
-                        </label>
-                        <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
-                            <label className="flex items-center gap-2 flex-1">
-                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem(`reminderSound_${user?.id}`) === 'alarm1'} onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'alarm1')} />
-                                <span>Alarm 1</span>
-                            </label>
-                            <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm1'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
-                            <label className="flex items-center gap-2 flex-1">
-                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem(`reminderSound_${user?.id}`) === 'alarm2'} onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'alarm2')} />
-                                <span>Alarm 2</span>
-                            </label>
-                            <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm2'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
-                        </div>
-                        <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
-                            <label className="flex items-center gap-2 flex-1">
-                                <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem(`reminderSound_${user?.id}`) === 'alarm3'} onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'alarm3')} />
-                                <span>Alarm 3</span>
-                            </label>
-                            <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm3'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 md:col-span-2">Not: TTS seçeneği açık olsa da cihazınız sessizdeyse konuşma duyulmayabilir. Alarm sesleri Web Audio ile üretilir ve kısa bildirim tonlarıdır.</p>
+                    <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${tts.settings.enabled ? 'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300' : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200'}`}>
+                            {tts.settings.enabled ? '✓ Aktif' : 'Devre Dışı'}
+                        </span>
+                        <button
+                            onClick={() => setIsTtsOpen(v => !v)}
+                            className="px-3 py-1.5 text-xs rounded bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                            aria-expanded={isTtsOpen}
+                            aria-controls="tts-panel"
+                        >
+                            {isTtsOpen ? 'Kapat' : 'Aç'}
+                        </button>
+                        <button
+                            onClick={() => {
+                                tts.updateSettings({ enabled: !tts.settings.enabled });
+                                setNotification(tts.settings.enabled ? 'Sesli yanıtlar devre dışı!' : 'Sesli yanıtlar aktif!');
+                                setTimeout(() => setNotification(null), 3000);
+                            }}
+                            className={`px-3 py-1.5 text-xs rounded font-medium transition-colors ${
+                                tts.settings.enabled
+                                    ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                                    : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
+                            }`}
+                        >
+                            {tts.settings.enabled ? 'Kapat' : 'Aç'}
+                        </button>
                     </div>
                 </div>
 
-                {tts.hasSupport ? (
-                    <div className="space-y-5">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                            AI asistanın yanıtlarını, günlük özetleri ve hatırlatmaları sesli olarak dinleyebilirsiniz.
-                        </p>
-
-                        {/* Speech Rate */}
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <label className="font-semibold text-sm">Konuşma Hızı</label>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">{tts.settings.rate.toFixed(1)}x</span>
+                {/* Body */}
+                {isTtsOpen && (
+                  <div id="tts-panel" className="p-6 space-y-6">
+                    {/* Reminder sound selection */}
+                    <div>
+                        <h3 className="font-semibold mb-2">Hatırlatma Sesi</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                            <label className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
+                                <input
+                                    type="radio"
+                                    name="reminderSound"
+                                    defaultChecked={(localStorage.getItem(`reminderSound_${user?.id}`) || 'tts') === 'tts'}
+                                    onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'tts')}
+                                />
+                                <span>Sesli hatırlatma (TTS)</span>
+                            </label>
+                            <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
+                                <label className="flex items-center gap-2 flex-1">
+                                    <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem(`reminderSound_${user?.id}`) === 'alarm1'} onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'alarm1')} />
+                                    <span>Alarm 1</span>
+                                </label>
+                                <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm1'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
                             </div>
-                            <input
-                                type="range"
-                                min="0.5"
-                                max="2.0"
-                                step="0.1"
-                                value={tts.settings.rate}
-                                onChange={(e) => tts.updateSettings({ rate: parseFloat(e.target.value) })}
-                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent-color-500)]"
-                                disabled={!tts.settings.enabled}
-                            />
-                            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                                <span>Yavaş</span>
-                                <span>Normal</span>
-                                <span>Hızlı</span>
+                            <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
+                                <label className="flex items-center gap-2 flex-1">
+                                    <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem(`reminderSound_${user?.id}`) === 'alarm2'} onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'alarm2')} />
+                                    <span>Alarm 2</span>
+                                </label>
+                                <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm2'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
                             </div>
+                            <div className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700/40 rounded-md border border-gray-200 dark:border-gray-700">
+                                <label className="flex items-center gap-2 flex-1">
+                                    <input type="radio" name="reminderSound" defaultChecked={localStorage.getItem(`reminderSound_${user?.id}`) === 'alarm3'} onChange={() => localStorage.setItem(`reminderSound_${user?.id}`, 'alarm3')} />
+                                    <span>Alarm 3</span>
+                                </label>
+                                <button type="button" onClick={() => import('../utils/reminderSounds').then(m => m.playReminderSound('alarm3'))} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">Dinle</button>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 md:col-span-2">Not: TTS seçeneği açık olsa da cihazınız sessizdeyse konuşma duyulmayabilir. Alarm sesleri Web Audio ile üretilir ve kısa bildirim tonlarıdır.</p>
                         </div>
+                    </div>
 
-                        {/* Speech Pitch */}
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <label className="font-semibold text-sm">Ses Tonu</label>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">{tts.settings.pitch.toFixed(1)}</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0.5"
-                                max="2.0"
-                                step="0.1"
-                                value={tts.settings.pitch}
-                                onChange={(e) => tts.updateSettings({ pitch: parseFloat(e.target.value) })}
-                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent-color-500)]"
-                                disabled={!tts.settings.enabled}
-                            />
-                            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-                                <span>Pes</span>
-                                <span>Normal</span>
-                                <span>Tiz</span>
-                            </div>
-                        </div>
+                    {tts.hasSupport ? (
+                        <div className="space-y-5">
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                                AI asistanın yanıtlarını, günlük özetleri ve hatırlatmaları sesli olarak dinleyebilirsiniz.
+                            </p>
 
-                        {/* Volume */}
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center">
-                                <label className="font-semibold text-sm">Ses Seviyesi</label>
-                                <span className="text-sm text-gray-500 dark:text-gray-400">{Math.round(tts.settings.volume * 100)}%</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="1"
-                                step="0.1"
-                                value={tts.settings.volume}
-                                onChange={(e) => tts.updateSettings({ volume: parseFloat(e.target.value) })}
-                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent-color-500)]"
-                                disabled={!tts.settings.enabled}
-                            />
-                        </div>
-
-                        {/* Voice Selection */}
-                        {tts.availableVoices.length > 0 && (
+                            {/* Speech Rate */}
                             <div className="space-y-2">
-                                <label className="font-semibold text-sm block">Ses Seçimi</label>
-                                <select
-                                    value={tts.settings.voice || ''}
-                                    onChange={(e) => tts.updateSettings({ voice: e.target.value || undefined })}
-                                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none text-sm"
+                                <div className="flex justify-between items-center">
+                                    <label className="font-semibold text-sm">Konuşma Hızı</label>
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">{tts.settings.rate.toFixed(1)}x</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0.5"
+                                    max="2.0"
+                                    step="0.1"
+                                    value={tts.settings.rate}
+                                    onChange={(e) => tts.updateSettings({ rate: parseFloat(e.target.value) })}
+                                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent-color-500)]"
                                     disabled={!tts.settings.enabled}
-                                >
-                                    <option value="">Varsayılan Ses</option>
-                                    {tts.availableVoices.map(voice => (
-                                        <option key={voice.name} value={voice.name}>
-                                            {voice.name} ({voice.lang})
-                                        </option>
-                                    ))}
-                                </select>
+                                />
+                                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                                    <span>Yavaş</span>
+                                    <span>Normal</span>
+                                    <span>Hızlı</span>
+                                </div>
                             </div>
-                        )}
 
-                        {/* Test Button */}
-                        <div className="pt-3 border-t dark:border-gray-700">
-                            <button
-                                onClick={() => tts.speak('Merhaba! Ben senin yapay zeka asistanın. Sesli yanıtlar şimdi aktif.')}
-                                disabled={!tts.settings.enabled || tts.isSpeaking}
-                                className="w-full px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center justify-center gap-2"
-                            >
-                                {tts.isSpeaking ? (
-                                    <>
-                                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        Konuşuyor...
-                                    </>
-                                ) : (
-                                    <>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
-                                        </svg>
-                                        Sesli Testi Yap
-                                    </>
-                                )}
-                            </button>
-                            {tts.isSpeaking && (
-                                <button
-                                    onClick={tts.cancel}
-                                    className="w-full mt-2 px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-900/80 text-sm font-medium"
-                                >
-                                    Durdur
-                                </button>
+                            {/* Speech Pitch */}
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <label className="font-semibold text-sm">Ses Tonu</label>
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">{tts.settings.pitch.toFixed(1)}</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0.5"
+                                    max="2.0"
+                                    step="0.1"
+                                    value={tts.settings.pitch}
+                                    onChange={(e) => tts.updateSettings({ pitch: parseFloat(e.target.value) })}
+                                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent-color-500)]"
+                                    disabled={!tts.settings.enabled}
+                                />
+                                <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                                    <span>Pes</span>
+                                    <span>Normal</span>
+                                    <span>Tiz</span>
+                                </div>
+                            </div>
+
+                            {/* Volume */}
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <label className="font-semibold text-sm">Ses Seviyesi</label>
+                                    <span className="text-sm text-gray-500 dark:text-gray-400">{Math.round(tts.settings.volume * 100)}%</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0"
+                                    max="1"
+                                    step="0.1"
+                                    value={tts.settings.volume}
+                                    onChange={(e) => tts.updateSettings({ volume: parseFloat(e.target.value) })}
+                                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[var(--accent-color-500)]"
+                                    disabled={!tts.settings.enabled}
+                                />
+                            </div>
+
+                            {/* Voice Selection */}
+                            {tts.availableVoices.length > 0 && (
+                                <div className="space-y-2">
+                                    <label className="font-semibold text-sm block">Ses Seçimi</label>
+                                    <select
+                                        value={tts.settings.voice || ''}
+                                        onChange={(e) => tts.updateSettings({ voice: e.target.value || undefined })}
+                                        className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none text-sm"
+                                        disabled={!tts.settings.enabled}
+                                    >
+                                        <option value="">Varsayılan Ses</option>
+                                        {tts.availableVoices.map(voice => (
+                                            <option key={voice.name} value={voice.name}>
+                                                {voice.name} ({voice.lang})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             )}
+
+                            {/* Test Button */}
+                            <div className="pt-3 border-t dark:border-gray-700">
+                                <button
+                                    onClick={() => tts.speak('Merhaba! Ben senin yapay zeka asistanın. Sesli yanıtlar şimdi aktif.')}
+                                    disabled={!tts.settings.enabled || tts.isSpeaking}
+                                    className="w-full px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium flex items-center justify-center gap-2"
+                                >
+                                    {tts.isSpeaking ? (
+                                        <>
+                                            <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Konuşuyor...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                                            </svg>
+                                            Sesli Testi Yap
+                                        </>
+                                    )}
+                                </button>
+                                {tts.isSpeaking && (
+                                    <button
+                                        onClick={tts.cancel}
+                                        className="w-full mt-2 px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-900/80 text-sm font-medium"
+                                    >
+                                        Durdur
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                ) : (
-                    <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                        <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                            Tarayıcınız sesli yanıtları desteklemiyor.
-                        </p>
-                    </div>
+                    ) : (
+                        <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                                Tarayıcınız sesli yanıtları desteklemiyor.
+                            </p>
+                        </div>
+                    )}
+                  </div>
                 )}
             </div>
+            
+            {/* Mail Modals */}
+            <MailConnectModal 
+                isOpen={isMailModalOpen}
+                defaultShowHelp={openMailGuide}
+                onClose={() => { setIsMailModalOpen(false); setOpenMailGuide(false); }}
+                onSuccess={async () => {
+                    setIsMailModalOpen(false);
+                    setOpenMailGuide(false);
+                    await loadEmailAccounts();
+                    setNotification('Mail hesabı başarıyla bağlandı!');
+                    setTimeout(() => setNotification(null), 3000);
+                }}
+            />
+            
+            {/* Mail List Modal */}
+            {isMailListOpen && (
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
+                    <div className="h-screen w-screen bg-white dark:bg-gray-900">
+                        <div className="h-full flex flex-col">
+                            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                                <h2 className="text-xl font-bold">📬 Maillerim</h2>
+                                <button
+                                    onClick={() => setIsMailListOpen(false)}
+                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
+                                >
+                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                                <MailList onConnectClick={() => {
+                                    setIsMailListOpen(false);
+                                    setIsMailModalOpen(true);
+                                }} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
             
             {/* Notification */}
             {notification && (

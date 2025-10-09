@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Todo, Priority, ReminderConfig } from '../types';
+import { Todo, Priority, ReminderConfig, GeoReminder } from '../types';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import ReminderSetupModal from './ReminderSetupModal';
+import GeoReminderModal from './GeoReminderModal';
 
 interface TodoItemProps {
   todo: Todo;
@@ -11,6 +12,7 @@ interface TodoItemProps {
   onEdit: (id: string, newText: string) => void;
   onShare: (todo: Todo) => void;
   onUpdateReminders?: (id: string, reminders: ReminderConfig[]) => void;
+  onUpdateGeoReminder?: (id: string, geo: GeoReminder | null) => void;
 }
 
 const priorityClasses = {
@@ -39,13 +41,14 @@ const RouteStep: React.FC<{ line: string }> = ({ line }) => {
     );
 };
 
-const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDirections, onEdit, onShare, onUpdateReminders }) => {
+const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDirections, onEdit, onShare, onUpdateReminders, onUpdateGeoReminder }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(todo.text);
   const [showReminderBadge, setShowReminderBadge] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [isGeoModalOpen, setIsGeoModalOpen] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const { isSpeaking, speak, cancel, hasSupport } = useTextToSpeech();
 
@@ -163,6 +166,13 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                     <button onClick={() => setIsReminderModalOpen(true)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" aria-label="Hatırlatma ayarla">
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                      </svg>
+                    </button>
+                  )}
+                  {onUpdateGeoReminder && (
+                    <button onClick={() => setIsGeoModalOpen(true)} className="p-1 rounded-full text-gray-400 hover:text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/50" aria-label="Konum hatırlatıcısı">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 19l-4.95-5.05a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                       </svg>
                     </button>
                   )}
@@ -390,6 +400,15 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
           taskDateTime={todo.datetime}
           existingReminders={todo.reminders || []}
           onSave={(reminders) => onUpdateReminders(todo.id, reminders)}
+        />
+      )}
+      {/* GeoReminder Modal */}
+      {onUpdateGeoReminder && (
+        <GeoReminderModal
+          isOpen={isGeoModalOpen}
+          onClose={() => setIsGeoModalOpen(false)}
+          todo={todo}
+          onSave={(geo) => onUpdateGeoReminder(todo.id, geo)}
         />
       )}
     </div>

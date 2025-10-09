@@ -24,8 +24,10 @@ import { geminiService } from './services/geminiService';
 import { archiveService } from './services/archiveService';
 
 // FIX: Import the new AnalyzedTaskData type.
-import { Todo, Priority, ChatMessage, Note, DailyBriefing, AIMetadata, AnalyzedTaskData } from './types';
+import { Todo, Priority, ChatMessage, Note, DailyBriefing, AIMetadata, AnalyzedTaskData, GeoReminder } from './types';
 import { AccentColor } from './App';
+import { useGeoReminders } from './hooks/useGeoReminders';
+import { initGeofence, addOrUpdateGeofence, removeGeofence } from './services/geofenceService';
 
 interface MainProps {
   theme: 'light' | 'dark';
@@ -111,8 +113,11 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     }, [isTaskModalOpen, isChatOpen, isImageTaskModalOpen, isLocationPromptOpen, isSuggestionsModalOpen, isNotepadAiModalOpen, isArchiveModalOpen, mainCommandListener.isListening, wakeWordListener]);
 
 
+    // Init geofence once (mobile only, safe no-op on web)
+    useEffect(() => { initGeofence(); }, []);
+
     // --- Task Management ---
-    const handleAddTask = useCallback(async (description: string, imageBase64?: string, imageMimeType?: string) => {
+    const handleAddTask = useCallback(async (description: string, imageBase64?: string, imageMimeType?: string, extra?: { locationReminder?: GeoReminder }) => {
         if (!checkApiKey()) return;
         setIsLoading(true);
         setLoadingMessage('Göreviniz analiz ediliyor...');
@@ -127,7 +132,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                 // FIX: Destructure the AI result to separate core Todo properties from metadata.
                 // This resolves the type error and provides a cleaner data structure.
                 const { text, priority, datetime, ...metadata } = aiResult;
-                const newTodo: Todo = {
+const newTodo: Todo = {
                     id: uuidv4(),
                     text: text || description,
                     priority: priority || Priority.Medium,
@@ -135,21 +140,35 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                     completed: false,
                     createdAt: new Date().toISOString(),
                     aiMetadata: metadata,
+                    locationReminder: extra?.locationReminder || null,
                 };
                 setTodos(prev => [newTodo, ...prev]);
+                // Register geofence if provided
+                if (extra?.locationReminder) {
+                    addOrUpdateGeofence({
+                        id: newTodo.id,
+                        lat: extra.locationReminder.lat,
+                        lng: extra.locationReminder.lng,
+                        radius: extra.locationReminder.radius,
+                        transition: extra.locationReminder.trigger,
+                        title: 'Konum Yakınında Görev',
+                        text: newTodo.text,
+                    });
+                }
                 setNotification({ message: 'Yeni görev eklendi!', type: 'success' });
             } else {
                 throw new Error("AI analysis returned null.");
             }
         } catch (error) {
             console.error("Error adding task:", error);
-            const newTodo: Todo = {
+const newTodo: Todo = {
                 id: uuidv4(),
                 text: description,
                 priority: Priority.Medium,
                 datetime: null,
                 completed: false,
                 createdAt: new Date().toISOString(),
+                locationReminder: extra?.locationReminder || null,
             };
             setTodos(prev => [newTodo, ...prev]);
             setNotification({ message: 'Görev eklendi (AI analizi başarısız).', type: 'error' });
@@ -159,10 +178,20 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     }, [apiKey, setTodos, checkApiKey]);
     
     const handleToggleTodo = (id: string) => {
-        setTodos(todos.map(todo => todo.id === id ? { ...todo, completed: !todo.completed } : todo));
+        setTodos(todos.map(todo => {
+            if (todo.id !== id) return todo;
+            const updated = { ...todo, completed: !todo.completed };
+            if (updated.completed) {
+                // Remove geofence on completion
+                removeGeofence(id);
+            }
+            return updated;
+        }));
     };
 
     const handleDeleteTodo = (id: string) => {
+        // Remove any registered geofence
+        removeGeofence(id);
         setTodos(todos.filter(todo => todo.id !== id));
     };
 
@@ -364,6 +393,30 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         return () => clearInterval(interval);
     }, [todos, reminders]);
 
+    // Konum tabanlı hatırlatıcılar (uygulama açıkken periyodik kontrol)
+    useGeoReminders(todos, (todoId) => {
+        setTodos(prev => prev.map(t => t.id === todoId ? ({
+            ...t,
+            locationReminder: t.locationReminder ? { ...t.locationReminder, lastTriggeredAt: new Date().toISOString() } : t.locationReminder
+        }) : t));
+    }, { intervalMs: 180000 });
+
+    const handleUpdateGeoReminder = useCallback((id: string, reminder: GeoReminder | null) => {
+        setTodos(prev => prev.map(t => t.id === id ? { ...t, locationReminder: reminder } : t));
+        if (reminder && reminder.enabled) {
+            addOrUpdateGeofence({
+                id,
+                lat: reminder.lat,
+                lng: reminder.lng,
+                radius: reminder.radius,
+                transition: reminder.trigger,
+                title: 'Konum Yakınında Görev',
+                text: (todos.find(x => x.id === id)?.text) || 'Görev',
+            });
+        } else {
+            removeGeofence(id);
+        }
+    }, [setTodos, todos]);
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -413,6 +466,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                                 onGetDirections={handleGetDirections}
                                 onEdit={handleEditTodo}
                                 onShare={(todo) => navigator.clipboard.writeText(`Görev: ${todo.text}${todo.datetime ? `\nTarih: ${new Date(todo.datetime).toLocaleString('tr-TR')}` : ''}`).then(() => setNotification({message: 'Görev panoya kopyalandı!', type: 'success'}))}
+                                onUpdateGeoReminder={handleUpdateGeoReminder}
                             />
                         ) : (
                             <TimelineView todos={todos} />

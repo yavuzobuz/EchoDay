@@ -56,10 +56,10 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
   const os = getOS();
 
   const downloadLinks = {
-    windows: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/sesli-gunluk-planlayici-dist.zip',
+    windows: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/EchoDay-Electron-v1.0.0.zip',
     mac: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_macOS.dmg',
     linux: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_Linux.AppImage',
-    android: '/apk/EchoDay-debug.apk',
+    android: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/EchoDay-debug.apk',
   } as const;
 
   const primaryDownloadHref = os === 'mac' ? downloadLinks.mac : os === 'linux' ? downloadLinks.linux : os === 'android' ? downloadLinks.android : downloadLinks.windows;

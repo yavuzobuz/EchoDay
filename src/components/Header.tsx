@@ -8,10 +8,10 @@ interface HeaderProps {
   accentColor: AccentColor;
   setAccentColor: (color: AccentColor) => void;
   onNavigateToProfile: () => void;
-  onShowWelcome?: () => void;
+  onNavigateToHome?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onNavigateToProfile, onShowWelcome }) => {
+const Header: React.FC<HeaderProps> = ({ onNavigateToProfile, onNavigateToHome }) => {
   return (
     <header className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm sticky top-0 z-40 flex justify-between items-center border-b border-gray-200 dark:border-gray-800 px-3 sm:px-4 py-2 safe-area-top">
       <div className="flex items-center gap-2 sm:gap-3">
@@ -22,9 +22,9 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToProfile, onShowWelcome }) =
       </div>
       {/* Theme switcher removed (moved to Profile page) */}
       <div className="flex items-center gap-1 sm:gap-2">
-        {onShowWelcome && (
+        {onNavigateToHome && (
           <button 
-            onClick={onShowWelcome}
+            onClick={onNavigateToHome}
             className="p-2 sm:p-2.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
             aria-label="Ana Sayfa"
             title="Ana Sayfa"

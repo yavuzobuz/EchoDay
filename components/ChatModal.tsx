@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChatMessage } from '../types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 
 interface ChatModalProps {
   isOpen: boolean;
@@ -8,23 +9,75 @@ interface ChatModalProps {
   chatHistory: ChatMessage[];
   onSendMessage: (message: string) => void;
   isLoading: boolean;
+  voiceModeEnabled?: boolean;
 }
 
-const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onSendMessage, isLoading }) => {
+const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onSendMessage, isLoading, voiceModeEnabled = false }) => {
   const [userInput, setUserInput] = useState('');
+  const [isVoiceModeActive, setIsVoiceModeActive] = useState(voiceModeEnabled);
+  const [lastAIMessageIndex, setLastAIMessageIndex] = useState(-1);
+  const [isAutoplayEnabled, setIsAutoplayEnabled] = useState(false);
+  const [wasInterrupted, setWasInterrupted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isProcessingRef = useRef(false);
+
+  // Speech synthesis hook
+  const { 
+    speak, 
+    stop: stopSpeaking, 
+    isSpeaking, 
+    hasSupport: hasSpeechSynthesis
+  } = useSpeechSynthesis({
+    rate: 1.0,
+    pitch: 1.0,
+    volume: 1.0
+  });
+
+  // Handle when user starts/stops speaking
+  const handleUserSpeaking = useCallback((speaking: boolean) => {
+    console.log('🎤 User speaking state changed:', speaking);
+    if (speaking && isVoiceModeActive && hasSpeechSynthesis && isSpeaking) {
+      // User started speaking while AI is speaking - interrupt AI
+      console.log('⛔ Stopping AI speech due to user interruption');
+      stopSpeaking();
+      setWasInterrupted(true);
+    }
+  }, [isVoiceModeActive, stopSpeaking, hasSpeechSynthesis, isSpeaking]);
 
   const handleTranscriptReady = useCallback((transcript: string) => {
-    if (transcript.trim()) {
-      onSendMessage(transcript.trim());
+    const lowerTranscript = transcript.toLowerCase().trim();
+    
+    // Check for stop commands
+    const stopCommands = ['sus', 'dur', 'stop', 'kapat', 'sustun', 'tamam dur', 'yeter'];
+    const hasStopCommand = stopCommands.some(cmd => lowerTranscript.includes(cmd));
+    
+    if (hasStopCommand) {
+      console.log('🛑 Stop command detected:', transcript);
+      if (isSpeaking) {
+        stopSpeaking();
+      }
+      // Don't send the stop command as a message
+      return;
     }
-  }, [onSendMessage]);
+    
+    if (transcript.trim() && !isProcessingRef.current) {
+      console.log('📤 Sending user message:', transcript);
+      isProcessingRef.current = true;
+      onSendMessage(transcript.trim());
+      // Reset processing flag after a delay
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 1000);
+    }
+  }, [onSendMessage, isSpeaking, stopSpeaking]);
 
   const speechRecognitionOptions = useMemo(() => ({
-    stopOnKeywords: ['tamam', 'bitti', 'ok', 'oldu', 'kaydet', 'oluştur', 'gönder'],
+    stopOnKeywords: false, // Never use stop keywords - we handle them in transcript callback
     stopOnSilence: false, // Turn off custom silence detection
-    continuous: false, // Use browser's more reliable single-utterance mode
-  }), []);
+    continuous: isVoiceModeActive ? true : false, // Continuous mode for voice chat
+    realTimeMode: isVoiceModeActive, // Enable real-time processing in voice mode
+    onUserSpeaking: handleUserSpeaking, // Callback for user speaking detection
+  }), [isVoiceModeActive, handleUserSpeaking]);
 
   const { isListening, startListening, stopListening, hasSupport } = useSpeechRecognition(
     handleTranscriptReady,
@@ -39,14 +92,116 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
     scrollToBottom();
   }, [chatHistory, isLoading]);
   
+  // Auto-speak new AI messages in voice mode
+  useEffect(() => {
+    console.log('🔊 AUTO-SPEAK EFFECT RAN:', {
+      isVoiceModeActive,
+      hasSpeechSynthesis,
+      chatHistoryLength: chatHistory.length,
+      isLoading,
+      lastAIMessageIndex
+    });
+
+    if (!isVoiceModeActive) {
+      console.log('❌ Voice mode not active');
+      return;
+    }
+    
+    if (!hasSpeechSynthesis) {
+      console.log('❌ Speech synthesis not supported');
+      return;
+    }
+    
+    if (chatHistory.length === 0) {
+      console.log('❌ No chat history');
+      return;
+    }
+    
+    if (isLoading) {
+      console.log('❌ Still loading');
+      return;
+    }
+
+    const lastMessage = chatHistory[chatHistory.length - 1];
+    const currentIndex = chatHistory.length - 1;
+    
+    console.log('📝 Last message check:', {
+      role: lastMessage.role,
+      text: lastMessage.text?.substring(0, 30),
+      currentIndex,
+      lastAIMessageIndex,
+      isNew: currentIndex > lastAIMessageIndex
+    });
+    
+    // Check if this is a new AI message that we haven't spoken yet
+    if (lastMessage.role === 'model' && currentIndex > lastAIMessageIndex) {
+      console.log('✅✅✅ WILL SPEAK NOW:', lastMessage.text.substring(0, 50));
+      setLastAIMessageIndex(currentIndex);
+      
+      // Speak immediately
+      setTimeout(() => {
+        console.log('🔊 CALLING SPEAK()');
+        speak(lastMessage.text);
+        // Enable autoplay on first successful speak
+        if (!isAutoplayEnabled) {
+          setIsAutoplayEnabled(true);
+        }
+      }, 100);
+    } else {
+      console.log('❌ Not speaking because:', {
+        isModel: lastMessage.role === 'model',
+        isNew: currentIndex > lastAIMessageIndex
+      });
+    }
+  }, [chatHistory, isVoiceModeActive, hasSpeechSynthesis, isLoading, lastAIMessageIndex, speak, isAutoplayEnabled]); // FULL dependencies
+  
+  // Start/stop listening when voice mode changes
+  useEffect(() => {
+    if (isOpen && isVoiceModeActive && hasSupport && !isListening && !isLoading) {
+      // Auto-start listening in voice mode
+      setTimeout(() => {
+        startListening();
+      }, 1000);
+    } else if (!isVoiceModeActive && isListening) {
+      // Stop listening when voice mode is disabled
+      stopListening();
+    }
+  }, [isVoiceModeActive, isOpen, hasSupport, isListening, isLoading, startListening, stopListening]);
+  
+  // Auto-restart listening after AI finishes speaking in voice mode
+  useEffect(() => {
+    if (isVoiceModeActive && !isSpeaking && !isListening && !isLoading && isOpen) {
+      // Shorter delay if it was interrupted, longer if completed naturally
+      const delay = wasInterrupted ? 500 : 1500;
+      
+      console.log(`⏱️ Scheduling listening restart in ${delay}ms (interrupted: ${wasInterrupted})`);
+      
+      const restartTimer = setTimeout(() => {
+        if (isVoiceModeActive && !isSpeaking && !isListening && !isLoading) {
+          console.log('🎤 Auto-restarting listening');
+          startListening();
+          setWasInterrupted(false);
+        }
+      }, delay);
+      
+      return () => clearTimeout(restartTimer);
+    }
+  }, [isVoiceModeActive, isSpeaking, isListening, isLoading, isOpen, startListening, wasInterrupted]);
+  
   useEffect(() => {
       if (!isOpen) {
           if (isListening) {
             stopListening();
           }
+          if (isSpeaking) {
+            stopSpeaking();
+          }
           setUserInput('');
+          setIsVoiceModeActive(voiceModeEnabled);
+          setLastAIMessageIndex(-1);
+          isProcessingRef.current = false;
       }
-  }, [isOpen, isListening, stopListening]);
+  }, [isOpen, isListening, stopListening, isSpeaking, stopSpeaking, voiceModeEnabled]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,7 +228,59 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl h-[80vh] flex flex-col">
         <header className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-shrink-0">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">AI Asistan Sohbeti</h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">AI Asistan Sohbeti</h2>
+            {hasSupport && hasSpeechSynthesis && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    setIsVoiceModeActive(!isVoiceModeActive);
+                    if (isSpeaking) stopSpeaking();
+                  }}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    isVoiceModeActive 
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
+                      : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                  }`}
+                  title="Sesli sohbet modu"
+                >
+                  <div className="flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                    Sesli Mod
+                  </div>
+                </button>
+                {isSpeaking && (
+                  <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                    <span>Konuşuyor...</span>
+                  </div>
+                )}
+                {wasInterrupted && !isSpeaking && (
+                  <div className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Kesildi</span>
+                  </div>
+                )}
+                {isVoiceModeActive && !isAutoplayEnabled && (
+                  <button
+                    onClick={() => {
+                      // User interaction trigger - this enables autoplay
+                      speak('Ses sistemi aktif!');
+                      setIsAutoplayEnabled(true);
+                    }}
+                    className="px-2 py-1 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 rounded text-xs font-medium hover:bg-orange-200 dark:hover:bg-orange-800 transition-colors"
+                    title="AI'ın otomatik konuşması için ses izni gerekiyor"
+                  >
+                    🔊 Ses İzni Ver
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
@@ -89,6 +296,20 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
               )}
               <div className={`max-w-md lg:max-w-lg p-3 rounded-lg ${msg.role === 'user' ? 'bg-[var(--accent-color-600)] text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200'}`}>
                 <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                {msg.role === 'model' && isVoiceModeActive && hasSpeechSynthesis && (
+                  <button
+                    onClick={() => {
+                      speak(msg.text);
+                      if (!isAutoplayEnabled) {
+                        setIsAutoplayEnabled(true);
+                      }
+                    }}
+                    className="mt-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1"
+                    title="Bu mesajı sesli oku"
+                  >
+                    🔊 Sesli Oku
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -123,12 +344,22 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
               <button
                 type="button"
                 onClick={handleMicClick}
-                className={`p-3 rounded-md transition-colors duration-200 flex items-center justify-center ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'}`}
+                className={`p-3 rounded-md transition-colors duration-200 flex items-center justify-center relative ${
+                  isListening 
+                    ? 'bg-red-500 text-white animate-pulse' 
+                    : isVoiceModeActive 
+                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
+                }`}
                 disabled={isLoading}
+                title={isVoiceModeActive ? 'Sesli mod aktif' : 'Mikrofon'}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
+                {isVoiceModeActive && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
+                )}
               </button>
             )}
             <button type="submit" className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 flex items-center justify-center" disabled={isLoading || (isListening ? false : !userInput.trim())}>

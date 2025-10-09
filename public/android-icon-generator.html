@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoDay Android Icon Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 5px;
+        }
+        .preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .size-group {
+            text-align: center;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        h3 {
+            color: #3b82f6;
+        }
+        .density-section {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .density-section h3 {
+            margin-top: 0;
+            background: #3b82f6;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .capacitor-note {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📱 EchoDay Android/Capacitor Icon Generator</h1>
+        <p>Bu araç EchoDay SVG icon'undan Android Capacitor uygulaması için gerekli tüm boyutlardaki app icon'larını oluşturur.</p>
+        
+        <button onclick="generateAllIcons()">🚀 Tüm Android İcon'ları Oluştur</button>
+        <button onclick="downloadAll()">📥 Hepsini İndir</button>
+        
+        <div class="capacitor-note">
+            <h4>📋 Capacitor İcon Kurulumu:</h4>
+            <ol>
+                <li>İcon'ları indirdikten sonra <code>android/app/src/main/res/</code> klasörüne yerleştirin</li>
+                <li><code>npx cap sync android</code> çalıştırın</li>
+                <li>Android Studio'da projeyi açıp test edin</li>
+            </ol>
+        </div>
+        
+        <div class="preview" id="preview"></div>
+    </div>
+
+    <script>
+        const svgData = `<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="512" height="512" rx="64" fill="#3b82f6"/>
+  
+  <!-- Calendar/Planner Base -->
+  <rect x="96" y="128" width="320" height="320" rx="24" fill="white" opacity="0.95"/>
+  
+  <!-- Calendar Header -->
+  <rect x="96" y="128" width="320" height="64" rx="24" fill="#1e40af"/>
+  <rect x="96" y="168" width="320" height="24" fill="#1e40af"/>
+  
+  <!-- Calendar Binding Rings -->
+  <circle cx="156" cy="112" r="16" fill="#64748b" stroke="white" stroke-width="4"/>
+  <circle cx="256" cy="112" r="16" fill="#64748b" stroke="white" stroke-width="4"/>
+  <circle cx="356" cy="112" r="16" fill="#64748b" stroke="white" stroke-width="4"/>
+  
+  <!-- Tasks/Lines -->
+  <rect x="128" y="224" width="256" height="8" rx="4" fill="#e2e8f0"/>
+  <rect x="128" y="256" width="192" height="8" rx="4" fill="#e2e8f0"/>
+  <rect x="128" y="288" width="224" height="8" rx="4" fill="#e2e8f0"/>
+  
+  <!-- Checkboxes -->
+  <rect x="128" y="336" width="24" height="24" rx="6" fill="#10b981" stroke="#10b981" stroke-width="2"/>
+  <path d="M134 348 l4 4 l8 -8" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="168" y="336" width="184" height="8" rx="4" fill="#e2e8f0"/>
+  
+  <rect x="128" y="376" width="24" height="24" rx="6" fill="none" stroke="#94a3b8" stroke-width="2"/>
+  <rect x="168" y="376" width="144" height="8" rx="4" fill="#e2e8f0"/>
+  
+  <!-- Microphone Icon (for voice feature) -->
+  <g transform="translate(336, 352)">
+    <rect x="0" y="0" width="80" height="80" rx="40" fill="#ef4444"/>
+    <path d="M40 24 C40 18 36 14 30 14 C24 14 20 18 20 24 L20 36 C20 42 24 46 30 46 C36 46 40 42 40 36 Z" fill="white"/>
+    <path d="M18 32 C18 40 23 46 30 46 C37 46 42 40 42 32" stroke="white" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <rect x="29" y="46" width="2" height="8" fill="white"/>
+    <rect x="24" y="54" width="12" height="2" rx="1" fill="white"/>
+  </g>
+  
+  <!-- AI Star (for AI assistant feature) -->
+  <g transform="translate(80, 64)">
+    <circle cx="24" cy="24" r="20" fill="#fbbf24"/>
+    <path d="M24 14 L26.5 21 L34 21 L28 26 L30.5 33 L24 28 L17.5 33 L20 26 L14 21 L21.5 21 Z" fill="white"/>
+  </g>
+</svg>`;
+
+        const androidIconSizes = [
+            // App Icon (ic_launcher) - Different densities
+            { 
+                density: 'mdpi',
+                icons: [
+                    { name: 'ic_launcher.png', size: 48, path: 'mipmap-mdpi/' },
+                    { name: 'ic_launcher_foreground.png', size: 108, path: 'mipmap-mdpi/' },
+                    { name: 'ic_launcher_round.png', size: 48, path: 'mipmap-mdpi/' }
+                ]
+            },
+            { 
+                density: 'hdpi',
+                icons: [
+                    { name: 'ic_launcher.png', size: 72, path: 'mipmap-hdpi/' },
+                    { name: 'ic_launcher_foreground.png', size: 162, path: 'mipmap-hdpi/' },
+                    { name: 'ic_launcher_round.png', size: 72, path: 'mipmap-hdpi/' }
+                ]
+            },
+            { 
+                density: 'xhdpi',
+                icons: [
+                    { name: 'ic_launcher.png', size: 96, path: 'mipmap-xhdpi/' },
+                    { name: 'ic_launcher_foreground.png', size: 216, path: 'mipmap-xhdpi/' },
+                    { name: 'ic_launcher_round.png', size: 96, path: 'mipmap-xhdpi/' }
+                ]
+            },
+            { 
+                density: 'xxhdpi',
+                icons: [
+                    { name: 'ic_launcher.png', size: 144, path: 'mipmap-xxhdpi/' },
+                    { name: 'ic_launcher_foreground.png', size: 324, path: 'mipmap-xxhdpi/' },
+                    { name: 'ic_launcher_round.png', size: 144, path: 'mipmap-xxhdpi/' }
+                ]
+            },
+            { 
+                density: 'xxxhdpi',
+                icons: [
+                    { name: 'ic_launcher.png', size: 192, path: 'mipmap-xxxhdpi/' },
+                    { name: 'ic_launcher_foreground.png', size: 432, path: 'mipmap-xxxhdpi/' },
+                    { name: 'ic_launcher_round.png', size: 192, path: 'mipmap-xxxhdpi/' }
+                ]
+            }
+        ];
+
+        let generatedImages = {};
+
+        function svgToCanvas(svgString, size, isRound = false, isForeground = false) {
+            return new Promise((resolve, reject) => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = size;
+                canvas.height = size;
+
+                const img = new Image();
+                img.onload = function() {
+                    if (isForeground) {
+                        // Foreground için merkeze yerleştir, kenarları boş bırak
+                        const iconSize = size * 0.6; // %60'ı icon, %40'ı padding
+                        const offset = (size - iconSize) / 2;
+                        ctx.drawImage(img, offset, offset, iconSize, iconSize);
+                    } else if (isRound) {
+                        // Round icon için circular mask
+                        ctx.beginPath();
+                        ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+                        ctx.clip();
+                        ctx.drawImage(img, 0, 0, size, size);
+                    } else {
+                        // Normal icon
+                        ctx.drawImage(img, 0, 0, size, size);
+                    }
+                    resolve(canvas);
+                };
+                img.onerror = reject;
+
+                const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(svgBlob);
+                img.src = url;
+            });
+        }
+
+        async function generateIcon(densityConfig) {
+            try {
+                for (const iconConfig of densityConfig.icons) {
+                    const isRound = iconConfig.name.includes('round');
+                    const isForeground = iconConfig.name.includes('foreground');
+                    
+                    const canvas = await svgToCanvas(svgData, iconConfig.size, isRound, isForeground);
+                    canvas.toBlob((blob) => {
+                        const fullName = `${iconConfig.path}${iconConfig.name}`;
+                        generatedImages[fullName] = blob;
+                        displayIcon(canvas, densityConfig, iconConfig);
+                    }, 'image/png', 1.0);
+                }
+            } catch (error) {
+                console.error('Android icon oluşturma hatası:', error);
+            }
+        }
+
+        function displayIcon(canvas, densityConfig, iconConfig) {
+            const preview = document.getElementById('preview');
+            
+            // Density section oluştur veya bul
+            let densitySection = document.getElementById(`density-${densityConfig.density}`);
+            if (!densitySection) {
+                densitySection = document.createElement('div');
+                densitySection.id = `density-${densityConfig.density}`;
+                densitySection.className = 'density-section';
+                densitySection.innerHTML = `<h3>📱 ${densityConfig.density.toUpperCase()}</h3><div class="density-icons"></div>`;
+                preview.appendChild(densitySection);
+            }
+            
+            const iconsContainer = densitySection.querySelector('.density-icons');
+            const group = document.createElement('div');
+            group.className = 'size-group';
+            
+            const displaySize = Math.min(iconConfig.size, 96); // Max display size
+            const fullName = `${iconConfig.path}${iconConfig.name}`;
+            
+            group.innerHTML = `
+                <h5>${iconConfig.name}</h5>
+                <p>${iconConfig.size}x${iconConfig.size}px</p>
+                <canvas width="${displaySize}" height="${displaySize}"></canvas>
+                <br>
+                <button onclick="downloadIcon('${fullName}')">💾 İndir</button>
+                <small style="display:block;margin-top:5px;color:#666;">
+                    ${iconConfig.path}
+                </small>
+            `;
+            
+            const displayCanvas = group.querySelector('canvas');
+            const ctx = displayCanvas.getContext('2d');
+            ctx.drawImage(canvas, 0, 0, displaySize, displaySize);
+            
+            iconsContainer.appendChild(group);
+        }
+
+        function downloadIcon(filename) {
+            const blob = generatedImages[filename];
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename.split('/').pop(); // Sadece dosya adı
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        async function generateAllIcons() {
+            document.getElementById('preview').innerHTML = '';
+            generatedImages = {};
+            
+            for (const densityConfig of androidIconSizes) {
+                await generateIcon(densityConfig);
+            }
+            
+            // Kullanım talimatları ekle
+            const preview = document.getElementById('preview');
+            const instructions = document.createElement('div');
+            instructions.className = 'density-section';
+            instructions.innerHTML = `
+                <h3>📋 Kurulum Talimatları</h3>
+                <div style="text-align: left; padding: 10px;">
+                    <h4>1. İcon Yerleşimi:</h4>
+                    <p>İndirdiğiniz icon'ları şu dizin yapısına göre yerleştirin:</p>
+                    <pre style="background: #f8f9fa; padding: 10px; border-radius: 5px; font-size: 12px;">
+android/app/src/main/res/
+├── mipmap-mdpi/
+│   ├── ic_launcher.png (48x48)
+│   ├── ic_launcher_foreground.png (108x108)  
+│   └── ic_launcher_round.png (48x48)
+├── mipmap-hdpi/
+│   ├── ic_launcher.png (72x72)
+│   ├── ic_launcher_foreground.png (162x162)
+│   └── ic_launcher_round.png (72x72)
+├── mipmap-xhdpi/
+│   ├── ic_launcher.png (96x96)
+│   ├── ic_launcher_foreground.png (216x216)
+│   └── ic_launcher_round.png (96x96)
+├── mipmap-xxhdpi/
+│   ├── ic_launcher.png (144x144)
+│   ├── ic_launcher_foreground.png (324x324)
+│   └── ic_launcher_round.png (144x144)
+└── mipmap-xxxhdpi/
+    ├── ic_launcher.png (192x192)
+    ├── ic_launcher_foreground.png (432x432)
+    └── ic_launcher_round.png (192x192)
+                    </pre>
+
+                    <h4>2. Capacitor Senkronizasyonu:</h4>
+                    <pre style="background: #f8f9fa; padding: 10px; border-radius: 5px;">
+npm run build
+npx cap sync android
+npx cap open android
+                    </pre>
+
+                    <h4>3. Adaptive İcon XML (Zaten Mevcut):</h4>
+                    <p><code>mipmap-anydpi-v26/</code> klasöründeki XML dosyaları adaptive icon için gerekli.</p>
+                    
+                    <h4>4. Doğrulama:</h4>
+                    <p>• Android Studio'da projeyi açın<br>
+                    • Emülatör veya gerçek cihazda test edin<br>
+                    • App drawer'da ve ana ekranda icon'u kontrol edin</p>
+                </div>
+            `;
+            preview.appendChild(instructions);
+        }
+
+        function downloadAll() {
+            Object.keys(generatedImages).forEach(filename => {
+                downloadIcon(filename);
+            });
+        }
+    </script>
+</body>
+</html>

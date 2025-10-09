@@ -82,11 +82,18 @@ function createWindow() {
       spellcheck: false,
       backgroundThrottling: false,
       sandbox: true,
-      devTools: false,
+      devTools: isDev, // Development'ta aç, production'da kapat
     },
-    title: 'Sesli Günlük Planlayıcı',
+    title: 'EchoDay - Sesli Günlük Planlayıcı',
     backgroundColor: '#1a1a1a',
     autoHideMenuBar: true,
+    icon: path.join(__dirname, '../build/icon.png'), // App icon for Linux/fallback
+    ...(process.platform === 'win32' && {
+      icon: path.join(__dirname, '../build/icon.ico') // Windows icon
+    }),
+    ...(process.platform === 'darwin' && {
+      icon: path.join(__dirname, '../build/icon.icns') // macOS icon  
+    }),
   });
 
   // Load the app
@@ -95,10 +102,11 @@ function createWindow() {
     console.log('Loading from localhost:5174');
     mainWindow.loadURL('http://localhost:5174').then(() => {
       console.log('Loaded successfully');
+      // DevTools'u development modunda bile açma
+      // mainWindow.webContents.openDevTools();
     }).catch(err => {
       console.error('Failed to load:', err);
     });
-    // DevTools disabled intentionally
   } else {
     // Production: Load from packaged dist folder
     const indexPath = path.join(__dirname, '../dist/index.html');

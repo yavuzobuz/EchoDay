@@ -18,3 +18,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1t1EJT-SiRgF_Vz7s4scueG
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Documentation
+
+- Mail Ekleme Rehberi (TR): server/docs/mail-ekleme-rehberi.md

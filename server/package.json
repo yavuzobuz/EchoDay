@@ -1,0 +1,18 @@
+{
+  "name": "mail-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "mail-server.cjs",
+  "scripts": {
+    "start": "node mail-server.cjs"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2",
+    "imapflow": "^1.0.141",
+    "mailparser": "^3.7.4",
+    "poplib": "^0.1.7"
+  }
+}

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognitionUnified';
 import { MobileModal, ModalActions } from './MobileModal';
+import { getCurrentCoords } from '../services/locationService';
+import type { GeoReminder } from '../types';
 
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddTask: (description: string) => void;
+  onAddTask: (description: string, imageBase64?: string, imageMimeType?: string, extra?: { locationReminder?: GeoReminder }) => void;
 }
 
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => {
@@ -13,6 +15,12 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   const [isElectron] = useState(() => {
     return !!(window as any).isElectron || !!(window as any).electronAPI;
   });
+
+  // Geo reminder state (optional)
+  const [useGeoReminder, setUseGeoReminder] = useState(false);
+  const [geoCoords, setGeoCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoRadius, setGeoRadius] = useState<number>(200);
+  const [geoTrigger, setGeoTrigger] = useState<'near' | 'enter' | 'exit'>('near');
 
   const handleTranscript = (transcript: string) => {
     setDescription(transcript);
@@ -40,10 +48,17 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   }, [isOpen]);
 
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (description.trim()) {
-      onAddTask(description.trim());
+      const extra = (useGeoReminder && geoCoords) ? { locationReminder: {
+        lat: geoCoords.lat,
+        lng: geoCoords.lng,
+        radius: geoRadius,
+        trigger: geoTrigger,
+        enabled: true as const,
+      }} : undefined;
+      onAddTask(description.trim(), undefined, undefined, extra);
       setDescription('');
       onClose();
     }
@@ -86,6 +101,46 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
               </p>
             </div>
           )}
+
+          {/* Geo Reminder Section */}
+          <div className="mt-4 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={useGeoReminder} onChange={(e) => setUseGeoReminder(e.target.checked)} />
+              <span className="text-sm font-medium">Konum tabanlı hatırlatıcı ekle</span>
+            </label>
+
+            {useGeoReminder && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const coords = await getCurrentCoords();
+                      if (coords) setGeoCoords(coords);
+                    }}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                  >
+                    Şu anki konumumu kullan
+                  </button>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    {geoCoords ? `Lat: ${geoCoords.lat.toFixed(5)}, Lng: ${geoCoords.lng.toFixed(5)}` : 'Konum alınmadı'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs mb-1 text-gray-600 dark:text-gray-300">Yarıçap (m)</label>
+                  <input type="number" min={50} step={50} value={geoRadius} onChange={(e) => setGeoRadius(parseInt(e.target.value || '200', 10))} className="w-full p-2 rounded-md bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs mb-1 text-gray-600 dark:text-gray-300">Tetik</label>
+                  <select value={geoTrigger} onChange={(e) => setGeoTrigger(e.target.value as any)} className="w-full p-2 rounded-md bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-sm">
+                    <option value="near">Yakındayken</option>
+                    <option value="enter">Bölgeye girince</option>
+                    <option value="exit">Bölgeden çıkınca</option>
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <ModalActions className="mt-6">

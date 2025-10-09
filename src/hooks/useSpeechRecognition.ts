@@ -1,225 +1,269 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { SpeechRecognition } from '@capacitor-community/speech-recognition';
-import type { PluginListenerHandle } from '@capacitor/core';
+
+interface SpeechRecognition {
+  new (): SpeechRecognition;
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: (event: any) => void;
+  onerror: (event: any) => void;
+  onend: () => void;
+  start: () => void;
+  stop: () => void;
+}
+
+const SpeechRecognition =
+  (window as any).SpeechRecognition || 
+  (window as any).webkitSpeechRecognition ||
+  (window as any).mozSpeechRecognition ||
+  (window as any).msSpeechRecognition;
 
 export const useSpeechRecognition = (
   onTranscriptReady: (transcript: string) => void,
-  options?: { stopOnKeywords?: boolean | string[]; continuous?: boolean; }
+  options?: { 
+    stopOnKeywords?: boolean | string[]; 
+    stopOnSilence?: boolean; 
+    continuous?: boolean;
+    realTimeMode?: boolean;
+    onUserSpeaking?: (isSpeaking: boolean) => void;
+  }
 ) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const partialListenerRef = useRef<PluginListenerHandle | null>(null);
-  const finalTranscriptRef = useRef('');
+  const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const transcriptReadyCalledRef = useRef(false);
+  const silenceTimerRef = useRef<number | null>(null);
+  const cleanedTranscriptRef = useRef<string | null>(null);
+  const realTimeModeRef = useRef(false);
+  const restartTimerRef = useRef<number | null>(null);
+  const lastTranscriptRef = useRef('');
+  const speakingDetectionTimerRef = useRef<number | null>(null);
 
   const onTranscriptReadyRef = useRef(onTranscriptReady);
   useEffect(() => {
     onTranscriptReadyRef.current = onTranscriptReady;
   }, [onTranscriptReady]);
-
-  const [hasSupport, setHasSupport] = useState(false);
-  const [webRecognition, setWebRecognition] = useState<any>(null);
   
+  const finalTranscriptRef = useRef('');
   useEffect(() => {
-    // Önce Web Speech API kontrolü yap
-    const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
-    if (SpeechRecognitionAPI) {
-      // Web'de çalışıyoruz ve Web Speech API mevcut
-      const recognition = new SpeechRecognitionAPI();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'tr-TR';
-      setWebRecognition(recognition);
-      setHasSupport(true);
-      console.log('Web Speech API kullanılıyor');
-    } else {
-      // Web Speech API yok, Capacitor'ü dene
-      SpeechRecognition.available()
-        .then(result => {
-          setHasSupport(result.available);
-          if (result.available) {
-            console.log('Capacitor Speech Recognition kullanılıyor');
-          }
-        })
-        .catch(() => {
-          console.log('Speech Recognition web\'de kullanılamıyor - bu beklenen bir durumdur');
-          setHasSupport(false);
-        });
-    }
-  }, []);
+    finalTranscriptRef.current = transcript;
+  }, [transcript]);
 
-  const stopListening = useCallback(async () => {
-    // Web Speech API için
-    if (webRecognition && isListening) {
-      webRecognition.stop();
-      setIsListening(false);
-      
-      if (finalTranscriptRef.current.trim()) {
-        onTranscriptReadyRef.current(finalTranscriptRef.current.trim());
-      }
-      
-      setTranscript('');
-      finalTranscriptRef.current = '';
+  useEffect(() => {
+    if (!SpeechRecognition) {
+      console.error('Speech Recognition API not supported in this browser.');
       return;
     }
     
-    // Capacitor için
-    if (partialListenerRef.current) {
-      partialListenerRef.current.remove();
-      partialListenerRef.current = null;
-    }
-    await SpeechRecognition.stop();
-    setIsListening(false);
-    
-    // Send the final transcript
-    if (finalTranscriptRef.current.trim()) {
-       onTranscriptReadyRef.current(finalTranscriptRef.current.trim());
-    }
-
-    setTranscript('');
-    finalTranscriptRef.current = '';
-  }, [webRecognition, isListening]);
-
-  const startListening = useCallback(async () => {
-    if (isListening || !hasSupport) return;
-
-    // Web Speech API varsa onu kullan
-    if (webRecognition) {
-      setIsListening(true);
-      setTranscript('');
-      finalTranscriptRef.current = '';
-
-      const stopWordsOption = options?.stopOnKeywords;
-      const useStopWords = stopWordsOption !== false;
-
-      webRecognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        let finalTranscript = '';
-
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const result = event.results[i];
-          if (result.isFinal) {
-            finalTranscript += result[0].transcript;
-          } else {
-            interimTranscript += result[0].transcript;
-          }
-        }
-
-        const currentTranscript = finalTranscript + interimTranscript;
-        setTranscript(currentTranscript);
-        finalTranscriptRef.current = currentTranscript;
-
-        // Stop words kontrolü
-        if (useStopWords && currentTranscript) {
-          const lowerCaseTranscript = currentTranscript.toLowerCase().trim();
-          let stopWords = ['tamam', 'bitti', 'ok'];
-          if (Array.isArray(stopWordsOption)) {
-            stopWords = stopWordsOption;
-          }
-
-          const sortedStopWords = [...stopWords].sort((a, b) => b.length - a.length);
-          const stopWordTriggered = sortedStopWords.find(word => 
-            lowerCaseTranscript.endsWith(word.toLowerCase())
-          );
-
-          if (stopWordTriggered) {
-            const commandEndIndex = lowerCaseTranscript.lastIndexOf(stopWordTriggered.toLowerCase());
-            const command = currentTranscript.substring(0, commandEndIndex).trim();
-            finalTranscriptRef.current = command;
-            stopListening();
-          }
-        }
-      };
-
-      webRecognition.onerror = (event: any) => {
-        console.error('Web Speech error:', event.error);
-        if (event.error === 'not-allowed') {
-          alert('Mikrofon erişimi reddedildi. Lütfen tarayıcı ayarlarından mikrofon iznini verin.');
-        }
-        setIsListening(false);
-      };
-
-      webRecognition.onend = () => {
-        if (isListening && options?.continuous) {
-          webRecognition.start();
-        } else {
-          setIsListening(false);
-        }
-      };
-
-      try {
-        await webRecognition.start();
-      } catch (error) {
-        console.error('Web Speech start error:', error);
-        setIsListening(false);
-      }
-      return;
-    }
-
-    // Request permissions first
-    const permission = await SpeechRecognition.checkPermissions();
-    if (permission.speechRecognition !== 'granted') {
-      const permissionResult = await SpeechRecognition.requestPermissions();
-      if (permissionResult.speechRecognition !== 'granted') {
-          console.error("User denied speech recognition permission.");
-          return;
-      }
-    }
-    
-    setIsListening(true);
-    setTranscript('');
-    finalTranscriptRef.current = '';
-
+    const rec = new SpeechRecognition();
+    recognitionRef.current = rec;
     const stopWordsOption = options?.stopOnKeywords;
     const useStopWords = stopWordsOption !== false;
+    const continuous = options?.continuous ?? true; // Default to continuous for backward compatibility
+    const stopOnSilence = options?.stopOnSilence ?? false;
+    const isRealTimeMode = options?.realTimeMode ?? false;
+    realTimeModeRef.current = isRealTimeMode;
 
-    partialListenerRef.current = await SpeechRecognition.addListener('partialResults', (data) => {
-      const currentTranscript = data.matches.join(' ');
+    rec.continuous = continuous; 
+    rec.interimResults = continuous; // Tie interim results to continuous mode for simplicity
+    rec.lang = 'tr-TR';
+
+    rec.onresult = (event: any) => {
+      const currentTranscript = Array.from(event.results)
+        .map((result: any) => result[0])
+        .map((result) => result.transcript)
+        .join('');
+      
       setTranscript(currentTranscript);
-      finalTranscriptRef.current = currentTranscript; // Always update the final transcript
+      lastTranscriptRef.current = currentTranscript;
 
-      if (useStopWords) {
+      // Detect if user is actively speaking
+      const hasNewContent = currentTranscript.length > 0;
+      if (hasNewContent && !isUserSpeaking) {
+        setIsUserSpeaking(true);
+        options?.onUserSpeaking?.(true);
+      }
+
+      // Clear previous speaking detection timer
+      if (speakingDetectionTimerRef.current) {
+        clearTimeout(speakingDetectionTimerRef.current);
+      }
+
+      // Set timer to detect when user stops speaking
+      speakingDetectionTimerRef.current = window.setTimeout(() => {
+        setIsUserSpeaking(false);
+        options?.onUserSpeaking?.(false);
+      }, 1000);
+
+      // Only use custom silence detection if in continuous mode and not in real-time mode
+      if (stopOnSilence && continuous && !isRealTimeMode) {
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+        }
+        silenceTimerRef.current = window.setTimeout(() => {
+          if (recognitionRef.current) {
+            recognitionRef.current.stop();
+          }
+        }, 1200);
+      }
+
+      // In real-time mode, automatically process transcripts
+      if (isRealTimeMode && hasNewContent) {
+        // Check for immediate stop commands
+        const lowerTranscript = currentTranscript.toLowerCase().trim();
+        const stopCommands = ['sus', 'dur', 'stop', 'kapat', 'sustun', 'yeter'];
+        const hasStopCommand = stopCommands.some(cmd => lowerTranscript.endsWith(cmd));
+        
+        if (hasStopCommand) {
+          // Process stop commands immediately
+          if (!transcriptReadyCalledRef.current) {
+            transcriptReadyCalledRef.current = true;
+            onTranscriptReadyRef.current(currentTranscript.trim());
+          }
+          return;
+        }
+        
+        // Clear previous restart timer
+        if (restartTimerRef.current) {
+          clearTimeout(restartTimerRef.current);
+        }
+
+        // Set timer to process transcript after brief pause
+        restartTimerRef.current = window.setTimeout(() => {
+          if (currentTranscript.trim() && !transcriptReadyCalledRef.current) {
+            transcriptReadyCalledRef.current = true;
+            onTranscriptReadyRef.current(currentTranscript.trim());
+          }
+        }, 1500); // Wait 1.5 seconds after last detected speech
+      }
+
+      if (useStopWords && !isRealTimeMode) {
         const lowerCaseTranscript = currentTranscript.toLowerCase().trim();
+        
         let stopWords = ['tamam', 'bitti', 'ok'];
         if (Array.isArray(stopWordsOption)) {
             stopWords = stopWordsOption;
         }
-
+        
         const sortedStopWords = [...stopWords].sort((a, b) => b.length - a.length);
         const stopWordTriggered = sortedStopWords.find(word => lowerCaseTranscript.endsWith(word.toLowerCase()));
 
         if (stopWordTriggered) {
           const commandEndIndex = lowerCaseTranscript.lastIndexOf(stopWordTriggered.toLowerCase());
           const command = currentTranscript.substring(0, commandEndIndex).trim();
-          finalTranscriptRef.current = command; // Update final transcript before stopping
-          stopListening();
+          cleanedTranscriptRef.current = command;
+          rec.stop();
         }
       }
-    });
+    };
 
-    // Note: 'endOfSpeech' event is not supported in the current version
-    // Speech recognition will be manually stopped or stopped by keywords
-
-    try {
-        await SpeechRecognition.start({
-          language: 'tr-TR',
-          partialResults: true,
-          popup: false, // Use the app's UI instead of native popup
-        });
-    } catch (e) {
-        console.error("Error starting speech recognition:", e);
-        setIsListening(false);
-    }
-
-  }, [isListening, hasSupport, options, stopListening, webRecognition]);
-  
-  const checkAndRequestPermission = useCallback(async () => {
-      if(!hasSupport) return;
-      const permission = await SpeechRecognition.checkPermissions();
-      if (permission.speechRecognition !== 'granted') {
-          await SpeechRecognition.requestPermissions();
+    rec.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      if (event.error === 'network') {
+        console.error('Network error in speech recognition. This might be due to offline status or security restrictions.');
+        // Try to restart in case of network error in Electron
+        if ((window as any).electronAPI) {
+          console.log('Electron app detected - attempting workaround for network error');
+          setTimeout(() => {
+            if (!isListening && recognitionRef.current) {
+              try {
+                recognitionRef.current.start();
+                setIsListening(true);
+              } catch (e) {
+                console.error('Failed to restart speech recognition:', e);
+                setIsListening(false);
+              }
+            }
+          }, 1000);
+        }
       }
-  }, [hasSupport]);
+      setIsListening(false);
+    };
 
-  return { isListening, transcript, startListening, stopListening, hasSupport, checkAndRequestPermission };
+    rec.onend = () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      if (restartTimerRef.current) {
+        clearTimeout(restartTimerRef.current);
+        restartTimerRef.current = null;
+      }
+      
+      // CRITICAL FIX: Set listening to false *before* processing the transcript.
+      setIsListening(false);
+
+      const transcriptToSend = cleanedTranscriptRef.current ?? finalTranscriptRef.current;
+      
+      if (!transcriptReadyCalledRef.current && transcriptToSend.trim()) {
+         transcriptReadyCalledRef.current = true;
+         onTranscriptReadyRef.current(transcriptToSend.trim());
+      }
+
+      // Auto-restart in real-time mode
+      if (realTimeModeRef.current) {
+        setTimeout(() => {
+          if (realTimeModeRef.current && recognitionRef.current) {
+            try {
+              transcriptReadyCalledRef.current = false;
+              cleanedTranscriptRef.current = null;
+              setTranscript('');
+              recognitionRef.current.start();
+              setIsListening(true);
+            } catch (e) {
+              console.error('Auto-restart failed:', e);
+            }
+          }
+        }, 1000);
+      }
+
+      // Reset for the next session
+      cleanedTranscriptRef.current = null;
+    };
+
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+      if (restartTimerRef.current) {
+        clearTimeout(restartTimerRef.current);
+      }
+      if (speakingDetectionTimerRef.current) {
+        clearTimeout(speakingDetectionTimerRef.current);
+      }
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.onend = null;
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, [options]);
+
+  const startListening = useCallback(() => {
+    if (recognitionRef.current && !isListening) {
+      transcriptReadyCalledRef.current = false;
+      cleanedTranscriptRef.current = null;
+      setTranscript('');
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  }, [isListening]);
+
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current && isListening) {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+      recognitionRef.current.stop();
+      // Immediately update UI state for better responsiveness and to prevent getting stuck
+      setIsListening(false);
+    }
+  }, [isListening]);
+  
+  const hasSupport = !!SpeechRecognition;
+
+  return { isListening, transcript, startListening, stopListening, hasSupport, isUserSpeaking };
 };

@@ -13,9 +13,10 @@ dependencies {
     implementation project(':capacitor-clipboard')
     implementation project(':capacitor-geolocation')
     implementation project(':capacitor-haptics')
+    implementation project(':capacitor-local-notifications')
     implementation project(':capacitor-splash-screen')
     implementation project(':capacitor-status-bar')
-
+    implementation "com.google.android.gms:play-services-location:+"
 }
 
 

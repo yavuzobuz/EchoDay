@@ -1,0 +1,61 @@
+Error: Command failed
+    at ImapFlow.reader (C:\Users\yavuz\projects\EchoDay\server\node_modules\imapflow\lib\imap-flow.js:679:35)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  response: '3 NO [ALERT] Application-specific password required: https://support.google.com/accounts/answer/185833 (Failure)',
+  responseStatus: 'NO',
+  executedCommand: '3 AUTHENTICATE PLAIN',
+  responseText: 'Application-specific password required: https://support.google.com/accounts/answer/185833 (Failure)',
+  serverResponseCode: 'ALERT',
+  authenticationFailed: true
+}
+Error: Command failed
+    at ImapFlow.reader (C:\Users\yavuz\projects\EchoDay\server\node_modules\imapflow\lib\imap-flow.js:679:35)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  response: '3 NO [ALERT] Application-specific password required: https://support.google.com/accounts/answer/185833 (Failure)',
+  responseStatus: 'NO',
+  executedCommand: '3 AUTHENTICATE PLAIN',
+  responseText: 'Application-specific password required: https://support.google.com/accounts/answer/185833 (Failure)',
+  serverResponseCode: 'ALERT',
+  authenticationFailed: true
+}
+Error: Command failed
+    at ImapFlow.reader (C:\Users\yavuz\projects\EchoDay\server\node_modules\imapflow\lib\imap-flow.js:679:35)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  response: '3 NO [ALERT] Application-specific password required: https://support.google.com/accounts/answer/185833 (Failure)',
+  responseStatus: 'NO',
+  executedCommand: '3 AUTHENTICATE PLAIN',
+  responseText: 'Application-specific password required: https://support.google.com/accounts/answer/185833 (Failure)',
+  serverResponseCode: 'ALERT',
+  authenticationFailed: true
+}
+Error: Command failed
+    at ImapFlow.reader (C:\Users\yavuz\projects\EchoDay\server\node_modules\imapflow\lib\imap-flow.js:679:35)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5) {
+  response: '3 NO [ALERT] Application-specific password required: https://support.google.com/accounts/answer/185833 (Failure)',
+  responseStatus: 'NO',
+  executedCommand: '3 AUTHENTICATE PLAIN',
+  responseText: 'Application-specific password required: https://support.google.com/accounts/answer/185833 (Failure)',
+  serverResponseCode: 'ALERT',
+  authenticationFailed: true
+}
+node:events:496
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: Socket timeout
+    at TLSSocket._socketTimeout (C:\Users\yavuz\projects\EchoDay\server\node_modules\imapflow\lib\imap-flow.js:795:29)
+    at TLSSocket.emit (node:events:518:28)
+    at Socket._onTimeout (node:net:609:8)
+    at listOnTimeout (node:internal/timers:594:17)
+    at process.processTimers (node:internal/timers:529:7)
+Emitted 'error' event on ImapFlow instance at:
+    at ImapFlow.emitError (C:\Users\yavuz\projects\EchoDay\server\node_modules\imapflow\lib\imap-flow.js:397:14)
+    at TLSSocket._socketTimeout (C:\Users\yavuz\projects\EchoDay\server\node_modules\imapflow\lib\imap-flow.js:810:26)
+    at TLSSocket.emit (node:events:518:28)
+    [... lines matching original stack trace ...]
+    at process.processTimers (node:internal/timers:529:7) {
+  code: 'ETIMEOUT',
+  _connId: 'u47y21s3yxy6irnsjqgh'
+}
+
+Node.js v22.14.0
