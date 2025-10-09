@@ -1,23 +1,23 @@
-<svg viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 320 120" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="primaryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
-      <stop offset="50%" style="stop-color:#ec4899;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    <!-- App's actual color palette -->
+    <linearGradient id="sunGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
     </linearGradient>
     
-    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#3b82f6;stop-opacity:1" />
+    <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16a34a;stop-opacity:1" />
     </linearGradient>
     
-    <linearGradient id="sunGlow" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
-      <stop offset="100%" style="stop-color:#f97316;stop-opacity:1" />
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#2563eb;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#16a34a;stop-opacity:1" />
     </linearGradient>
     
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
       <feMerge>
         <feMergeNode in="coloredBlur"/>
         <feMergeNode in="SourceGraphic"/>
@@ -25,79 +25,50 @@
     </filter>
   </defs>
   
-  <!-- Background circle with subtle glow -->
-  <circle cx="200" cy="200" r="180" fill="url(#primaryGrad)" opacity="0.05"/>
-  <circle cx="200" cy="200" r="150" fill="url(#primaryGrad)" opacity="0.03"/>
-  
-  <!-- Main icon container -->
-  <g transform="translate(200, 180)">
+  <!-- Icon container -->
+  <g transform="translate(40, 60)">
     
-    <!-- Sun/Day symbol with glow effect -->
-    <circle cx="0" cy="0" r="45" fill="url(#sunGlow)" filter="url(#glow)" opacity="0.3"/>
-    <circle cx="0" cy="0" r="40" fill="url(#sunGlow)"/>
+    <!-- Central sun/day symbol -->
+    <circle cx="0" cy="0" r="22" fill="url(#sunGradient)" filter="url(#glow)" opacity="0.2"/>
+    <circle cx="0" cy="0" r="18" fill="url(#sunGradient)"/>
     
-    <!-- Inner sun detail -->
-    <circle cx="0" cy="0" r="32" fill="#fef3c7" opacity="0.4"/>
+    <!-- Inner light -->
+    <circle cx="0" cy="0" r="14" fill="#dbeafe" opacity="0.6"/>
+    <circle cx="0" cy="0" r="8" fill="#ffffff" opacity="0.8"/>
     
-    <!-- Sun rays (more elegant) -->
-    <g stroke="url(#sunGlow)" stroke-width="4" stroke-linecap="round">
-      <line x1="0" y1="-55" x2="0" y2="-70" />
-      <line x1="39" y1="-39" x2="49" y2="-49" />
-      <line x1="55" y1="0" x2="70" y2="0" />
-      <line x1="39" y1="39" x2="49" y2="49" />
-      <line x1="0" y1="55" x2="0" y2="70" />
-      <line x1="-39" y1="39" x2="-49" y2="49" />
-      <line x1="-55" y1="0" x2="-70" y2="0" />
-      <line x1="-39" y1="-39" x2="-49" y2="-49" />
-    </g>
+    <!-- Sound waves emanating from the sun -->
+    <!-- First wave arc -->
+    <path d="M -30,-10 Q -25,-20 -20,-10 Q -10,-5 0,-10 Q 10,-5 20,-10 Q 25,-20 30,-10" 
+          stroke="url(#waveGradient)" stroke-width="3" fill="none" 
+          stroke-linecap="round" stroke-linejoin="round" opacity="1"/>
     
-    <!-- Small ray accents -->
-    <g stroke="url(#sunGlow)" stroke-width="3" stroke-linecap="round" opacity="0.5">
-      <line x1="27" y1="-50" x2="32" y2="-58" transform="rotate(22.5)"/>
-      <line x1="50" y1="-27" x2="58" y2="-32" transform="rotate(22.5)"/>
-      <line x1="50" y1="27" x2="58" y2="32" transform="rotate(22.5)"/>
-      <line x1="27" y1="50" x2="32" y2="58" transform="rotate(22.5)"/>
-    </g>
+    <!-- Second wave arc -->
+    <path d="M -32,8 Q -28,-2 -24,8 Q -12,12 0,8 Q 12,12 24,8 Q 28,-2 32,8" 
+          stroke="url(#waveGradient)" stroke-width="2.5" fill="none" 
+          stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+    
+    <!-- Third wave arc -->
+    <path d="M -28,22 Q -25,15 -22,22 Q -15,25 0,22 Q 15,25 22,22 Q 25,15 28,22" 
+          stroke="url(#waveGradient)" stroke-width="2" fill="none" 
+          stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+    
+    <!-- Small AI sparkle -->
+    <circle cx="15" cy="-15" r="2" fill="#f59e0b" opacity="0.8"/>
+    <path d="M15,-19 L15,-11 M11,-15 L19,-15" stroke="#fbbf24" stroke-width="0.8" stroke-linecap="round"/>
   </g>
   
-  <!-- Echo/Sound waves (more dynamic) -->
-  <g transform="translate(200, 280)">
-    <!-- First wave -->
-    <path d="M -80,0 Q -60,-20 -40,0 T 0,0 T 40,0 T 80,0" 
-          stroke="url(#waveGrad)" stroke-width="5" fill="none" 
-          stroke-linecap="round" stroke-linejoin="round"/>
-    
-    <!-- Second wave -->
-    <path d="M -70,18 Q -50,-2 -30,18 T 10,18 T 50,18 T 70,18" 
-          stroke="url(#waveGrad)" stroke-width="4" fill="none" 
-          opacity="0.7" stroke-linecap="round" stroke-linejoin="round"/>
-    
-    <!-- Third wave -->
-    <path d="M -60,32 Q -45,17 -30,32 T 0,32 T 30,32 T 60,32" 
-          stroke="url(#waveGrad)" stroke-width="3" fill="none" 
-          opacity="0.4" stroke-linecap="round" stroke-linejoin="round"/>
-    
-    <!-- Sound particles/dots -->
-    <circle cx="-90" cy="8" r="3" fill="url(#waveGrad)" opacity="0.6"/>
-    <circle cx="90" cy="8" r="3" fill="url(#waveGrad)" opacity="0.6"/>
-    <circle cx="-75" cy="25" r="2.5" fill="url(#waveGrad)" opacity="0.4"/>
-    <circle cx="75" cy="25" r="2.5" fill="url(#waveGrad)" opacity="0.4"/>
-  </g>
+  <!-- App name -->
+  <text x="85" y="45" font-family="'Segoe UI', system-ui, -apple-system, sans-serif" 
+        font-size="28" font-weight="700" fill="url(#textGradient)"
+        letter-spacing="-0.5px">Echo<tspan fill="#16a34a">Day</tspan></text>
   
-  <!-- Microphone accent (subtle) -->
-  <g transform="translate(145, 155)" opacity="0.3">
-    <circle cx="0" cy="0" r="4" fill="url(#primaryGrad)"/>
-    <line x1="-3" y1="-3" x2="3" y2="3" stroke="url(#primaryGrad)" stroke-width="1.5"/>
-    <line x1="3" y1="-3" x2="-3" y2="3" stroke="url(#primaryGrad)" stroke-width="1.5"/>
-  </g>
+  <!-- Subtitle -->
+  <text x="85" y="65" font-family="'Segoe UI', system-ui, sans-serif" 
+        font-size="11" font-weight="400" fill="#64748b"
+        letter-spacing="1px" opacity="0.8">Sesli Günlük Planlayıcı</text>
   
-  <!-- Text -->
-  <text x="200" y="365" font-family="'Segoe UI', Arial, sans-serif" font-size="38" 
-        font-weight="700" fill="url(#primaryGrad)" text-anchor="middle" 
-        letter-spacing="1">EchoDay</text>
-  
-  <!-- Tagline (optional) -->
-  <text x="200" y="385" font-family="'Segoe UI', Arial, sans-serif" font-size="12" 
-        font-weight="400" fill="#64748b" text-anchor="middle" 
-        letter-spacing="2">YOUR VOICE, YOUR DAY</text>
+  <!-- Small decorative elements -->
+  <circle cx="290" cy="25" r="1.5" fill="#22c55e" opacity="0.6"/>
+  <circle cx="300" cy="35" r="1" fill="#3b82f6" opacity="0.4"/>
+  <circle cx="285" cy="45" r="1.2" fill="#f59e0b" opacity="0.5"/>
 </svg>

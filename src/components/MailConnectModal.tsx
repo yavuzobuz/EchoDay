@@ -9,6 +9,9 @@ function ManualImapForm({ onSuccess }: { onSuccess: () => void }) {
   const [secure, setSecure] = React.useState(true);
   const [user, setUser] = React.useState('');
   const [pass, setPass] = React.useState('');
+  const [smtpHost, setSmtpHost] = React.useState('smtp.yandex.com');
+  const [smtpPort, setSmtpPort] = React.useState(587);
+  const [smtpSecure, setSmtpSecure] = React.useState(false);
   const [testing, setTesting] = React.useState(false);
   const [error, setError] = React.useState<string|null>(null);
   const [ok, setOk] = React.useState(false);
@@ -45,7 +48,20 @@ function ManualImapForm({ onSuccess }: { onSuccess: () => void }) {
   const handleSave = () => {
     const key = 'customMailAccounts';
     const list = JSON.parse(localStorage.getItem(key) || '[]');
-    list.unshift({ id: crypto.randomUUID(), provider: 'custom', protocol, host, port, secure, user, pass, createdAt: new Date().toISOString() });
+    list.unshift({ 
+      id: crypto.randomUUID(), 
+      provider: 'custom', 
+      protocol, 
+      host, 
+      port, 
+      secure, 
+      user, 
+      pass, 
+      smtpHost, 
+      smtpPort, 
+      smtpSecure,
+      createdAt: new Date().toISOString() 
+    });
     localStorage.setItem(key, JSON.stringify(list));
     onSuccess();
   };
@@ -79,6 +95,26 @@ function ManualImapForm({ onSuccess }: { onSuccess: () => void }) {
           <input type="password" className="w-full p-2 rounded border dark:bg-gray-700" value={pass} onChange={e=>setPass(e.target.value)} />
         </div>
       </div>
+      
+      {/* SMTP Settings */}
+      <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+        <h4 className="font-semibold text-sm mb-2 text-blue-900 dark:text-blue-100">📤 SMTP Ayarları (Mail Göndermek İçin)</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="text-sm">SMTP Sunucu</label>
+            <input className="w-full p-2 rounded border dark:bg-gray-700" value={smtpHost} onChange={e=>setSmtpHost(e.target.value)} placeholder="smtp.example.com" />
+          </div>
+          <div>
+            <label className="text-sm">SMTP Port</label>
+            <input type="number" className="w-full p-2 rounded border dark:bg-gray-700" value={smtpPort} onChange={e=>setSmtpPort(Number(e.target.value))} />
+          </div>
+          <div className="flex items-end">
+            <label className="inline-flex items-center gap-2"><input type="checkbox" checked={smtpSecure} onChange={e=>setSmtpSecure(e.target.checked)} /> SSL/TLS</label>
+          </div>
+        </div>
+        <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">Not: SMTP kullanıcı adı ve şifresi yukarıdaki ile aynı olacak</p>
+      </div>
+      
       {error && <div className="text-sm text-red-500">{error}</div>}
       {ok && <div className="text-sm text-green-600 dark:text-green-400">✓ Bağlantı başarılı! Şimdi kaydedebilirsiniz.</div>}
       <div className="flex gap-2">

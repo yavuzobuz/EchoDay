@@ -1074,7 +1074,7 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                             onClick={() => navigate('/messages')} 
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-[var(--accent-color-600)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2H7l-3.5 2.333A1 1 0 012 17.5V5z"/>
                             </svg>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
@@ -1083,10 +1083,23 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                         </button>
 
                         <button 
+                            onClick={() => navigate('/profile?openMail=true')} 
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
+                                Email
+                            </span>
+                        </button>
+
+                        <button 
                             onClick={handleGetDailyBriefing} 
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-500 group-hover:text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                             </svg>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
@@ -1099,7 +1112,7 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                             onClick={() => setShowContextInsights(true)} 
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-purple-500 group-hover:text-purple-600" viewBox="0 0 20 20" fill="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
                                 <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
                             </svg>
@@ -1129,7 +1142,7 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                             onClick={() => setIsArchiveModalOpen(true)} 
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-[var(--accent-color-600)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
                                 <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
                             </svg>
@@ -1142,7 +1155,7 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                             onClick={handleExportICS} 
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400 group-hover:text-[var(--accent-color-600)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                             </svg>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">

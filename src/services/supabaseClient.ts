@@ -50,6 +50,11 @@ export const supabase = hasValidConfig ? createClient(rawUrl as string, rawKey a
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false
+  },
+  global: {
+    headers: {
+      'Accept': 'application/json'
+    }
   }
 }) : (console.warn('[Supabase] Not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for web builds'), null as any);
 

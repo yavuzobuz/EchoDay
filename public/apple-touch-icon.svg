@@ -1,0 +1,30 @@
+<svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+  <!-- High-res version for Apple devices -->
+  <defs>
+    <linearGradient id="bgApple" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+    <radialGradient id="sunGlowApple" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#fbbf24;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#fb923c;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f97316;stop-opacity:1" />
+    </radialGradient>
+  </defs>
+  
+  <!-- Background with rounded corners -->
+  <rect width="180" height="180" fill="url(#bgApple)" rx="32"/>
+  
+  <!-- Echo waves -->
+  <circle cx="90" cy="90" r="72" fill="none" stroke="#60a5fa" stroke-width="3" opacity="0.3"/>
+  <circle cx="90" cy="90" r="62" fill="none" stroke="#60a5fa" stroke-width="4" opacity="0.5"/>
+  <circle cx="90" cy="90" r="52" fill="none" stroke="#93c5fd" stroke-width="3" opacity="0.4"/>
+  
+  <!-- Main sun/sound wave center -->
+  <circle cx="90" cy="90" r="45" fill="url(#sunGlowApple)"/>
+  
+  <!-- Inner glow layers -->
+  <circle cx="90" cy="90" r="30" fill="#fef3c7" opacity="0.9"/>
+  <circle cx="90" cy="90" r="20" fill="#fffbeb" opacity="0.9"/>
+  <circle cx="90" cy="90" r="12" fill="#ffffff" opacity="0.8"/>
+</svg>

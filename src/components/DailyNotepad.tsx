@@ -495,12 +495,12 @@ setNewNoteImageDataUrl(reader.result as string);
   const noteCardClasses = (note: Note) => {
     const base = 'relative rounded-lg text-sm group shadow-md hover:shadow-xl hover:scale-[1.02] transition-all duration-200 overflow-hidden border';
     const palette: Record<NonNullable<Note['color']>, string> = {
-      yellow: 'bg-yellow-50 dark:bg-slate-800 border-yellow-200 dark:border-slate-700',
-      blue: 'bg-blue-50 dark:bg-slate-800 border-blue-200 dark:border-slate-700',
-      green: 'bg-green-50 dark:bg-slate-800 border-green-200 dark:border-slate-700',
-      red: 'bg-red-50 dark:bg-slate-800 border-red-200 dark:border-slate-700',
-      purple: 'bg-purple-50 dark:bg-slate-800 border-purple-200 dark:border-slate-700',
-      gray: 'bg-gray-100 dark:bg-slate-800 border-gray-300 dark:border-slate-700',
+      yellow: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700',
+      blue: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700',
+      green: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700',
+      red: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700',
+      purple: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700',
+      gray: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700',
     };
     const colorKey = (note.color || 'yellow') as NonNullable<Note['color']>;
     return `${base} ${palette[colorKey]}`;

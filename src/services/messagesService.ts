@@ -200,3 +200,20 @@ export async function downloadAttachment(path: string): Promise<Blob> {
   if (error) throw error;
   return data as Blob;
 }
+
+export async function getAttachmentUrl(path: string): Promise<string> {
+  ensureClient();
+  // Try to get public URL first
+  const { data } = supabase.storage.from('attachments').getPublicUrl(path);
+  if (data?.publicUrl) {
+    return data.publicUrl;
+  }
+  
+  // If public URL doesn't work, create a signed URL (valid for 1 hour)
+  const { data: signedData, error } = await supabase.storage
+    .from('attachments')
+    .createSignedUrl(path, 3600);
+  
+  if (error) throw error;
+  return signedData?.signedUrl || '';
+}

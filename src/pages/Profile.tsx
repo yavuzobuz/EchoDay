@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AccentColor } from '../App';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { archiveService } from '../services/archiveService';
@@ -43,6 +43,7 @@ const Profile: React.FC<ProfileProps> = ({
 }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const userId = user?.id || 'guest';
   
   const [localApiKey, setLocalApiKey] = useState(apiKey);
@@ -65,6 +66,22 @@ const Profile: React.FC<ProfileProps> = ({
   // Mail state
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
   const [isMailListOpen, setIsMailListOpen] = useState(false);
+
+  // Modal scroll kontrolü
+  useEffect(() => {
+    if (isMailListOpen) {
+      // Modal açıldığında body scroll'unu engelle
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Modal kapandığında body scroll'unu geri aç
+      document.body.style.overflow = 'unset';
+    }
+    
+    // Component unmount olduğunda da scroll'u geri aç
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMailListOpen]);
   const [openMailGuide, setOpenMailGuide] = useState(false);
   // Email accounts state (connected + local custom)
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
@@ -144,7 +161,13 @@ const Profile: React.FC<ProfileProps> = ({
 
   useEffect(() => {
     loadEmailAccounts();
-  }, []);
+    
+    // Check if we should auto-open mail list
+    const openMail = searchParams.get('openMail');
+    if (openMail === 'true') {
+      setIsMailListOpen(true);
+    }
+  }, [searchParams]);
 
   const handleSignOut = async () => {
     if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {

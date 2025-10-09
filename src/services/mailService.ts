@@ -10,6 +10,8 @@ import {
   MailServiceResponse,
   GMAIL_OAUTH_CONFIG,
   OUTLOOK_OAUTH_CONFIG,
+  SendEmailRequest,
+  ReplyEmailRequest,
 } from '../types/mail';
 
 // Supabase client is imported from supabaseClient.ts (shared session)
@@ -765,6 +767,278 @@ class MailService {
     } catch (error) {
       console.error('Delete email account error:', error);
       return { success: false, error: 'Failed to delete email account' };
+    }
+  }
+
+  // ==================== Email Sending ====================
+
+  /**
+   * Send email via account
+   */
+  async sendEmail(
+    accountId: string,
+    request: SendEmailRequest
+  ): Promise<MailServiceResponse<{ messageId: string }>> {
+    try {
+      // Get account from database or localStorage
+      const { data: accountRow } = await supabase
+        .from('email_accounts')
+        .select('*')
+        .eq('id', accountId)
+        .single();
+
+      if (accountRow) {
+        // OAuth account (Gmail/Outlook)
+        const account = this.mapDbEmailAccount(accountRow);
+        const accessToken = await this.refreshAccessToken(account);
+
+        if (account.provider === 'gmail') {
+          return await this.sendGmailMessage(accessToken, request);
+        } else if (account.provider === 'outlook') {
+          return await this.sendOutlookMessage(accessToken, request);
+        }
+      }
+
+      // Custom IMAP/SMTP account
+      const customAccounts = JSON.parse(localStorage.getItem('customMailAccounts') || '[]');
+      const customAccount = customAccounts.find((a: any) => a.id === accountId);
+
+      if (!customAccount) {
+        return { success: false, error: 'Account not found' };
+      }
+
+      return await this.sendViaSMTP(customAccount, request);
+    } catch (error) {
+      console.error('Send email error:', error);
+      return { success: false, error: 'Failed to send email' };
+    }
+  }
+
+  /**
+   * Reply to email
+   */
+  async replyEmail(
+    accountId: string,
+    request: ReplyEmailRequest
+  ): Promise<MailServiceResponse<{ messageId: string }>> {
+    const { originalMessage, replyText, replyHtml, replyAll, attachments } = request;
+
+    // Build recipient list
+    const to = replyAll
+      ? [originalMessage.from.address, ...originalMessage.to.map(t => t.address)]
+      : [originalMessage.from.address];
+
+    const cc = replyAll && originalMessage.cc
+      ? originalMessage.cc.map(c => c.address)
+      : undefined;
+
+    const sendRequest: SendEmailRequest = {
+      to,
+      cc,
+      subject: originalMessage.subject.startsWith('Re:')
+        ? originalMessage.subject
+        : `Re: ${originalMessage.subject}`,
+      text: replyText,
+      html: replyHtml,
+      inReplyTo: originalMessage.messageId,
+      references: originalMessage.messageId,
+      attachments,
+    };
+
+    return await this.sendEmail(accountId, sendRequest);
+  }
+
+  /**
+   * Send via Gmail API
+   */
+  private async sendGmailMessage(
+    accessToken: string,
+    request: SendEmailRequest
+  ): Promise<MailServiceResponse<{ messageId: string }>> {
+    try {
+      const toAddresses = Array.isArray(request.to) ? request.to.join(', ') : request.to;
+      const ccAddresses = request.cc ? (Array.isArray(request.cc) ? request.cc.join(', ') : request.cc) : '';
+
+      let message: string;
+
+      // If there are attachments, build a multipart message
+      if (request.attachments && request.attachments.length > 0) {
+        const boundary = '----WebKitFormBoundary' + Math.random().toString(36).substring(2);
+        const messageParts = [
+          `To: ${toAddresses}`,
+          ccAddresses ? `Cc: ${ccAddresses}` : '',
+          `Subject: ${request.subject}`,
+          request.inReplyTo ? `In-Reply-To: ${request.inReplyTo}` : '',
+          request.references ? `References: ${request.references}` : '',
+          `Content-Type: multipart/mixed; boundary="${boundary}"`,
+          '',
+          `--${boundary}`,
+          'Content-Type: text/html; charset=utf-8',
+          '',
+          request.html || request.text || '',
+          ''
+        ].filter(Boolean);
+
+        // Add each attachment
+        for (const att of request.attachments) {
+          messageParts.push(`--${boundary}`);
+          messageParts.push(`Content-Type: ${att.type || 'application/octet-stream'}; name="${att.name}"`);
+          messageParts.push(`Content-Transfer-Encoding: base64`);
+          messageParts.push(`Content-Disposition: attachment; filename="${att.name}"`);
+          messageParts.push('');
+          messageParts.push(att.data);
+          messageParts.push('');
+        }
+
+        messageParts.push(`--${boundary}--`);
+        message = messageParts.join('\r\n');
+      } else {
+        // Simple message without attachments
+        const messageParts = [
+          `To: ${toAddresses}`,
+          ccAddresses ? `Cc: ${ccAddresses}` : '',
+          `Subject: ${request.subject}`,
+          request.inReplyTo ? `In-Reply-To: ${request.inReplyTo}` : '',
+          request.references ? `References: ${request.references}` : '',
+          'Content-Type: text/html; charset=utf-8',
+          '',
+          request.html || request.text || '',
+        ].filter(Boolean);
+        message = messageParts.join('\r\n');
+      }
+
+      const encodedMessage = btoa(unescape(encodeURIComponent(message)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+
+      const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ raw: encodedMessage }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to send Gmail message');
+      }
+
+      const data = await response.json();
+      return { success: true, data: { messageId: data.id } };
+    } catch (error) {
+      console.error('Send Gmail message error:', error);
+      return { success: false, error: 'Failed to send Gmail message' };
+    }
+  }
+
+  /**
+   * Send via Outlook API
+   */
+  private async sendOutlookMessage(
+    accessToken: string,
+    request: SendEmailRequest
+  ): Promise<MailServiceResponse<{ messageId: string }>> {
+    try {
+      const toRecipients = Array.isArray(request.to)
+        ? request.to.map(email => ({ emailAddress: { address: email } }))
+        : [{ emailAddress: { address: request.to } }];
+
+      const ccRecipients = request.cc
+        ? (Array.isArray(request.cc)
+          ? request.cc.map(email => ({ emailAddress: { address: email } }))
+          : [{ emailAddress: { address: request.cc } }])
+        : [];
+
+      const message: any = {
+        subject: request.subject,
+        body: {
+          contentType: request.html ? 'HTML' : 'Text',
+          content: request.html || request.text || '',
+        },
+        toRecipients,
+        ccRecipients: ccRecipients.length > 0 ? ccRecipients : undefined,
+      };
+
+      // Add attachments if provided
+      if (request.attachments && request.attachments.length > 0) {
+        message.attachments = request.attachments.map(att => ({
+          '@odata.type': '#microsoft.graph.fileAttachment',
+          name: att.name,
+          contentType: att.type || 'application/octet-stream',
+          contentBytes: att.data,
+        }));
+      }
+
+      const response = await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ message }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Failed to send Outlook message');
+      }
+
+      // Outlook API doesn't return message ID on send
+      return { success: true, data: { messageId: 'sent' } };
+    } catch (error) {
+      console.error('Send Outlook message error:', error);
+      return { success: false, error: 'Failed to send Outlook message' };
+    }
+  }
+
+  /**
+   * Send via SMTP (for custom accounts)
+   */
+  private async sendViaSMTP(
+    account: any,
+    request: SendEmailRequest
+  ): Promise<MailServiceResponse<{ messageId: string }>> {
+    try {
+      const smtpHost = account.smtpHost || account.host.replace('imap.', 'smtp.');
+      const smtpPort = account.smtpPort || 587;
+      // Auto-detect secure based on port if not explicitly set
+      const smtpSecure = account.smtpSecure !== undefined 
+        ? account.smtpSecure 
+        : smtpPort === 465; // Port 465 = SSL, Port 587 = STARTTLS
+
+      const response = await fetch(`${this.getBridgeUrl()}/smtp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          host: smtpHost,
+          port: smtpPort,
+          secure: smtpSecure,
+          user: account.user,
+          pass: account.pass,
+          from: account.user,
+          to: Array.isArray(request.to) ? request.to.join(', ') : request.to,
+          subject: request.subject,
+          text: request.text,
+          html: request.html,
+          inReplyTo: request.inReplyTo,
+          references: request.references,
+          attachments: request.attachments,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'SMTP send failed');
+      }
+
+      const data = await response.json();
+      return { success: true, data: { messageId: data.data?.messageId || 'sent' } };
+    } catch (error) {
+      console.error('Send via SMTP error:', error);
+      return { success: false, error: 'Failed to send via SMTP' };
     }
   }
 }

@@ -9,6 +9,9 @@ export interface CustomAccountConfig {
   secure: boolean;
   user: string;
   pass: string; // Stored locally only
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpSecure?: boolean;
 }
 
 // Email Account Interface
@@ -79,6 +82,7 @@ export const GMAIL_OAUTH_CONFIG: OAuthConfig = {
   redirectUri: window.location.origin + '/auth/gmail/callback',
   scopes: [
     'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/userinfo.email',
     'https://www.googleapis.com/auth/userinfo.profile',
   ],
@@ -92,6 +96,7 @@ export const OUTLOOK_OAUTH_CONFIG: OAuthConfig = {
   redirectUri: window.location.origin + '/auth/outlook/callback',
   scopes: [
     'https://graph.microsoft.com/Mail.Read',
+    'https://graph.microsoft.com/Mail.Send',
     'https://graph.microsoft.com/User.Read',
   ],
   authUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
@@ -139,4 +144,45 @@ export interface MailServiceResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// Send Email Request
+export interface SendEmailRequest {
+  to: string | string[];
+  subject: string;
+  text?: string;
+  html?: string;
+  cc?: string | string[];
+  bcc?: string | string[];
+  inReplyTo?: string;
+  references?: string;
+  attachments?: EmailAttachmentFile[];
+}
+
+// Reply Email Request
+export interface ReplyEmailRequest {
+  originalMessage: EmailMessage;
+  replyText: string;
+  replyHtml?: string;
+  replyAll?: boolean;
+  attachments?: EmailAttachmentFile[];
+}
+
+// Email Template
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  subject?: string;
+  body: string; // HTML content
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Email Attachment
+export interface EmailAttachmentFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  data: string; // Base64 encoded
 }

@@ -4,8 +4,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '../contexts/AuthContext';
 import { Todo, Note, Priority, EmailSummary } from '../types';
 import { mailService } from '../services/mailService';
-import { EmailAccount, EmailMessage } from '../types/mail';
+import { EmailAccount, EmailMessage, EmailTemplate, EmailAttachmentFile } from '../types/mail';
 import { geminiService } from '../services/geminiService';
+import RichTextEditor from './RichTextEditor';
+import EmailTemplateManager from './EmailTemplateManager';
+import AttachmentPicker from './AttachmentPicker';
 
 interface MailListProps {
   onConnectClick: () => void;
@@ -22,6 +25,13 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
   const [opMsg, setOpMsg] = useState<string | null>(null);
   const [emailSummary, setEmailSummary] = useState<EmailSummary | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [replyHtml, setReplyHtml] = useState('');
+  const [replyAll, setReplyAll] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [attachments, setAttachments] = useState<EmailAttachmentFile[]>([]);
   const { user } = useAuth();
   const userId = user?.id || 'guest';
 
@@ -169,6 +179,44 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       setOpMsg('Görev oluşturulamadı');
       setTimeout(() => setOpMsg(null), 2500);
     }
+  };
+
+  const handleReply = async () => {
+    if (!selectedEmail || !selectedAccount) return;
+    if (!replyHtml.trim() && !replyText.trim()) return;
+
+    setIsSending(true);
+    try {
+      const result = await mailService.replyEmail(selectedAccount.id, {
+        originalMessage: selectedEmail,
+        replyText: replyText.trim() || replyHtml, // Fallback to HTML if plain text empty
+        replyHtml: replyHtml.trim() || undefined,
+        replyAll,
+        attachments,
+      });
+
+      if (result.success) {
+        setOpMsg('✅ Yanıt gönderildi!');
+        setShowReplyModal(false);
+        setReplyText('');
+        setReplyHtml('');
+        setReplyAll(false);
+        setAttachments([]);
+      } else {
+        setOpMsg(`❌ Hata: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Reply error:', error);
+      setOpMsg('❌ Yanıt gönderilemedi');
+    } finally {
+      setIsSending(false);
+      setTimeout(() => setOpMsg(null), 3000);
+    }
+  };
+
+  const handleTemplateSelect = (template: EmailTemplate) => {
+    setReplyHtml(template.body);
+    setShowTemplateManager(false);
   };
 
   // Load accounts on mount
@@ -434,6 +482,26 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                     {new Date(selectedEmail.date).toLocaleString('tr-TR')}
                   </div>
                   <button
+                    onClick={() => {
+                      setShowReplyModal(true);
+                      setReplyAll(false);
+                    }}
+                    className="px-3 py-1.5 text-xs rounded bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-900/60"
+                    title="Bu e-postayı yanıtla"
+                  >
+                    ↩️ Yanıtla
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowReplyModal(true);
+                      setReplyAll(true);
+                    }}
+                    className="px-3 py-1.5 text-xs rounded bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-900/60"
+                    title="Tümünü yanıtla"
+                  >
+                    ↪️ Tümünü Yanıtla
+                  </button>
+                  <button
                     onClick={() => analyzeEmailWithAI(selectedEmail)}
                     disabled={isAnalyzing}
                     className="px-3 py-1.5 text-xs rounded bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-900/60 disabled:opacity-50"
@@ -466,9 +534,9 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
 
             {/* AI Summary Panel */}
             {emailSummary && (
-              <div className="border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20">
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-3">
+              <div className="border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 max-h-96 overflow-y-auto">
+                <div className="p-4 relative space-y-4">
+                  <div className="flex items-center justify-between mb-3 sticky top-0 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 pb-2 z-30">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                       🤖 AI Analiz
                       <span className={`text-xs px-2 py-1 rounded-full ${
@@ -481,7 +549,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                     </h3>
                     <button
                       onClick={() => setEmailSummary(null)}
-                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-md hover:bg-white/50 dark:hover:bg-gray-800/50"
                     >
                       ✕
                     </button>
@@ -564,25 +632,104 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                     </div>
                   )}
                   
-                  {/* Suggested Actions */}
+                  {/* AI Suggestions with Individual Buttons */}
                   {(emailSummary.suggestedTasks?.length || emailSummary.suggestedNotes?.length) && (
-                    <div className="mt-4 flex gap-2">
+                    <div className="mt-4 space-y-3">
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">🤖 AI Önerileri:</h4>
+                      
+                      {/* Individual Task Suggestions */}
                       {emailSummary.suggestedTasks && emailSummary.suggestedTasks.length > 0 && (
-                        <button
-                          onClick={() => saveTasksFromSummary(emailSummary.suggestedTasks)}
-                          className="px-3 py-2 text-sm rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-900/60"
-                        >
-                          ✅ {emailSummary.suggestedTasks.length} Görev Ekle
-                        </button>
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Önerilen Görevler:</div>
+                          {emailSummary.suggestedTasks.map((task, index) => (
+                            <div key={index} className="flex items-start justify-between gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-emerald-900 dark:text-emerald-100 text-sm break-words">
+                                  {task.text}
+                                </div>
+                                {task.datetime && (
+                                  <div className="text-xs text-emerald-700 dark:text-emerald-300 mt-1">
+                                    📅 {new Date(task.datetime).toLocaleString('tr-TR')}
+                                  </div>
+                                )}
+                                {task.category && (
+                                  <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                                    🏷️ {task.category}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => {
+                                  console.log('Task buton clicked:', task);
+                                  saveTasksFromSummary([task]);
+                                }}
+                                className="px-2 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex-shrink-0 z-20 relative"
+                                title="Bu görevi ekle"
+                              >
+                                ✅ Ekle
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       )}
+                      
+                      {/* Individual Note Suggestions */}
                       {emailSummary.suggestedNotes && emailSummary.suggestedNotes.length > 0 && (
-                        <button
-                          onClick={() => saveNotesFromSummary(emailSummary.suggestedNotes)}
-                          className="px-3 py-2 text-sm rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/60"
-                        >
-                          📝 {emailSummary.suggestedNotes.length} Not Ekle
-                        </button>
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium text-amber-700 dark:text-amber-300">Önerilen Notlar:</div>
+                          {emailSummary.suggestedNotes.map((note, index) => (
+                            <div key={index} className="flex items-start justify-between gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-amber-900 dark:text-amber-100 text-sm break-words">
+                                  {note.title}
+                                </div>
+                                <div className="text-xs text-amber-700 dark:text-amber-300 mt-1 break-words">
+                                  {note.content.length > 100 ? `${note.content.substring(0, 100)}...` : note.content}
+                                </div>
+                                {note.tags && note.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {note.tags.map((tag, tagIndex) => (
+                                      <span key={tagIndex} className="inline-block px-1.5 py-0.5 text-xs bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 rounded">
+                                        #{tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => {
+                                  console.log('Note buton clicked:', note);
+                                  saveNotesFromSummary([note]);
+                                }}
+                                className="px-2 py-1 text-xs rounded bg-amber-600 hover:bg-amber-700 text-white font-medium flex-shrink-0 z-20 relative"
+                                title="Bu notu ekle"
+                              >
+                                📝 Ekle
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       )}
+                      
+                      {/* Bulk Actions */}
+                      <div className="flex gap-2 pt-2 border-t border-gray-200 dark:border-gray-600 relative z-10">
+                        {emailSummary.suggestedTasks && emailSummary.suggestedTasks.length > 0 && (
+                          <button
+                            onClick={() => saveTasksFromSummary(emailSummary.suggestedTasks)}
+                            className="px-3 py-1.5 text-xs rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 relative z-20"
+                          >
+                            ✅ Tüm Görevleri Ekle ({emailSummary.suggestedTasks.length})
+                          </button>
+                        )}
+                        {emailSummary.suggestedNotes && emailSummary.suggestedNotes.length > 0 && (
+                          <button
+                            onClick={() => saveNotesFromSummary(emailSummary.suggestedNotes)}
+                            className="px-3 py-1.5 text-xs rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/60 relative z-20"
+                          >
+                            📝 Tüm Notları Ekle ({emailSummary.suggestedNotes.length})
+                          </button>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -613,6 +760,138 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
           </div>
         )}
       </div>
+
+      {/* Reply Modal */}
+      {showReplyModal && selectedEmail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="relative w-full max-w-2xl mx-4 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  {replyAll ? '↪️ Tümünü Yanıtla' : '↩️ Yanıtla'}
+                </h2>
+                <button
+                  onClick={() => setShowReplyModal(false)}
+                  disabled={isSending}
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-4 space-y-3 flex-1 overflow-y-auto">
+              {/* To/Cc Info */}
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                <div><strong>Kime:</strong> {selectedEmail.from.address}</div>
+                {replyAll && selectedEmail.to.length > 0 && (
+                  <div><strong>Bilgi:</strong> {selectedEmail.to.map(t => t.address).join(', ')}</div>
+                )}
+                {replyAll && selectedEmail.cc && selectedEmail.cc.length > 0 && (
+                  <div><strong>Bilgi (Cc):</strong> {selectedEmail.cc.map(c => c.address).join(', ')}</div>
+                )}
+                <div><strong>Konu:</strong> {selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`}</div>
+              </div>
+
+              {/* Template Selection Button */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowTemplateManager(true)}
+                  className="px-3 py-1.5 text-xs rounded bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-900/60"
+                  disabled={isSending}
+                >
+                  📋 Şablon Seç
+                </button>
+              </div>
+
+              {/* Rich Text Editor */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Mesajınız:
+                </label>
+                <RichTextEditor
+                  value={replyHtml}
+                  onChange={setReplyHtml}
+                  disabled={isSending}
+                  minHeight="200px"
+                />
+              </div>
+
+              {/* Attachment Picker */}
+              <div>
+                <AttachmentPicker
+                  attachments={attachments}
+                  onChange={setAttachments}
+                  disabled={isSending}
+                  maxFiles={5}
+                />
+              </div>
+
+              {/* Original Message Preview */}
+              <details className="mt-4">
+                <summary className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200">
+                  Orijinal mesajı göster
+                </summary>
+                <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm text-gray-700 dark:text-gray-300 max-h-48 overflow-y-auto">
+                  <div className="border-l-2 border-gray-300 dark:border-gray-600 pl-3">
+                    <div className="font-medium mb-1">{selectedEmail.from.name || selectedEmail.from.address}</div>
+                    <div className="text-xs text-gray-500 mb-2">{new Date(selectedEmail.date).toLocaleString('tr-TR')}</div>
+                    <div className="whitespace-pre-wrap">
+                      {htmlToText(selectedEmail.bodyHtml || selectedEmail.body || selectedEmail.snippet || '').slice(0, 500)}...
+                    </div>
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                {attachments.length > 0 && (
+                  <span>📎 {attachments.length} dosya eklendi</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowReplyModal(false)}
+                  disabled={isSending}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleReply}
+                  disabled={isSending || (!replyHtml.trim() && !replyText.trim())}
+                  className="px-6 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isSending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Gönderiliyor...
+                    </>
+                  ) : (
+                    <>
+                      📤 Gönder
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Template Manager Modal */}
+      {showTemplateManager && (
+        <EmailTemplateManager
+          onClose={() => setShowTemplateManager(false)}
+          onSelectTemplate={handleTemplateSelect}
+        />
+      )}
     </div>
   );
 };

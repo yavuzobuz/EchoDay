@@ -6,6 +6,8 @@ export interface Profile {
   display_name?: string | null;
   avatar_url?: string | null;
   created_at?: string;
+  is_online?: boolean | null;
+  last_seen?: string | null;
 }
 
 export interface Conversation {

@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
 const POP3Client = require('poplib');
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors());
@@ -190,6 +191,62 @@ app.post('/pop/list', async (req, res) => {
     });
     fetchNext();
   });
+});
+
+// SMTP: Send email
+app.post('/smtp/send', async (req, res) => {
+  const { host, port = 587, secure = false, user, pass, from, to, subject, text, html, inReplyTo, references, attachments } = req.body || {};
+  
+  console.log('[SMTP Send] Request received');
+  
+  // Validate required fields
+  if (!host || !user || !pass || !from || !to || !subject) {
+    const error = `Missing required fields: ${!host ? 'host ' : ''}${!user ? 'user ' : ''}${!pass ? 'pass ' : ''}${!from ? 'from ' : ''}${!to ? 'to ' : ''}${!subject ? 'subject' : ''}`.trim();
+    console.error('[SMTP Send] Validation error:', error);
+    return res.status(400).json({ success: false, error });
+  }
+  
+  try {
+    console.log(`[SMTP Send] Creating transport for ${host}:${port}`);
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      tls: {
+        rejectUnauthorized: false // For self-signed certs in dev
+      }
+    });
+    
+    const mailOptions = {
+      from,
+      to,
+      subject,
+      text,
+      html,
+      inReplyTo,
+      references
+    };
+    
+    // Add attachments if provided
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      mailOptions.attachments = attachments.map(att => ({
+        filename: att.name,
+        content: att.data, // Base64 string
+        encoding: 'base64'
+      }));
+      console.log(`[SMTP Send] Added ${attachments.length} attachments`);
+    }
+    
+    console.log('[SMTP Send] Sending email...');
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[SMTP Send] Email sent:', info.messageId);
+    
+    ok(res, { messageId: info.messageId });
+  } catch (e) {
+    console.error('[SMTP Send] Error:', e.message);
+    fail(res, e);
+  }
 });
 
 app.get('/', (_, res) => res.send('Mail bridge is running'));
