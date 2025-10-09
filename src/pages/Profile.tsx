@@ -1041,10 +1041,10 @@ const Profile: React.FC<ProfileProps> = ({
             
             {/* Mail List Modal */}
             {isMailListOpen && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm">
-                    <div className="h-screen w-screen bg-white dark:bg-gray-900">
-                        <div className="h-full flex flex-col">
-                            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-hidden">
+                    <div className="h-screen w-screen bg-white dark:bg-gray-900 overflow-hidden">
+                        <div className="h-full flex flex-col overflow-hidden">
+                            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
                                 <h2 className="text-xl font-bold">📬 Maillerim</h2>
                                 <button
                                     onClick={() => setIsMailListOpen(false)}
@@ -1055,11 +1055,14 @@ const Profile: React.FC<ProfileProps> = ({
                                     </svg>
                                 </button>
                             </div>
-                            <div className="flex-1 overflow-hidden">
-                                <MailList onConnectClick={() => {
-                                    setIsMailListOpen(false);
-                                    setIsMailModalOpen(true);
-                                }} />
+                            <div className="flex-1 min-h-0 overflow-hidden">
+                                <MailList 
+                                    onConnectClick={() => {
+                                        setIsMailListOpen(false);
+                                        setIsMailModalOpen(true);
+                                    }}
+                                    apiKey={apiKey}
+                                />
                             </div>
                         </div>
                     </div>

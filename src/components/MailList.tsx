@@ -6,13 +6,13 @@ import { Todo, Note, Priority, EmailSummary } from '../types';
 import { mailService } from '../services/mailService';
 import { EmailAccount, EmailMessage } from '../types/mail';
 import { geminiService } from '../services/geminiService';
-import { useSettings } from '../hooks/useSettings';
 
 interface MailListProps {
   onConnectClick: () => void;
+  apiKey: string;
 }
 
-const MailList: React.FC<MailListProps> = ({ onConnectClick }) => {
+const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<EmailAccount | null>(null);
   const [emails, setEmails] = useState<EmailMessage[]>([]);
@@ -24,7 +24,6 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick }) => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { user } = useAuth();
   const userId = user?.id || 'guest';
-  const { getSetting } = useSettings();
 
   const htmlToText = (html?: string): string => {
     if (!html) return '';
@@ -35,7 +34,8 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick }) => {
   };
 
   const analyzeEmailWithAI = async (email: EmailMessage) => {
-    const apiKey = getSetting('gemini-api-key');
+    console.log('[MailList] Debug - API key from prop:', { hasKey: !!apiKey, type: typeof apiKey, length: apiKey?.length });
+    
     if (!apiKey) {
       setOpMsg('AI analizi için Gemini API key gerekli - Ayarlara gidin');
       setTimeout(() => setOpMsg(null), 3000);
@@ -307,23 +307,39 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick }) => {
             </button>
           </div>
           
-          {/* Account Tabs */}
-          <div className="flex gap-2 overflow-x-auto">
-            {accounts.map((account) => (
-              <button
-                key={account.id}
-                onClick={() => setSelectedAccount(account)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  selectedAccount?.id === account.id
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                {getProviderIcon(account.provider)}
-                <span className="truncate max-w-[150px]">{account.emailAddress}</span>
-              </button>
-            ))}
-          </div>
+          {/* Selected Account Display */}
+          {selectedAccount && (
+            <div className="relative">
+              {accounts.length > 1 ? (
+                <select
+                  value={selectedAccount.id}
+                  onChange={(e) => {
+                    const account = accounts.find(acc => acc.id === e.target.value);
+                    if (account) setSelectedAccount(account);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none cursor-pointer"
+                >
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.provider.toUpperCase()} - {account.emailAddress}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                  {getProviderIcon(selectedAccount.provider)}
+                  <span className="truncate">{selectedAccount.emailAddress}</span>
+                </div>
+              )}
+              {accounts.length > 1 && (
+                <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                  <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Email List */}

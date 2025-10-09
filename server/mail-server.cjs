@@ -112,7 +112,11 @@ app.post('/imap/message', async (req, res) => {
     console.log('[IMAP] Mailbox locked, downloading message uid:', uid, 'as number:', Number(uid));
     // Fetch the message body using UID
     let buffer = Buffer.alloc(0);
-    const { content } = await client.download(String(uid), false, { uid: true });
+    
+    // ImapFlow download method fix - use UID directly as number
+    const uidNumber = Number(uid);
+    console.log('[IMAP] Using UID number:', uidNumber);
+    const { content } = await client.download(uidNumber, false, { uid: true });
     
     // content is an async iterable (readable stream)
     for await (const chunk of content) {
@@ -190,4 +194,4 @@ app.post('/pop/list', async (req, res) => {
 
 app.get('/', (_, res) => res.send('Mail bridge is running'));
 
-app.listen(PORT, () => console.log(`[mail-bridge] listening on http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`[mail-bridge] listening on http://0.0.0.0:${PORT}`));
