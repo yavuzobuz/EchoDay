@@ -217,31 +217,36 @@ const clearOldArchives = async (daysToKeep: number = 90, userId?: string): Promi
 const getDashboardStats = async (currentTodos: Todo[], userId?: string): Promise<DashboardStats> => {
   const currentUserId = userId || getCurrentUserId();
 
-  let archivedCompletedDates: string[] = [];
+  let archivedTodos: { created_at: string; completed: boolean }[] = [];
   
   if (canUseSupabase(currentUserId)) {
     try {
       const tRes = await supabase!
         .from('archived_todos')
-        .select('id, created_at')
+        .select('id, created_at, completed')
         .eq('user_id', currentUserId);
-      archivedCompletedDates = (tRes.data || []).map((r: any) => r.created_at || new Date().toISOString());
+      archivedTodos = (tRes.data || []).map((r: any) => ({
+        created_at: r.created_at || new Date().toISOString(),
+        completed: r.completed ?? true
+      }));
     } catch (error) {
       console.warn('[Archive] Failed to fetch archived todos for stats:', error);
     }
   }
 
   // Exclude locally deleted tasks from current stats
-  const currentCompleted = currentTodos.filter(t => !t.isDeleted && t.completed);
+  const currentActive = currentTodos.filter(t => !t.isDeleted);
+  const currentCompleted = currentActive.filter(t => t.completed);
+  
   const completedTasksDates = [
     ...currentCompleted.map(t => t.createdAt),
-    ...archivedCompletedDates,
+    ...archivedTodos.filter(t => t.completed).map(t => t.created_at),
   ];
 
   // Calculate total completed
   const totalCompleted = completedTasksDates.length;
 
-  // Calculate streak
+  // Calculate streak based on completed tasks
   const completionDates = new Set(
     completedTasksDates.map(d => new Date(d).toISOString().split('T')[0])
   );
@@ -258,7 +263,7 @@ const getDashboardStats = async (currentTodos: Todo[], userId?: string): Promise
     }
   }
 
-  // Calculate last 7 days activity
+  // Calculate last 7 days activity - count ALL created tasks (completed or not)
   const last7Days: DayStat[] = [];
   const dateCounts = new Map<string, number>();
 
@@ -269,7 +274,13 @@ const getDashboardStats = async (currentTodos: Todo[], userId?: string): Promise
     dateCounts.set(dateStr, 0);
   }
   
-  completedTasksDates.forEach(dateStrRaw => {
+  // Count all tasks created in last 7 days (not just completed)
+  const allTasksDates = [
+    ...currentActive.map(t => t.createdAt),
+    ...archivedTodos.map(t => t.created_at),
+  ];
+  
+  allTasksDates.forEach(dateStrRaw => {
     const taskDateStr = new Date(dateStrRaw).toISOString().split('T')[0];
     if (dateCounts.has(taskDateStr)) {
       dateCounts.set(taskDateStr, (dateCounts.get(taskDateStr) || 0) + 1);
@@ -634,7 +645,7 @@ const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[],
   const startISO = startDate.toISOString();
   const endISO = endDate.toISOString();
   
-  // Get todos for the specified period (user-specific)
+  // Get todos for the specified period (user-specific) - filter by created_at, not archived_at
   let archivedTodos: Todo[] = [];
   
   if (canUseSupabase(currentUserId)) {
@@ -643,15 +654,16 @@ const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[],
         .from('archived_todos')
         .select('*')
         .eq('user_id', currentUserId)
-        .gte('archived_at', startISO)
-        .lte('archived_at', endISO);
+        .gte('created_at', startISO)
+        .lte('created_at', endISO);
       archivedTodos = (tRes.data || []).map((row: any) => ({
         id: row.id,
         text: row.text || '',
-        priority: 'medium' as any,
+        priority: row.priority || 'medium' as any,
         datetime: row.datetime || null,
-        completed: true,
+        completed: row.completed ?? true,
         createdAt: row.created_at || new Date().toISOString(),
+        aiMetadata: row.ai_metadata || row.aiMetadata,
       }));
     } catch (error) {
       console.warn('[Archive] Failed to fetch archived todos for periodic report:', error);

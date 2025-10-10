@@ -41,7 +41,7 @@ import { useAuth } from './contexts/AuthContext';
 // import { taskTemplatesService } from './services/taskTemplatesService';
 
 // FIX: Import the new AnalyzedTaskData type.
-import { Todo, Priority, ChatMessage, Note, DailyBriefing, AnalyzedTaskData, UserContext, ProactiveSuggestion, ReminderConfig } from './types';
+import { Todo, Priority, ChatMessage, Note, DailyBriefing, AnalyzedTaskData, UserContext, ProactiveSuggestion, ReminderConfig, ReminderType } from './types';
 import { AccentColor } from './App';
 
 interface MainProps {
@@ -90,19 +90,49 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     // Global toast notifications
     const { toasts, removeToast, showMessage } = useToast();
 
-    // Tasks UI state (filter + search)
-    const [taskFilter, setTaskFilter] = useState<'all' | 'active' | 'completed'>('all');
-    const [taskQuery, setTaskQuery] = useState('');
+    // Unified search and filter state for tasks and notes
+    const [searchQuery, setSearchQuery] = useState('');
+    const [contentFilter, setContentFilter] = useState<'all' | 'tasks' | 'notes'>('all');
+    const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
 
+    // Filter and search todos
     const visibleTodos = React.useMemo(() => {
-        const q = taskQuery.trim().toLowerCase();
-        // İlk olarak silinmiş görevleri filtrele
+        const q = searchQuery.trim().toLowerCase();
         let list = todos.filter(t => !t.isDeleted);
-        if (taskFilter === 'active') list = list.filter(t => !t.completed);
-        if (taskFilter === 'completed') list = list.filter(t => t.completed);
+        
+        // Status filter
+        if (taskStatusFilter === 'active') list = list.filter(t => !t.completed);
+        if (taskStatusFilter === 'completed') list = list.filter(t => t.completed);
+        
+        // Search filter
         if (q) list = list.filter(t => t.text.toLowerCase().includes(q));
+        
         return list;
-    }, [todos, taskFilter, taskQuery]);
+    }, [todos, taskStatusFilter, searchQuery]);
+
+    // Filter and search notes
+    const visibleNotes = React.useMemo(() => {
+        const q = searchQuery.trim().toLowerCase();
+        let list = notes.filter(n => !n.isDeleted);
+        
+        // Search filter
+        if (q) {
+            list = list.filter(n => 
+                (n.text && n.text.toLowerCase().includes(q)) ||
+                (n.tags && n.tags.some(tag => tag.toLowerCase().includes(q)))
+            );
+        }
+        
+        return list;
+    }, [notes, searchQuery]);
+
+    // Calculate totals
+    const totalResults = React.useMemo(() => {
+        if (contentFilter === 'tasks') return visibleTodos.length;
+        if (contentFilter === 'notes') return visibleNotes.length;
+        return visibleTodos.length + visibleNotes.length;
+    }, [contentFilter, visibleTodos.length, visibleNotes.length]);
+
     
     // Modal State
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -120,6 +150,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
     const [todoForDirections, setTodoForDirections] = useState<Todo | null>(null);
     const [dailyBriefing, setDailyBriefing] = useState<DailyBriefing | null>(null);
+    const [lastAddedTaskId, setLastAddedTaskId] = useState<string | null>(null); // Track last task for reminder
 
     const checkApiKey = useCallback(() => {
         if (!apiKey) {
@@ -207,7 +238,23 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             if (aiResult) {
                 // FIX: Destructure the AI result to separate core Todo properties from metadata.
                 // This resolves the type error and provides a cleaner data structure.
-                const { text, priority, datetime, ...metadata } = aiResult;
+                const { text, priority, datetime, reminderMinutesBefore, ...metadata } = aiResult;
+                
+                console.log('[Main] AI Result:', { text, priority, datetime, reminderMinutesBefore });
+                
+                // Create reminders array if reminder was extracted
+                let reminders: ReminderConfig[] | undefined = undefined;
+                if (reminderMinutesBefore && datetime) {
+                    // Only create reminder if task has a datetime
+                    console.log('[Main] Creating reminder from AI extraction:', reminderMinutesBefore);
+                    reminders = [{
+                        id: uuidv4(),
+                        type: 'relative' as ReminderType,
+                        minutesBefore: reminderMinutesBefore,
+                        triggered: false,
+                    }];
+                }
+                
                 const newTodo: Todo = {
                     id: uuidv4(),
                     text: text || description,
@@ -216,9 +263,52 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                     completed: false,
                     createdAt: new Date().toISOString(),
                     aiMetadata: metadata,
+                    reminders: reminders,
                 };
                 setTodos(prev => [newTodo, ...prev]);
-                setNotification({ message: 'Yeni görev eklendi!', type: 'success' });
+                
+                // Show success message with reminder info if applicable
+                let successMsg = 'Yeni görev eklendi!';
+                console.log('[Main] Checking reminder status:', { hasReminders: !!reminders, hasDatetime: !!datetime });
+                if (reminders && reminders.length > 0) {
+                    const mins = reminderMinutesBefore || 0;
+                    if (mins >= 1440) {
+                        const days = Math.floor(mins / 1440);
+                        successMsg += ` Hatırlatma: ${days} gün önce`;
+                    } else if (mins >= 60) {
+                        const hours = Math.floor(mins / 60);
+                        successMsg += ` Hatırlatma: ${hours} saat önce`;
+                    } else {
+                        successMsg += ` Hatırlatma: ${mins} dakika önce`;
+                    }
+                    setNotification({ message: successMsg, type: 'success' });
+                } else if (datetime && !reminders) {
+                    // Task has datetime but no reminder - ask if user wants to add one
+                    console.log('[Main] Task has datetime but no reminder - asking user');
+                    console.log('[Main] Task ID:', newTodo.id);
+                    console.log('[Main] Task text:', text);
+                    console.log('[Main] Task datetime:', datetime);
+                    
+                    setNotification({ message: successMsg, type: 'success' });
+                    
+                    // Store task ID for later reminder addition
+                    setLastAddedTaskId(newTodo.id);
+                    
+                    // Add AI message to chat asking about reminder
+                    const aiQuestion: ChatMessage = {
+                        role: 'model',
+                        text: `Görev başarıyla eklendi! "${text}" görevi için hatırlatma eklemek ister misiniz? (Evet/Hayır)`
+                    };
+                    console.log('[Main] Adding AI question to chat:', aiQuestion);
+                    setChatHistory(prev => {
+                        console.log('[Main] Current chat history length:', prev.length);
+                        return [...prev, aiQuestion];
+                    });
+                    console.log('[Main] Opening chat modal');
+                    setIsChatOpen(true);
+                } else {
+                    setNotification({ message: successMsg, type: 'success' });
+                }
             } else {
                 throw new Error("AI analysis returned null.");
             }
@@ -237,7 +327,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         } finally {
             setIsLoading(false);
         }
-    }, [apiKey, setTodos, checkApiKey]);
+    }, [apiKey, setTodos, checkApiKey, setChatHistory, setIsChatOpen]);
     
     const createNextOccurrence = (todo: Todo): Todo | null => {
         if (!todo.recurrence) return null;
@@ -472,7 +562,100 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             setIsChatOpen(false); // Close chat to show the summary modal
             return;
         }
+        
+        // Handle add_reminder_yes intent
+        if (intentResult?.intent === 'add_reminder_yes') {
+            if (!lastAddedTaskId) {
+                const modelMessage: ChatMessage = { 
+                    role: 'model', 
+                    text: 'Hatırlatma eklenecek görev bulunamadı. Lütfen önce bir görev ekleyin.' 
+                };
+                setChatHistory(prev => [...prev, modelMessage]);
+                setIsLoading(false);
+                return;
+            }
+            
+            const task = todos.find(t => t.id === lastAddedTaskId);
+            if (!task) {
+                const modelMessage: ChatMessage = { 
+                    role: 'model', 
+                    text: 'Görev bulunamadı. Lütfen tekrar deneyin.' 
+                };
+                setChatHistory(prev => [...prev, modelMessage]);
+                setIsLoading(false);
+                setLastAddedTaskId(null);
+                return;
+            }
+            
+            const modelMessage: ChatMessage = { 
+                role: 'model', 
+                text: `Anlaşıldı! "${task.text}" görevi için hatırlatmayı ne kadar önce almak istersiniz?\n\nÖrnekler:\n- "1 gün önce"\n- "2 saat önce"\n- "30 dakika önce"\n- "1 hafta önce"` 
+            };
+            setChatHistory(prev => [...prev, modelMessage]);
+            setIsLoading(false);
+            return;
+        }
+        
+        // Handle add_reminder_no intent
+        if (intentResult?.intent === 'add_reminder_no') {
+            setLastAddedTaskId(null);
+            const modelMessage: ChatMessage = { 
+                role: 'model', 
+                text: 'Anlaşıldı, hatırlatma eklenmedi. Başka bir şey yapabilir miyim?' 
+            };
+            setChatHistory(prev => [...prev, modelMessage]);
+            setIsLoading(false);
+            return;
+        }
 
+        // Check if user is providing reminder time (if lastAddedTaskId exists)
+        if (lastAddedTaskId) {
+            const task = todos.find(t => t.id === lastAddedTaskId);
+            if (task) {
+                // Try to parse reminder time from user message
+                const reminderTimeResult = await geminiService.analyzeTask(apiKey, `hatırlatma ${message}`);
+                
+                if (reminderTimeResult?.reminderMinutesBefore) {
+                    // Add reminder to the task
+                    const newReminder: ReminderConfig = {
+                        id: uuidv4(),
+                        type: 'relative' as ReminderType,
+                        minutesBefore: reminderTimeResult.reminderMinutesBefore,
+                        triggered: false,
+                    };
+                    
+                    const updatedTask = {
+                        ...task,
+                        reminders: [...(task.reminders || []), newReminder]
+                    };
+                    
+                    setTodos(prev => prev.map(t => t.id === lastAddedTaskId ? updatedTask : t));
+                    setLastAddedTaskId(null);
+                    
+                    // Format time nicely
+                    const mins = reminderTimeResult.reminderMinutesBefore;
+                    let timeStr = '';
+                    if (mins >= 1440) {
+                        const days = Math.floor(mins / 1440);
+                        timeStr = `${days} gün önce`;
+                    } else if (mins >= 60) {
+                        const hours = Math.floor(mins / 60);
+                        timeStr = `${hours} saat önce`;
+                    } else {
+                        timeStr = `${mins} dakika önce`;
+                    }
+                    
+                    const modelMessage: ChatMessage = { 
+                        role: 'model', 
+                        text: `Mükemmel! "${task.text}" görevi için ${timeStr} hatırlatma eklendi. Başka bir şey yapabilir miyim?` 
+                    };
+                    setChatHistory(prev => [...prev, modelMessage]);
+                    setIsLoading(false);
+                    return;
+                }
+            }
+        }
+        
         // Default to general chat
         // chatHistory'ye yeni user mesajını da ekledik, artık güncel history'yi gönderebiliriz
         const updatedHistory = [...chatHistory, userMessage];
@@ -1036,37 +1219,6 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                 {aiMessage && <AiAssistantMessage message={aiMessage} onClose={() => setAiMessage(null)} />}
 
                 <div className="flex flex-col gap-4 mb-6">
-                    {/* Header Row with Title and View Mode Switcher */}
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                        <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3">
-                            Görevlerim
-                            <span className="text-xs sm:text-sm px-2.5 py-1 rounded-lg bg-[var(--accent-color-600)]/10 text-[var(--accent-color-600)] font-medium">
-                                {visibleTodos.length}
-                            </span>
-                        </h2>
-                        <div className="flex items-center p-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                            <button 
-                                onClick={() => setViewMode('list')} 
-                                className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
-                                    viewMode === 'list' 
-                                    ? 'bg-[var(--accent-color-600)] text-white shadow-sm' 
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                                }`}
-                            >
-                                Liste
-                            </button>
-                            <button 
-                                onClick={() => setViewMode('timeline')} 
-                                className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 ${
-                                    viewMode === 'timeline' 
-                                    ? 'bg-[var(--accent-color-600)] text-white shadow-sm' 
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                                }`}
-                            >
-                                Zaman Çizelgesi
-                            </button>
-                        </div>
-                    </div>
 
                     {/* Action Buttons - Modern Grid Layout */}
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -1083,7 +1235,7 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                         </button>
 
                         <button 
-                            onClick={() => navigate('/profile?openMail=true')} 
+                            onClick={() => navigate('/email')} 
                             className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
@@ -1164,31 +1316,152 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                             </span>
                         </button>
                     </div>
-                </div>
 
-                {/* Tasks toolbar: filters + search */}
-                <div className="mb-4 mt-1 grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="md:col-span-2">
-                        <div className="inline-flex rounded-full bg-gray-100 dark:bg-gray-800 p-1">
-                            <button onClick={() => setTaskFilter('all')} className={`px-3 py-1.5 text-xs sm:text-sm rounded-full ${taskFilter==='all' ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Tümü</button>
-                            <button onClick={() => setTaskFilter('active')} className={`px-3 py-1.5 text-xs sm:text-sm rounded-full ${taskFilter==='active' ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Aktif</button>
-                            <button onClick={() => setTaskFilter('completed')} className={`px-3 py-1.5 text-xs sm:text-sm rounded-full ${taskFilter==='completed' ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Tamamlanan</button>
+                    {/* Title and View Mode Switcher - Below Action Buttons */}
+                    <div className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4">
+                        <h2 className="text-2xl sm:text-3xl font-bold flex items-center gap-3 text-gray-900 dark:text-white">
+                            Görevlerim & Notlarım
+                            <span className="text-sm px-3 py-1.5 rounded-lg bg-[var(--accent-color-600)]/10 text-[var(--accent-color-600)] font-semibold">
+                                {totalResults}
+                            </span>
+                        </h2>
+                        <div className="inline-flex items-center p-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                            <button 
+                                onClick={() => setViewMode('list')} 
+                                className={`px-4 sm:px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 ${
+                                    viewMode === 'list' 
+                                    ? 'bg-[var(--accent-color-600)] text-white shadow-sm' 
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                }`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                                </svg>
+                                Liste
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('timeline')} 
+                                className={`px-4 sm:px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 ${
+                                    viewMode === 'timeline' 
+                                    ? 'bg-[var(--accent-color-600)] text-white shadow-sm' 
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                }`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                                Zaman Çizelgesi
+                            </button>
                         </div>
                     </div>
-                    <div className="md:col-span-1">
-                        <div className="relative">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" /></svg>
-                            <input value={taskQuery} onChange={(e)=>setTaskQuery(e.target.value)} placeholder="Görevlerde ara..." className="w-full pl-9 pr-3 py-2 rounded-lg bg-white/80 dark:bg-gray-800/70 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-500)]" />
+                </div>
+
+                {/* Unified Search and Filter Bar */}
+                <div className="mb-6 space-y-3">
+                    {/* Search Bar */}
+                    <div className="relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                        </svg>
+                        <input 
+                            value={searchQuery} 
+                            onChange={(e) => setSearchQuery(e.target.value)} 
+                            placeholder="Görevlerde ve notlarda ara..." 
+                            className="w-full pl-12 pr-4 py-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-500)] shadow-sm transition-all"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Filter Tabs */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Content Type Filter */}
+                        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+                            <button 
+                                onClick={() => setContentFilter('all')} 
+                                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                                    contentFilter === 'all' 
+                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                }`}
+                            >
+                                Tümü ({visibleTodos.length + visibleNotes.length})
+                            </button>
+                            <button 
+                                onClick={() => setContentFilter('tasks')} 
+                                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                                    contentFilter === 'tasks' 
+                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                }`}
+                            >
+                                Görevler ({visibleTodos.length})
+                            </button>
+                            <button 
+                                onClick={() => setContentFilter('notes')} 
+                                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                                    contentFilter === 'notes' 
+                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                                }`}
+                            >
+                                Notlar ({visibleNotes.length})
+                            </button>
                         </div>
+
+                        {/* Task Status Filter */}
+                        {(contentFilter === 'all' || contentFilter === 'tasks') && (
+                            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+                                <button 
+                                    onClick={() => setTaskStatusFilter('all')} 
+                                    className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                        taskStatusFilter === 'all' 
+                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                        : 'text-gray-600 dark:text-gray-400'
+                                    }`}
+                                >
+                                    Tüm Görevler
+                                </button>
+                                <button 
+                                    onClick={() => setTaskStatusFilter('active')} 
+                                    className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                        taskStatusFilter === 'active' 
+                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                        : 'text-gray-600 dark:text-gray-400'
+                                    }`}
+                                >
+                                    Aktif
+                                </button>
+                                <button 
+                                    onClick={() => setTaskStatusFilter('completed')} 
+                                    className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                        taskStatusFilter === 'completed' 
+                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                        : 'text-gray-600 dark:text-gray-400'
+                                    }`}
+                                >
+                                    Tamamlanan
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
-                    <div className="lg:col-span-2">
-                        {viewMode === 'list' ? (
-                            <div className="bg-white/80 dark:bg-gray-800/60 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4">
-                                <TodoList
-                                    todos={visibleTodos}
+                    {(contentFilter === 'all' || contentFilter === 'tasks') && (
+                        <div className={contentFilter === 'tasks' ? 'lg:col-span-5' : 'lg:col-span-2'}>
+                            {viewMode === 'list' ? (
+                                <div className="bg-white/80 dark:bg-gray-800/60 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4">
+                                    <TodoList
+                                        todos={visibleTodos}
                                     onToggle={handleToggleTodo}
                                     onDelete={handleDeleteTodo}
                                     onGetDirections={handleGetDirections}
@@ -1197,13 +1470,15 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                                     onUpdateReminders={handleUpdateReminders}
                                 />
                             </div>
-                        ) : (
-                            <TimelineView todos={todos.filter(t => !t.isDeleted)} />
-                        )}
-                    </div>
-                    <div className="lg:col-span-3 mt-6 lg:mt-0">
+                            ) : (
+                                <TimelineView todos={todos.filter(t => !t.isDeleted)} />
+                            )}
+                        </div>
+                    )}
+                    {(contentFilter === 'all' || contentFilter === 'notes') && (
+                        <div className={contentFilter === 'notes' ? 'lg:col-span-5' : 'lg:col-span-3 mt-6 lg:mt-0'}>
                        <DailyNotepad
-                           notes={notes}
+                           notes={contentFilter === 'notes' || contentFilter === 'all' ? visibleNotes : []}
                            setNotes={setNotes}
                            onOpenAiModal={() => { if(checkApiKey()) setIsNotepadAiModalOpen(true); }}
                            onAnalyzeImage={handleAnalyzeImageNote}
@@ -1231,7 +1506,8 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                            }}
                            onSelectionModeChange={setIsSelectionModeActive}
                        />
-                    </div>
+                        </div>
+                    )}
                 </div>
 
             </main>

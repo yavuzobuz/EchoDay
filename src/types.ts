@@ -28,6 +28,8 @@ export interface AnalyzedTaskData {
   requiresRouting?: boolean;
   destination?: string | null;
   isConflict?: boolean;
+  // Extracted reminder information from user input
+  reminderMinutesBefore?: number | null; // If user says "bir gün önce" = 1440, "1 saat önce" = 60
 }
 
 // ==================== REMINDER SYSTEM ====================
@@ -120,6 +122,7 @@ export interface Note {
   updatedAt?: string;
   userId?: string; // Kullanıcıya özel veri için
   pdfSource?: PdfSourceMetadata; // PDF'den oluşturulan notlar için
+  isDeleted?: boolean; // Soft delete flag - geçici silme için
 }
 
 export interface ChatMessage {

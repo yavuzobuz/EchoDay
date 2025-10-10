@@ -5,8 +5,8 @@ import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { archiveService } from '../services/archiveService';
 import { DayStat } from '../types';
 import { useAuth } from '../contexts/AuthContext';
-import { getUserProfile, updateUserProfile, getUserStats, createDefaultProfile, createDefaultStats } from '../services/profileService';
-import { UserProfile, UserStats, DEFAULT_AVATARS } from '../types/profile';
+import { getUserProfile, updateUserProfile, createDefaultProfile } from '../services/profileService';
+import { UserProfile, DEFAULT_AVATARS } from '../types/profile';
 import MailList from '../components/MailList';
 import MailConnectModal from '../components/MailConnectModal';
 import { mailService } from '../services/mailService';
@@ -55,7 +55,6 @@ const Profile: React.FC<ProfileProps> = ({
 
   // Profile state
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [profileStats, setProfileStats] = useState<UserStats | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [localName, setLocalName] = useState('');
@@ -65,23 +64,6 @@ const Profile: React.FC<ProfileProps> = ({
   
   // Mail state
   const [isMailModalOpen, setIsMailModalOpen] = useState(false);
-  const [isMailListOpen, setIsMailListOpen] = useState(false);
-
-  // Modal scroll kontrolü
-  useEffect(() => {
-    if (isMailListOpen) {
-      // Modal açıldığında body scroll'unu engelle
-      document.body.style.overflow = 'hidden';
-    } else {
-      // Modal kapandığında body scroll'unu geri aç
-      document.body.style.overflow = 'unset';
-    }
-    
-    // Component unmount olduğunda da scroll'u geri aç
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, [isMailListOpen]);
   const [openMailGuide, setOpenMailGuide] = useState(false);
   // Email accounts state (connected + local custom)
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
@@ -161,13 +143,7 @@ const Profile: React.FC<ProfileProps> = ({
 
   useEffect(() => {
     loadEmailAccounts();
-    
-    // Check if we should auto-open mail list
-    const openMail = searchParams.get('openMail');
-    if (openMail === 'true') {
-      setIsMailListOpen(true);
-    }
-  }, [searchParams]);
+  }, []);
 
   const handleSignOut = async () => {
     if (confirm('Çıkış yapmak istediğinize emin misiniz?')) {
@@ -200,16 +176,10 @@ const Profile: React.FC<ProfileProps> = ({
   const loadProfileData = async () => {
     setProfileLoading(true);
     try {
-      const [profileData, statsData] = await Promise.all([
-        getUserProfile(userId),
-        getUserStats(userId)
-      ]);
-      
+      const profileData = await getUserProfile(userId);
       const finalProfile = profileData || createDefaultProfile(userId);
-      const finalStats = statsData || createDefaultStats();
       
       setProfile(finalProfile);
-      setProfileStats(finalStats);
       setLocalName(finalProfile.name);
       setLocalBio(finalProfile.bio);
       setLocalAvatar(finalProfile.avatar);
@@ -275,14 +245,21 @@ const Profile: React.FC<ProfileProps> = ({
         const currentTodos = JSON.parse(localStorage.getItem(`todos_${userId}`) || '[]');
         const today = new Date();
         const dateStr = today.toISOString().split('T')[0];
-        const todaysCurrent = currentTodos.filter((t: any) => new Date(t.createdAt).toISOString().startsWith(dateStr));
+        
+        // Today's stats - only count tasks created today
+        const todaysCurrent = currentTodos.filter((t: any) => {
+          const taskDate = new Date(t.createdAt).toISOString().split('T')[0];
+          return taskDate === dateStr && !t.isDeleted;
+        });
         const { todos: archivedToday } = await archiveService.getArchivedItemsForDate(dateStr, userId);
         const allToday = [...todaysCurrent, ...archivedToday];
         const todayTotal = allToday.length;
         const todayCompleted = allToday.filter((t: any) => t.completed).length;
 
+        // Weekly stats - includes current + archived todos
         const weekly = await archiveService.getPeriodicReport('week', currentTodos, userId);
         const dashboard = await archiveService.getDashboardStats(currentTodos, userId);
+        
         setStats({
           todayTotal,
           todayCompleted,
@@ -296,7 +273,7 @@ const Profile: React.FC<ProfileProps> = ({
       }
     };
     loadStats();
-  }, [user]);
+  }, [userId]);
 
   const handleSaveApiKey = (e: React.FormEvent) => {
     e.preventDefault();
@@ -442,47 +419,6 @@ const Profile: React.FC<ProfileProps> = ({
                     </div>
                 )}
             </div>
-
-            {/* Profile Statistics */}
-            {!profileLoading && profileStats && (
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
-                    <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">Profil İstatistikleri</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
-                            <div className="text-3xl font-bold text-[var(--accent-color-600)]">{profileStats?.totalTodos || 0}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Toplam Görev</div>
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
-                            <div className="text-3xl font-bold text-green-600 dark:text-green-400">{profileStats?.completedTodos || 0}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Tamamlanan Görev</div>
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
-                            <div className="text-3xl font-bold text-[var(--accent-color-600)]">{profileStats?.totalNotes || 0}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Toplam Not</div>
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
-                            <div className="text-3xl font-bold text-[var(--accent-color-600)]">{profileStats?.daysActive || 0}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Aktif Gün</div>
-                        </div>
-                    </div>
-                    {profileStats && profileStats.completedTodos > 0 && profileStats.totalTodos > 0 && (
-                        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-sm font-semibold">Tamamlanma Oranı</span>
-                                <span className="text-sm font-bold text-[var(--accent-color-600)]">
-                                    {Math.round((profileStats.completedTodos / profileStats.totalTodos) * 100)}%
-                                </span>
-                            </div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
-                                <div 
-                                    className="bg-[var(--accent-color-600)] h-2.5 rounded-full transition-all duration-300"
-                                    style={{ width: `${(profileStats.completedTodos / profileStats.totalTodos) * 100}%` }}
-                                ></div>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
 
             {/* User Info & Sign Out */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
@@ -780,7 +716,7 @@ const Profile: React.FC<ProfileProps> = ({
                     <p className="text-sm text-gray-600 dark:text-gray-400">Gmail, Outlook veya IMAP/POP hesabı ekleyin.</p>
                     <div className="flex gap-2">
                         <button onClick={() => setIsMailModalOpen(true)} className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)]">Hesap Ekle</button>
-                        <button onClick={() => setIsMailListOpen(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">📬 Maillerimi Gör</button>
+                        <button onClick={() => navigate('/email')} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">📬 Maillerimi Gör</button>
                         <button onClick={() => { setOpenMailGuide(true); setIsMailModalOpen(true); }} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">📘 Rehber</button>
                     </div>
                 </div>
@@ -808,7 +744,7 @@ const Profile: React.FC<ProfileProps> = ({
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <button onClick={() => setIsMailListOpen(true)} className="px-3 py-1.5 text-sm rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500">Görüntüle</button>
+                          <button onClick={() => navigate('/email')} className="px-3 py-1.5 text-sm rounded bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500">Görüntüle</button>
                           <button onClick={() => handleRemoveAccount(acc)} className="px-3 py-1.5 text-sm rounded bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/70">Sil</button>
                         </div>
                       </li>
@@ -1061,36 +997,6 @@ const Profile: React.FC<ProfileProps> = ({
                     setTimeout(() => setNotification(null), 3000);
                 }}
             />
-            
-            {/* Mail List Modal */}
-            {isMailListOpen && (
-                <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm overflow-hidden">
-                    <div className="h-screen w-screen bg-white dark:bg-gray-900 overflow-hidden">
-                        <div className="h-full flex flex-col overflow-hidden">
-                            <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
-                                <h2 className="text-xl font-bold">📬 Maillerim</h2>
-                                <button
-                                    onClick={() => setIsMailListOpen(false)}
-                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg"
-                                >
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                </button>
-                            </div>
-                            <div className="flex-1 min-h-0 overflow-hidden">
-                                <MailList 
-                                    onConnectClick={() => {
-                                        setIsMailListOpen(false);
-                                        setIsMailModalOpen(true);
-                                    }}
-                                    apiKey={apiKey}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
             
             {/* Notification */}
             {notification && (

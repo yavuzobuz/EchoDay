@@ -405,13 +405,15 @@ export async function archiveUpsertTodos(userId: string, todos: any[]) {
   try {
     const now = new Date().toISOString();
     const payload = todos.map((t) => {
-      const { id, text, priority, datetime, createdAt } = t;
+      const { id, text, priority, datetime, createdAt, completed, aiMetadata } = t;
       return {
         id, // use original id
         user_id: userId,
         text: text || '',
         priority: priority || 'medium',
         datetime: datetime || null,
+        completed: completed ?? false,
+        ai_metadata: aiMetadata || null,
         created_at: createdAt || now,
         archived_at: now,
       };
@@ -443,9 +445,10 @@ export async function archiveFetchByDate(userId: string, date: string) {
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
+    // Filter by created_at (when task was created) not archived_at (when it was archived)
     const [tRes, nRes] = await Promise.all([
-      supabase.from('archived_todos').select('*').eq('user_id', userId).gte('archived_at', startISO).lte('archived_at', endISO),
-      supabase.from('archived_notes').select('*').eq('user_id', userId).gte('archived_at', startISO).lte('archived_at', endISO),
+      supabase.from('archived_todos').select('*').eq('user_id', userId).gte('created_at', startISO).lte('created_at', endISO),
+      supabase.from('archived_notes').select('*').eq('user_id', userId).gte('created_at', startISO).lte('created_at', endISO),
     ]);
     
     const todos = (tRes.data || []).map((row: any) => ({
@@ -453,6 +456,8 @@ export async function archiveFetchByDate(userId: string, date: string) {
       createdAt: row.created_at ?? row.createdAt,
       archivedAt: row.archived_at ?? row.archivedAt,
       userId: row.user_id ?? row.userId,
+      completed: row.completed ?? false,
+      aiMetadata: row.ai_metadata ?? row.aiMetadata,
     }));
     const notes = (nRes.data || []).map((row: any) => ({
       ...row,

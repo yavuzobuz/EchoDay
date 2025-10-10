@@ -25,6 +25,7 @@ const taskSchema = {
         requiresRouting: { type: SchemaType.BOOLEAN, description: 'Görev belirli bir yere gitmeyi içeriyorsa ve yol tarifi gerektiriyorsa true.', nullable: true },
         destination: { type: SchemaType.STRING, description: 'Eğer requiresRouting true ise, hedef adres veya yer adı. Aksi takdirde null.', nullable: true },
         isConflict: { type: SchemaType.BOOLEAN, description: 'SADECE kullanıcı başka bir görevle zaman çakışmasından açıkça bahsederse true olarak ayarla. Aksi takdirde false.', nullable: true },
+        reminderMinutesBefore: { type: SchemaType.NUMBER, description: 'Kullanıcı hatırlatma belirtmişse, görev zamanından KAÇ DAKİKA ÖNCE hatırlatma yapılacağı. Örnekler: "bir gün önce"=1440, "1 saat önce"=60, "30 dakika önce"=30, "bir hafta önce"=10080. Belirtilmemişse null.', nullable: true },
     },
     required: ['text', 'priority'],
 };
@@ -44,8 +45,8 @@ const chatIntentSchema = {
     properties: {
         intent: { 
             type: SchemaType.STRING, 
-            enum: ['add_task', 'add_note', 'get_summary', 'chat'], 
-            description: "Kullanıcının niyetini sınıflandır. 'add_task' eyleme geçirilebilir bir yapılacak öğesi oluşturmak için ('süt al', 'doktoru ara'). 'add_note' bilgi veya fikirleri günlük not defterine kaydetmek için ('bu fikri hatırla', 'bunu not al'). 'get_summary' günlük bir brifing istemek için. 'chat' genel sohbet için." 
+            enum: ['add_task', 'add_note', 'get_summary', 'add_reminder_yes', 'add_reminder_no', 'chat'], 
+            description: "Kullanıcının niyetini sınıflandır. 'add_task' eyleme geçirilebilir bir yapılacak öğesi oluşturmak için. 'add_note' bilgi veya fikirleri günlük not defterine kaydetmek için. 'get_summary' günlük brifing istemek için. 'add_reminder_yes' kullanıcı hatırlatma eklemek istiyorsa ('evet', 'ekle', 'istiyorum'). 'add_reminder_no' kullanıcı hatırlatma eklememek istiyorsa ('hayır', 'istemiyorum', 'geç'). 'chat' genel sohbet için." 
         },
         description: { 
             type: SchemaType.STRING, 
@@ -225,11 +226,26 @@ TEXT ALANI FORMATLAMA:
 - Örnek: "Elektrik faturası ödemesi" yerine "Elektrik faturası ödemesi - Son Ödeme: 20 Ocak 2025"
 - Kategori "Duruşma", "Mahkeme", "Ödeme" veya "Fatura" ise mutlaka tarihi text'e ekle.
 
+HATIRLATMA ÇIKARMA:
+- Kullanıcı "hatırlatma ekle", "hatırlat", "uyar" gibi kelimeler kullanıyorsa, reminderMinutesBefore alanını doldur
+- Süre ifadelerini dakikaya çevir:
+  * "bir gün önce" / "1 gün önce" = 1440 dakika
+  * "iki gün önce" / "2 gün önce" = 2880 dakika
+  * "bir hafta önce" / "1 hafta önce" = 10080 dakika
+  * "bir saat önce" / "1 saat önce" = 60 dakika
+  * "30 dakika önce" = 30 dakika
+  * "yarım saat önce" = 30 dakika
+  * "15 dakika önce" = 15 dakika
+- Hatırlatma belirtilmemişse reminderMinutesBefore = null
+- Hatırlatma ifadelerini text alanından ÇIKAR (text'te "hatırlatma ekle" gibi ifadeler olmamalı)
+
 ÖRNEKLER:
 ✓ İYİ: Kullanıcı "yeni görev ekle önemli!" derse -> text: "[Görev detayları eksik - lütfen ne yapmak istediğinizi belirtin]", priority: "high"
 ✓ İYİ: Kullanıcı "doktora git acil" derse -> text: "Doktora git", priority: "high"
 ✓ İYİ: Kullanıcı "süt al" derse -> text: "Süt al", priority: "medium"
+✓ İYİ: Kullanıcı "yarın saat 15:00 doktora git, bir gün önce hatırlat" derse -> text: "Doktora git", datetime: "2025-...", reminderMinutesBefore: 1440
 ✗ KÖTÜ: "Süt al önemli" -> text'e "önemli" kelimesini ekleme!
+✗ KÖTÜ: "Doktora git bir gün önce hatırlat" -> text'e "bir gün önce hatırlat" ekleme!
 
 Görev: "${description}"`
         
@@ -298,6 +314,19 @@ TEXT ALANI FORMATLAMA:
 - Örnek: "Duruşmaya Katıl" yerine "Duruşmaya Katıl - 15 Ocak 2025 Saat 14:30"
 - Örnek: "Elektrik faturası ödemesi" yerine "Elektrik faturası ödemesi - Son Ödeme: 20 Ocak 2025"
 - Kategori "Duruşma", "Mahkeme", "Ödeme" veya "Fatura" ise mutlaka tarihi text'e ekle.
+
+HATIRLATMA ÇIKARMA:
+- Kullanıcı "hatırlatma ekle", "hatırlat", "uyar" gibi kelimeler kullanıyorsa, reminderMinutesBefore alanını doldur
+- Süre ifadelerini dakikaya çevir:
+  * "bir gün önce" / "1 gün önce" = 1440 dakika
+  * "iki gün önce" / "2 gün önce" = 2880 dakika
+  * "bir hafta önce" / "1 hafta önce" = 10080 dakika
+  * "bir saat önce" / "1 saat önce" = 60 dakika
+  * "30 dakika önce" = 30 dakika
+  * "yarım saat önce" = 30 dakika
+  * "15 dakika önce" = 15 dakika
+- Hatırlatma belirtilmemişse reminderMinutesBefore = null
+- Hatırlatma ifadelerini text alanından ÇIKAR (text'te "hatırlatma ekle" gibi ifadeler olmamalı)
 
 Kullanıcı isteği: "${prompt}"`
         
@@ -1304,6 +1333,33 @@ Yarın: 2025-01-16 14:00 (yerel) → 2025-01-16T11:00:00.000Z (UTC)`;
     }
 };
 
+/**
+ * Genel amaçlı metin üretimi fonksiyonu
+ * @param apiKey - Gemini API key
+ * @param prompt - Üretilecek metin için prompt
+ * @returns Üretilen metin
+ */
+const generateText = async (apiKey: string, prompt: string): Promise<string | null> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                temperature: 0.7,
+                topP: 0.95,
+                topK: 40,
+                maxOutputTokens: 2048,
+            },
+        });
+        
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+    } catch (error) {
+        console.error('Error generating text with Gemini:', error);
+        return null;
+    }
+};
+
 export const geminiService = {
     analyzeTask,
     analyzeImageForTask,
@@ -1328,6 +1384,8 @@ export const geminiService = {
     analyzePdfDocument,
     // Email Analysis
     analyzeEmail,
+    // Text Generation
+    generateText,
 };
 
 // Export types

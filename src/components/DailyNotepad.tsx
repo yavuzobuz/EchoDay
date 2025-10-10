@@ -493,7 +493,7 @@ setNewNoteImageDataUrl(reader.result as string);
 
   // Helper: build note card classes without complex JSX template strings
   const noteCardClasses = (note: Note) => {
-    const base = 'relative rounded-lg text-sm group shadow-md hover:shadow-xl hover:scale-[1.02] transition-all duration-200 overflow-hidden border';
+    const base = 'relative rounded-lg text-sm group shadow-md hover:shadow-2xl hover:-translate-y-1 hover:border-opacity-80 transition-all duration-300 ease-out border';
     const palette: Record<NonNullable<Note['color']>, string> = {
       yellow: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700',
       blue: 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700',

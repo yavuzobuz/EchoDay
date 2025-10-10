@@ -9,6 +9,7 @@ import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Messages from './pages/Messages';
+import Email from './pages/Email';
 import GmailCallback from './components/auth/GmailCallback';
 
 export type AccentColor = 'blue' | 'green' | 'red';
@@ -160,6 +161,14 @@ function AppContent() {
           element={
             <ProtectedRoute>
               <Messages />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/email"
+          element={
+            <ProtectedRoute>
+              <Email />
             </ProtectedRoute>
           }
         />
