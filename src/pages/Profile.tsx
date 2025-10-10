@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AccentColor } from '../App';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { archiveService } from '../services/archiveService';
@@ -7,7 +7,6 @@ import { DayStat } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserProfile, updateUserProfile, createDefaultProfile } from '../services/profileService';
 import { UserProfile, DEFAULT_AVATARS } from '../types/profile';
-import MailList from '../components/MailList';
 import MailConnectModal from '../components/MailConnectModal';
 import { mailService } from '../services/mailService';
 import { EmailAccount } from '../types/mail';
@@ -43,7 +42,6 @@ const Profile: React.FC<ProfileProps> = ({
 }) => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const userId = user?.id || 'guest';
   
   const [localApiKey, setLocalApiKey] = useState(apiKey);

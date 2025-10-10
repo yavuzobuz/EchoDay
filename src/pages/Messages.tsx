@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { ensureProfile, getOrCreateDirectConversationByEmail, listMessages, sendFileMessage, sendTextMessage, subscribeToMessages, downloadAttachment, getAttachmentUrl } from '../services/messagesService';
+import { ensureProfile, getOrCreateDirectConversationByEmail, listMessages, sendFileMessage, sendTextMessage, subscribeToMessages, downloadAttachment } from '../services/messagesService';
 import { listFriends, addFriendByEmail, removeFriend } from '../services/friendsService';
 import { NotificationService } from '../services/notificationService';
 import { presenceService } from '../services/presenceService';

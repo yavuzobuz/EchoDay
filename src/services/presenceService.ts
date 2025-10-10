@@ -34,7 +34,8 @@ class PresenceService {
       });
 
       // Track user presence
-      this.channel
+      const ch = this.channel!;
+      ch
         .on('presence', { event: 'sync' }, () => {
           console.log('Presence synced');
         })
@@ -47,7 +48,7 @@ class PresenceService {
         .subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
             // Track this user's presence
-            await this.channel?.track({
+            await ch.track({
               user_id: userId,
               online_at: new Date().toISOString(),
               email,

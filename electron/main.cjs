@@ -39,6 +39,23 @@ if (!fs.existsSync(dataPath)) {
   fs.mkdirSync(dataPath, { recursive: true });
 }
 
+// Log dizini ve basit log fonksiyonu
+const logsDir = path.join(dataPath, 'logs');
+if (!fs.existsSync(logsDir)) {
+  try { fs.mkdirSync(logsDir, { recursive: true }); } catch {}
+}
+const logFile = path.join(logsDir, 'electron.log');
+function log(...args) {
+  try {
+    const line = args.map(a => {
+      if (a instanceof Error) return a.stack || a.message;
+      try { return typeof a === 'string' ? a : JSON.stringify(a); } catch { return String(a); }
+    }).join(' ');
+    fs.appendFileSync(logFile, `[${new Date().toISOString()}] ${line}\n`);
+  } catch {}
+  try { console.log(...args); } catch {}
+}
+
 // JSON okuma fonksiyonu
 function readJSON(filePath) {
   try {
@@ -81,91 +98,122 @@ function createWindow() {
       enableRemoteModule: false,
       spellcheck: false,
       backgroundThrottling: false,
-      sandbox: true,
-      devTools: isDev, // Development'ta aç, production'da kapat
+      sandbox: false,
+      devTools: true, // Geçici: prod’da da DevTools açık (teşhis için)
     },
     title: 'EchoDay - Sesli Günlük Planlayıcı',
     backgroundColor: '#1a1a1a',
     autoHideMenuBar: true,
-    icon: path.join(__dirname, '../build/icon.png'), // App icon for Linux/fallback
-    ...(process.platform === 'win32' && {
-      icon: path.join(__dirname, '../build/icon.ico') // Windows icon
-    }),
-    ...(process.platform === 'darwin' && {
-      icon: path.join(__dirname, '../build/icon.icns') // macOS icon  
-    }),
+    // Resolve icon with graceful fallbacks (checks resources/public and resources/build)
+    icon: (function() {
+      const cand = [];
+      if (app.isPackaged) {
+        // Packaged paths
+        cand.push(
+          // Preferred formats per OS
+          process.platform === 'win32' ? path.join(process.resourcesPath, 'build', 'icon.ico') :
+          process.platform === 'darwin' ? path.join(process.resourcesPath, 'build', 'icon.icns') :
+          path.join(process.resourcesPath, 'build', 'icon.png')
+        );
+        // Fallback to public assets included in asar
+        cand.push(path.join(process.resourcesPath, 'public', 'icon-512.png'));
+        cand.push(path.join(process.resourcesPath, 'public', 'favicon.png'));
+      } else {
+        // Dev paths
+        cand.push(
+          process.platform === 'win32' ? path.join(__dirname, '../build', 'icon.ico') :
+          process.platform === 'darwin' ? path.join(__dirname, '../build', 'icon.icns') :
+          path.join(__dirname, '../build', 'icon.png')
+        );
+        cand.push(path.join(__dirname, '../public', 'icon-512.png'));
+        cand.push(path.join(__dirname, '../public', 'favicon.png'));
+      }
+      const found = cand.find(p => {
+        try { return fs.existsSync(p); } catch { return false; }
+      });
+      return found || undefined;
+    })(),
   });
 
   // Load the app
-  console.log('Loading app, isDev:', isDev);
+  log('Loading app, isDev:', isDev);
   if (isDev) {
-    console.log('Loading from localhost:5174');
+    log('Loading from localhost:5174');
     mainWindow.loadURL('http://localhost:5174').then(() => {
-      console.log('Loaded successfully');
+      log('Loaded successfully');
       // DevTools'u development modunda bile açma
       // mainWindow.webContents.openDevTools();
     }).catch(err => {
-      console.error('Failed to load:', err);
+      log('Failed to load:', err);
     });
   } else {
-    // Production: Load from packaged dist folder
-    const indexPath = path.join(__dirname, '../dist/index.html');
-    console.log('Production mode');
-    console.log('Loading from:', indexPath);
-    console.log('__dirname:', __dirname);
-    console.log('app.getAppPath():', app.getAppPath());
-    console.log('process.resourcesPath:', process.resourcesPath);
-    
-    // Check if file exists
-    if (fs.existsSync(indexPath)) {
-      console.log('File exists at primary path');
-      mainWindow.loadFile(indexPath).then(() => {
-        console.log('Successfully loaded index.html');
-      }).catch(err => {
-        console.error('Failed to load index.html:', err);
-        mainWindow.loadURL(`file://${indexPath}`);
-      });
-    } else {
-      console.log('File not found at primary path, trying alternative paths...');
-      // Try alternative paths for portable build
-      const paths = [
-        path.join(process.resourcesPath, 'app', 'dist', 'index.html'),
-        path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html'),
-        path.join(__dirname, '..', '..', 'dist', 'index.html'),
-        path.join(app.getAppPath(), 'dist', 'index.html')
-      ];
-      
-      let loaded = false;
-      for (const altPath of paths) {
-        console.log('Trying path:', altPath);
-        if (fs.existsSync(altPath)) {
-          console.log('File found at:', altPath);
-          mainWindow.loadFile(altPath).then(() => {
-            console.log('Successfully loaded from:', altPath);
-            loaded = true;
-          }).catch(err => {
-            console.error('Failed to load from:', altPath, err);
-          });
-          break;
+    // Production: Load from packaged dist folder (handle asar)
+    log('Production mode');
+    log('__dirname:', __dirname);
+    log('app.getAppPath():', app.getAppPath());
+    log('process.resourcesPath:', process.resourcesPath);
+
+    // Prefer loading from app.asar using app.getAppPath()
+    const primary = path.join(app.getAppPath(), 'dist', 'index.html');
+    const fallbacks = [
+      path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html'),
+      path.join(__dirname, '../dist/index.html'),
+      path.join(process.resourcesPath, 'app', 'dist', 'index.html'),
+    ];
+
+    const tryLoad = async (p) => {
+      try {
+        log(`[Loader] Trying: ${p}`);
+        await mainWindow.loadFile(p);
+        log(`[Loader] Loaded successfully from: ${p}`);
+        return true;
+      } catch (err) {
+        log(`[Loader] Failed from: ${p}`, err);
+        return false;
+      }
+    };
+
+    (async () => {
+      if (await tryLoad(primary)) return;
+      for (const p of fallbacks) {
+        if (p.includes('app.asar')) {
+          if (await tryLoad(p)) return;
+        } else if (fs.existsSync(p)) {
+          if (await tryLoad(p)) return;
+        } else {
+          log(`[Loader] Not found (skip exists): ${p}`);
         }
       }
-      
-      if (!loaded) {
-        console.error('Could not find index.html in any expected location');
-        // Show error in window
-        mainWindow.loadURL('data:text/html,<h1>Error: Could not find application files</h1><p>Please check the console for details.</p>');
-      }
-    }
+      log('[Loader] Could not find index.html in any expected location');
+      mainWindow.loadURL('data:text/html,<h1>Uygulama dosyaları bulunamadı</h1><p>Lütfen kurulumun tam olduğundan emin olun.</p>');
+    })();
   }
   
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
+    log('Window ready-to-show');
     mainWindow.show();
   });
 
   // Handle window close
   mainWindow.on('closed', () => {
+    log('Window closed');
     mainWindow = null;
+  });
+
+  // Renderer/webContents diagnostic events
+  mainWindow.webContents.on('did-finish-load', () => log('[WebContents] did-finish-load'));
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    log('[WebContents] did-fail-load', { errorCode, errorDescription, validatedURL, isMainFrame });
+  });
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+    log('[WebContents] render-process-gone', details);
+  });
+  mainWindow.webContents.on('unresponsive', () => {
+    log('[WebContents] unresponsive');
+  });
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    log('[Renderer]', { level, message, line, sourceId });
   });
 
   // Handle permission requests for media devices
@@ -200,11 +248,12 @@ if (isDev) {
 } else {
   app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
   app.commandLine.appendSwitch('lang', 'tr-TR');
+  app.commandLine.appendSwitch('enable-logging');
 }
 
 // App ready
 app.whenReady().then(() => {
-  console.log('App is ready');
+  log('App is ready');
   createWindow();
 
   app.on('activate', () => {
@@ -213,7 +262,7 @@ app.whenReady().then(() => {
     }
   });
 }).catch(err => {
-  console.error('Error when app ready:', err);
+  log('Error when app ready:', err);
 });
 
 // Quit when all windows are closed (except on macOS)
@@ -225,6 +274,7 @@ app.on('window-all-closed', () => {
 
 // IPC Handlers for future use
 ipcMain.handle('app-version', () => {
+  log('[IPC] app-version request');
   return app.getVersion();
 });
 

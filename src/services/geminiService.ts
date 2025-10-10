@@ -45,14 +45,26 @@ const chatIntentSchema = {
     properties: {
         intent: { 
             type: SchemaType.STRING, 
-            enum: ['add_task', 'add_note', 'get_summary', 'add_reminder_yes', 'add_reminder_no', 'chat'], 
-            description: "Kullanıcının niyetini sınıflandır. 'add_task' eyleme geçirilebilir bir yapılacak öğesi oluşturmak için. 'add_note' bilgi veya fikirleri günlük not defterine kaydetmek için. 'get_summary' günlük brifing istemek için. 'add_reminder_yes' kullanıcı hatırlatma eklemek istiyorsa ('evet', 'ekle', 'istiyorum'). 'add_reminder_no' kullanıcı hatırlatma eklememek istiyorsa ('hayır', 'istemiyorum', 'geç'). 'chat' genel sohbet için." 
+            enum: ['add_task', 'add_note', 'get_summary', 'get_agenda', 'add_reminder_yes', 'add_reminder_no', 'chat'], 
+            description: "Kullanıcının niyetini sınıflandır. 'add_task' eyleme geçirilebilir bir yapılacak öğesi oluşturmak için. 'add_note' bilgi veya fikirleri günlük not defterine kaydetmek için. 'get_summary' günlük brifing istemek için. 'get_agenda' haftalık/aylık ajanda listesi ve özeti için. 'add_reminder_yes' kullanıcı hatırlatma eklemek istiyorsa ('evet', 'ekle', 'istiyorum'). 'add_reminder_no' kullanıcı hatırlatma eklememek istiyorsa ('hayır', 'istemiyorum', 'geç'). 'chat' genel sohbet için." 
         },
         description: { 
             type: SchemaType.STRING, 
             description: "Eğer niyet 'add_task' veya 'add_note' ise, eklenecek tam içerik budur. Aksi takdirde null.", 
             nullable: true
         },
+        period: {
+            type: SchemaType.STRING,
+            enum: ['day', 'week', 'month', 'year'],
+            description: "'get_agenda' için istenen kapsam: gün/hafta/ay/yıl.",
+            nullable: true
+        },
+        ordering: {
+            type: SchemaType.STRING,
+            enum: ['importance', 'time'],
+            description: "Sıralama tercihi: 'importance' (önemliden önemsize) veya 'time' (zamana göre).",
+            nullable: true
+        }
     },
     required: ['intent']
 };
@@ -499,7 +511,7 @@ const extractTextFromDataUrl = async (apiKey: string, dataUrl: string): Promise<
     }
 };
 
-const classifyChatIntent = async (apiKey: string, message: string): Promise<{ intent: string, description?: string } | null> => {
+const classifyChatIntent = async (apiKey: string, message: string): Promise<{ intent: string, description?: string, period?: 'day' | 'week' | 'month' | 'year', ordering?: 'importance' | 'time' } | null> => {
     try {
         const model = getAI(apiKey).getGenerativeModel({
             model: modelName,
@@ -510,7 +522,7 @@ const classifyChatIntent = async (apiKey: string, message: string): Promise<{ in
             },
         });
         
-        const prompt = `Aşağıdaki mesaj için kullanıcının niyetini sınıflandır. Kullanıcının KESLİKLE ne istediğini anla.
+const prompt = `Aşağıdaki mesaj için kullanıcının niyetini sınıflandır. Kullanıcının KESİNLİKLE ne istediğini anla.
 
 KLASİFİKASYON KURALLARI:
 
@@ -528,17 +540,28 @@ KLASİFİKASYON KURALLARI:
    - "özet", "brifing", "bugün", "günlük" kelimelerini içerir
    - Örnekler: "bugünün özeti", "günlük brifing"
 
-4. 'chat' - Genel sohbet:
+4. 'get_agenda' - Ajanda/Liste (günlük/haftalık/aylık/yıllık):
+   - "haftalık ajandamı listele", "bu hafta ajanda", "haftanın özeti"
+   - "aylık ajandamı listele", "bu ay ajanda", "aylık özet"
+   - "yıllık ajanda"
+   - "haftalık liste", "günlük liste" (listele / göster / yaz)
+   - Sıralama tercihi: "önemliden önemsize doğru" -> ordering = "importance"; "zamana göre" / "saat sırasına göre" -> ordering = "time"
+   - 'period' alanını belirle: "haftalık"/"haftalık liste" -> "week", "aylık" -> "month", "günlük"/"günlük liste" -> "day", "yıllık" -> "year" (belirtilmemişse tahmin etme, null bırak)
+
+5. 'chat' - Genel sohbet:
    - Yukarıdakilerin hiçbirine uymuyor
    - Örnekler: "merhaba", "nasılsın", "hava nasıl"
 
 KRİTİK ÖRNEKLER:
 ✓ "not ekle" -> intent: 'add_note' (description: "[Kullanıcı not eklemek istiyor ama içerik belirtmedi]")
 ✓ "görev ekle" -> intent: 'add_task' (description: "[Kullanıcı görev eklemek istiyor ama içerik belirtmedi]")
-✓ "not ekle: toplantı saat 15:00" -> intent: 'add_note' (description: "toplantı saat 15:00")
-✓ "görev: toplantıya katıl" -> intent: 'add_task' (description: "toplantıya katıl")
-✓ "süt al" -> intent: 'add_task' (description: "süt al")
-✓ "bunu hatırla" -> intent: 'add_note' (description: "bunu hatırla")
+✓ "haftalık ajandamı listele" -> intent: 'get_agenda', period: 'week'
+✓ "haftalık liste" -> intent: 'get_agenda', period: 'week'
+✓ "günlük liste" -> intent: 'get_agenda', period: 'day'
+✓ "aylık ajandamı listele" -> intent: 'get_agenda', period: 'month'
+✓ "aylık liste" / "bu ay liste" -> intent: 'get_agenda', period: 'month'
+✓ "aylık ajandamı listele önemliden önemsize doğru" -> intent: 'get_agenda', period: 'month', ordering: 'importance'
+✓ "bugünün özeti" -> intent: 'get_summary'
 
 Mesaj: "${message}"`
         

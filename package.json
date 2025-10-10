@@ -39,8 +39,14 @@
       "electron/**/*"
     ],
     "win": {
-      "icon": "build/icon.png",
+      "icon": "public/icon-512.png",
       "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
         {
           "target": "portable",
           "arch": [
@@ -65,11 +71,11 @@
       "language": "1055"
     },
     "mac": {
-      "icon": "build/icon.icns",
+      "icon": "public/icon-512.png",
       "target": "dmg"
     },
     "linux": {
-      "icon": "build/icon.png",
+      "icon": "public/icon-512.png",
       "target": "AppImage"
     }
   },

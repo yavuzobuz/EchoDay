@@ -4,8 +4,19 @@ import { resolve } from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],
-  base: './',
+  plugins: [
+    react(),
+    // Custom plugin to fix asset paths for Electron
+    {
+      name: 'fix-electron-paths',
+      enforce: 'post',
+      transformIndexHtml(html) {
+        // Replace ./ with / in all src/href attributes for Electron compatibility
+        return html.replace(/(src|href)="\.\/([^"]+)"/g, '$1="/$2"');
+      }
+    }
+  ],
+  base: '', // Empty for Electron file:// protocol compatibility
   server: {
     host: '0.0.0.0',
     port: 5173,

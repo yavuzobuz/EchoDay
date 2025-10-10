@@ -31,6 +31,7 @@ import { useSpeechRecognition } from './hooks/useSpeechRecognitionUnified';
 import { useGeoReminders } from './hooks/useGeoReminders';
 import { geminiService } from './services/geminiService';
 import { pdfService } from './services/pdfService';
+import { parseZamanFromText, parseRelativeTurkishDateTime } from './utils/parseTurkishDate';
 import { archiveService } from './services/archiveService';
 import { contextMemoryService } from './services/contextMemoryService';
 import { reminderService, ActiveReminder } from './services/reminderService';
@@ -95,6 +96,18 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const [contentFilter, setContentFilter] = useState<'all' | 'tasks' | 'notes'>('all');
     const [taskStatusFilter, setTaskStatusFilter] = useState<'all' | 'active' | 'completed'>('all');
 
+// Date helpers for filters
+    const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+    const endOfDay = (d: Date) => { const x = startOfDay(d); x.setDate(x.getDate()+1); x.setMilliseconds(-1); return x; };
+    const startOfWeek = (d: Date) => { const x = startOfDay(d); const day = x.getDay(); const diff = (day === 0 ? -6 : 1 - day); x.setDate(x.getDate() + diff); return x; };
+    const endOfWeek = (d: Date) => { const x = startOfWeek(d); x.setDate(x.getDate() + 6); return endOfDay(x); };
+    const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
+    const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
+    const startOfYear = (d: Date) => new Date(d.getFullYear(), 0, 1);
+    const endOfYear = (d: Date) => new Date(d.getFullYear(), 11, 31, 23,59,59,999);
+
+    const [listRange, setListRange] = useState<'all' | 'day' | 'week' | 'month'>('all');
+
     // Filter and search todos
     const visibleTodos = React.useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
@@ -104,11 +117,26 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         if (taskStatusFilter === 'active') list = list.filter(t => !t.completed);
         if (taskStatusFilter === 'completed') list = list.filter(t => t.completed);
         
+        // Date range filter for list view
+        if (listRange !== 'all') {
+            const now = new Date();
+            let s = startOfDay(now);
+            let e = endOfDay(now);
+            if (listRange === 'week') {
+                s = startOfWeek(now);
+                e = endOfWeek(now);
+            } else if (listRange === 'month') {
+                s = startOfMonth(now);
+                e = endOfMonth(now);
+            }
+            list = list.filter(t => t.datetime && (new Date(t.datetime) >= s && new Date(t.datetime) <= e));
+        }
+        
         // Search filter
         if (q) list = list.filter(t => t.text.toLowerCase().includes(q));
         
         return list;
-    }, [todos, taskStatusFilter, searchQuery]);
+    }, [todos, taskStatusFilter, searchQuery, listRange]);
 
     // Filter and search notes
     const visibleNotes = React.useMemo(() => {
@@ -238,9 +266,28 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             if (aiResult) {
                 // FIX: Destructure the AI result to separate core Todo properties from metadata.
                 // This resolves the type error and provides a cleaner data structure.
-                const { text, priority, datetime, reminderMinutesBefore, ...metadata } = aiResult;
+                let { text, priority, datetime, reminderMinutesBefore, ...metadata } = aiResult;
                 
                 console.log('[Main] AI Result:', { text, priority, datetime, reminderMinutesBefore });
+                
+                // Fallback: parse Turkish date if AI didn't set datetime
+                if (!datetime) {
+                    const parsed =
+                        parseZamanFromText(description) ||
+                        parseZamanFromText(text || '') ||
+                        // Relative forms like "yarına", "bugün 18:00"
+                        (await (async () => {
+                            const { parseRelativeTurkishDateTime } = await import('./utils/parseTurkishDate');
+                            return (
+                                parseRelativeTurkishDateTime(description) ||
+                                parseRelativeTurkishDateTime(text || '')
+                            );
+                        })());
+                    if (parsed) {
+                        console.log('[Main] Parsed datetime from text:', parsed);
+                        datetime = parsed;
+                    }
+                }
                 
                 // Create reminders array if reminder was extracted
                 let reminders: ReminderConfig[] | undefined = undefined;
@@ -499,6 +546,40 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         setIsChatOpen(true);
       }, [checkApiKey]);
 
+    // Helpers for agenda summaries
+    const isWithin = (dt: Date, s: Date, e: Date) => dt >= s && dt <= e;
+    const formatTime = (dt: Date) => dt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+    const formatDate = (dt: Date) => dt.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
+
+    const computeImportance = (todo: Todo) => {
+        let score = 0;
+        // Priority weight
+        score += (todo.priority === Priority.High) ? 50 : 20;
+        // Due time proximity
+        if (todo.datetime) {
+            const now = new Date();
+            const dt = new Date(todo.datetime);
+            const diffHours = (dt.getTime() - now.getTime()) / 36e5;
+            if (diffHours <= 0) score += 25; // overdue or now
+            else if (diffHours <= 24) score += Math.max(0, 22 - diffHours); // closer -> higher
+            else if (diffHours <= 72) score += 10;
+            else if (diffHours <= 168) score += 5; // within a week
+        }
+        // Reminders add significance
+        if (todo.reminders && todo.reminders.length > 0) score += 5;
+        // Recurring tasks slightly boosted
+        if (todo.recurrence) score += 3;
+        // Semantic tags
+        const tags = (todo.aiMetadata?.tags || []).map(t => t.toLowerCase());
+        if (tags.some(t => ['acil','kritik','önemli'].includes(t))) score += 40;
+        // Estimated duration (long tasks slightly prioritized)
+        if (todo.aiMetadata?.estimatedDuration) {
+            if (todo.aiMetadata.estimatedDuration >= 120) score += 3;
+            else if (todo.aiMetadata.estimatedDuration >= 60) score += 2;
+        }
+        return score;
+    };
+
     const handleSendMessage = async (message: string) => {
         if (!checkApiKey()) return;
         const userMessage: ChatMessage = { role: 'user', text: message };
@@ -560,6 +641,53 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             setChatHistory(prev => [...prev, modelMessage]);
             setIsLoading(false);
             setIsChatOpen(false); // Close chat to show the summary modal
+            return;
+        }
+
+        // Handle get_agenda intent (haftalık/aylık/yıllık ajanda özeti)
+        if (intentResult?.intent === 'get_agenda') {
+            const now = new Date();
+            const period = intentResult.period || 'week';
+            const ordering = intentResult.ordering || (message.toLowerCase().includes('önemliden önemsize') ? 'importance' : 'time');
+
+            let start = now, end = now;
+            if (period === 'day') { start = startOfDay(now); end = endOfDay(now); }
+            if (period === 'week') { start = startOfWeek(now); end = endOfWeek(now); }
+            if (period === 'month') { start = startOfMonth(now); end = endOfMonth(now); }
+            if (period === 'year') { start = startOfYear(now); end = endOfYear(now); }
+
+            const agendaTodos = todos
+                .filter(t => !t.isDeleted && !t.completed && t.datetime)
+                .filter(t => isWithin(new Date(t.datetime as string), start, end));
+
+            const sorted = [...agendaTodos].sort((a, b) => {
+                if (ordering === 'importance') return computeImportance(b) - computeImportance(a);
+                return new Date(a.datetime!).getTime() - new Date(b.datetime!).getTime();
+            });
+
+            // Build summary text
+            const rangeLabel = (
+                period === 'day' ? now.toLocaleDateString('tr-TR', { weekday: 'long', day: '2-digit', month: 'long' }) :
+                period === 'week' ? `${start.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })} - ${end.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}` :
+                period === 'month' ? now.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' }) :
+                `${now.getFullYear()}`
+            );
+
+const title = period === 'day' ? 'Günlük Görev Listesi' : period === 'week' ? 'Haftalık Görev Listesi' : period === 'month' ? 'Aylık Görev Özeti' : 'Yıllık Görev Özeti';
+
+const top = sorted;
+            const bullets = top.map(t => {
+                const dt = new Date(t.datetime!);
+                const when = period === 'day' ? `${formatTime(dt)}` : period === 'week' ? `${dt.toLocaleDateString('tr-TR', { weekday: 'short' })} ${formatTime(dt)}` : period === 'month' ? `${formatDate(dt)} ${formatTime(dt)}` : `${dt.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}`;
+                const pr = t.priority === Priority.High ? 'Yüksek' : 'Orta';
+                return `• ${when} — ${t.text} (Öncelik: ${pr})`;
+            }).join('\n');
+
+            const body = `📅 ${title} (${rangeLabel})\nToplam: ${agendaTodos.length} görev\nSıralama: ${ordering === 'importance' ? 'Önemliden önemsize' : 'Zamana göre'}\n\n${bullets || 'Bu dönem için planlanmış görev bulunmuyor.'}`;
+
+            const modelMessage: ChatMessage = { role: 'model', text: body };
+            setChatHistory(prev => [...prev, modelMessage]);
+            setIsLoading(false);
             return;
         }
         
@@ -828,6 +956,28 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
             setIsLoading(false);
         }
     }, [apiKey, checkApiKey, notes, setNotes, setNotification, isElectron]);
+    // Auto-parse datetime for existing tasks missing schedule (e.g., "Son gün: 16 Ekim 2025")
+    useEffect(() => {
+        const updated: Todo[] = [];
+        let changed = false;
+        for (const t of todos) {
+            if (!t.datetime && !t.completed && !t.isDeleted) {
+                const parsed = parseZamanFromText(t.text) || parseRelativeTurkishDateTime(t.text);
+                if (parsed) {
+                    updated.push({ ...t, datetime: parsed });
+                    changed = true;
+                } else {
+                    updated.push(t);
+                }
+            } else {
+                updated.push(t);
+            }
+        }
+        if (changed) {
+            setTodos(updated);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     
     // --- Daily Briefing ---
     const handleGetDailyBriefing = async () => {
@@ -916,32 +1066,47 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
             midnight.setHours(24, 0, 0, 0);
             const timeToMidnight = midnight.getTime() - Date.now();
             
-            const timer = setTimeout(async () => {
-                // Silinmiş görevleri aralarında hariç tutarak tamamlanmış görevleri bul
+const timer = setTimeout(async () => {
+                // 1) Arşiv: tamamlanmış görevler + notlar
                 const completedTodos = todos.filter(t => t.completed && !t.isDeleted);
-                // Sabitlenen ve favorilenen notları hariç tut
                 const notesToArchive = notes.filter(note => !note.pinned && !note.favorite);
-                if (completedTodos.length > 0 || notesToArchive.length > 0) {
-                    try {
-                        await archiveService.archiveItems(completedTodos, notesToArchive, userId);
-                        // Tamamlanmış görevleri ve silinmiş görevleri local state'ten kaldır
-                        setTodos(todos.filter(t => !t.completed && !t.isDeleted));
-                        // Arşivlenen notları kaldır, sabitlenmiş ve favorileri koru
-                        setNotes(notes.filter(note => note.pinned || note.favorite));
-                        setLastArchiveDate(todayStr);
-                        setNotification({
-                            message: `${completedTodos.length} görev ve ${notesToArchive.length} not arşivlendi. Sabitlenmiş ve favori notlar korundu.`, 
-                            type: 'success' 
-                        });
-                    } catch (error: any) {
-                        console.error('[Main] Auto-archive failed:', error);
-                        setNotification({ 
-                            message: error.message || 'Otomatik arşivleme başarısız oldu.', 
-                            type: 'error' 
-                        });
+                // 2) Taşı: tamamlanmamış ve bir önceki güne ait zamanlı görevleri bugüne aktar
+                const nowMidnight = new Date();
+                nowMidnight.setHours(0,0,0,0);
+                const prevStart = new Date(nowMidnight);
+                prevStart.setDate(prevStart.getDate()-1);
+                const prevEnd = new Date(nowMidnight);
+                prevEnd.setMilliseconds(-1);
+
+                const carried = todos.map(t => {
+                    if (!t.isDeleted && !t.completed && t.datetime) {
+                        const dt = new Date(t.datetime);
+                        if (dt >= prevStart && dt <= prevEnd) {
+                            const newDt = new Date(dt);
+                            newDt.setDate(newDt.getDate() + 1);
+                            return { ...t, datetime: newDt.toISOString() };
+                        }
                     }
-                } else {
-                     setLastArchiveDate(todayStr);
+                    return t;
+                }).filter(t => !t.completed); // completed ones will be archived and removed
+
+                try {
+                    if (completedTodos.length > 0 || notesToArchive.length > 0) {
+                        await archiveService.archiveItems(completedTodos, notesToArchive, userId);
+                    }
+                    setTodos(carried);
+                    setNotes(notes.filter(note => note.pinned || note.favorite));
+                    setLastArchiveDate(todayStr);
+                    setNotification({
+                        message: `${completedTodos.length} görev arşivlendi. Tamamlanmayanlar sonraki güne taşındı.`,
+                        type: 'success'
+                    });
+                } catch (error: any) {
+                    console.error('[Main] Auto-archive failed:', error);
+                    setNotification({
+                        message: error.message || 'Otomatik arşivleme başarısız oldu.',
+                        type: 'error'
+                    });
                 }
             }, timeToMidnight > 0 ? timeToMidnight : 1000); // Run immediately if past midnight
 
@@ -1417,8 +1582,8 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                             </button>
                         </div>
 
-                        {/* Task Status Filter */}
-                        {(contentFilter === 'all' || contentFilter === 'tasks') && (
+                        {/* Task Status Filter - moved inside list toolbar when viewMode==='list' */}
+                        {(contentFilter === 'all' || contentFilter === 'tasks') && viewMode !== 'list' && (
                             <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
                                 <button 
                                     onClick={() => setTaskStatusFilter('all')} 
@@ -1452,6 +1617,7 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                                 </button>
                             </div>
                         )}
+
                     </div>
                 </div>
 
@@ -1459,19 +1625,103 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
                     {(contentFilter === 'all' || contentFilter === 'tasks') && (
                         <div className={contentFilter === 'tasks' ? 'lg:col-span-5' : 'lg:col-span-2'}>
                             {viewMode === 'list' ? (
-                                <div className="bg-white/80 dark:bg-gray-800/60 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4">
+<div className="bg-white/80 dark:bg-gray-800/60 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4">
+                                    {/* List Toolbar */}
+                                    <div className="flex flex-col md:flex-row md:items-center md:justify-start gap-3 mb-3">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {/* Status filter inside list card */}
+                                            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+                                                <button 
+                                                    onClick={() => setTaskStatusFilter('all')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        taskStatusFilter === 'all' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Tüm Görevler
+                                                </button>
+                                                <button 
+                                                    onClick={() => setTaskStatusFilter('active')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        taskStatusFilter === 'active' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Aktif
+                                                </button>
+                                                <button 
+                                                    onClick={() => setTaskStatusFilter('completed')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        taskStatusFilter === 'completed' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Tamamlanan
+                                                </button>
+                                            </div>
+
+                                            {/* Date range filter inside list card */}
+                                            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+                                                <button 
+                                                    onClick={() => setListRange('all')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        listRange === 'all' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Tümü
+                                                </button>
+                                                <button 
+                                                    onClick={() => setListRange('day')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        listRange === 'day' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Bugün
+                                                </button>
+                                                <button 
+                                                    onClick={() => setListRange('week')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        listRange === 'week' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Bu Hafta (Pzt–Paz)
+                                                </button>
+                                                <button 
+                                                    onClick={() => setListRange('month')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        listRange === 'month' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Bu Ay
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                    </div>
+
                                     <TodoList
                                         todos={visibleTodos}
-                                    onToggle={handleToggleTodo}
-                                    onDelete={handleDeleteTodo}
-                                    onGetDirections={handleGetDirections}
-                                    onEdit={handleEditTodo}
-                                    onShare={(todo) => { setShareType('todo'); setShareItem(todo); setIsShareModalOpen(true); }}
-                                    onUpdateReminders={handleUpdateReminders}
-                                />
-                            </div>
+                                        onToggle={handleToggleTodo}
+                                        onDelete={handleDeleteTodo}
+                                        onGetDirections={handleGetDirections}
+                                        onEdit={handleEditTodo}
+                                        onShare={(todo) => { setShareType('todo'); setShareItem(todo); setIsShareModalOpen(true); }}
+                                        onUpdateReminders={handleUpdateReminders}
+                                    />
+                                </div>
                             ) : (
-                                <TimelineView todos={todos.filter(t => !t.isDeleted)} />
+<TimelineView todos={todos.filter(t => !t.isDeleted)} onEditTodo={(id, newText) => handleEditTodo(id, newText)} />
                             )}
                         </div>
                     )}

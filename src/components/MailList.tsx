@@ -13,6 +13,7 @@ import AttachmentPicker from './AttachmentPicker';
 interface MailListProps {
   onConnectClick: () => void;
   apiKey: string;
+  accentColor?: string;
 }
 
 const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
@@ -82,7 +83,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
         id: uuidv4(),
         text: task.text,
         priority: task.priority,
-        datetime: task.datetime,
+        datetime: task.datetime ?? null,
         completed: false,
         createdAt: new Date().toISOString(),
         aiMetadata: { 
@@ -161,11 +162,20 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
     try {
       const todosKey = `todos_${userId}`;
       const existing: Todo[] = JSON.parse(localStorage.getItem(todosKey) || '[]');
+      // Try to parse 'Zaman:' style date from subject (quick add)
+      let parsedDatetime: string | null = null;
+      try {
+        const { parseZamanFromText } = require('../utils/parseTurkishDate');
+        parsedDatetime = parseZamanFromText(email.subject || '')
+          || parseZamanFromText(email.body || '')
+          || parseZamanFromText(email.bodyPreview || '')
+          || null;
+      } catch {}
       const newTodo: Todo = {
         id: uuidv4(),
         text: `E-posta: ${email.subject || '(Konu yok)'}`,
         priority: Priority.Medium,
-        datetime: null,
+        datetime: parsedDatetime,
         completed: false,
         createdAt: new Date().toISOString(),
         aiMetadata: { tags: ['email'] },
@@ -260,8 +270,20 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
     if (selectedAccount?.provider === 'custom' && (selectedAccount as any).customConfig) {
       const cfg = (selectedAccount as any).customConfig;
       const j = await mailService.listIMAP(cfg, 20);
-      if (j.success) setEmails(j.data);
-      else setError(j.error || 'E-postalar yüklenemedi');
+      if (j.success) {
+        setEmails(j.data);
+      } else {
+        let errorMsg = j.error || 'E-postalar yüklenemedi';
+        // Better error messages for common issues
+        if (errorMsg.includes('EAI_AGAIN') || errorMsg.includes('getaddrinfo')) {
+          errorMsg = 'IMAP sunucusuna bağlanılamıyor. İnternet bağlantınızı ve DNS ayarlarınızı kontrol edin.';
+        } else if (errorMsg.includes('EAUTH') || errorMsg.includes('authentication')) {
+          errorMsg = 'Email şifreniz veya uygulama şifreniz hatalı. Lütfen ayarlarınızı kontrol edin.';
+        } else if (errorMsg.includes('ETIMEDOUT') || errorMsg.includes('timeout')) {
+          errorMsg = 'IMAP sunucusu yanıt vermiyor. Lütfen daha sonra tekrar deneyin.';
+        }
+        setError(errorMsg);
+      }
     } else {
       const response = await mailService.fetchEmails(accountId, 20);
       if (response.success && response.data) {
@@ -598,34 +620,34 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                     <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-lg border">
                       <h4 className="font-medium text-gray-900 dark:text-white mb-2">Önemli Bilgiler:</h4>
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-                        {emailSummary.entities.dates?.length > 0 && (
+                        {(emailSummary.entities.dates?.length ?? 0) > 0 && (
                           <div>
                             <div className="font-medium text-blue-600 dark:text-blue-400">📅 Tarihler:</div>
-                            {emailSummary.entities.dates.map((date, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{date}</div>)}
+                            {(emailSummary.entities.dates ?? []).map((date, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{date}</div>)}
                           </div>
                         )}
-                        {emailSummary.entities.people?.length > 0 && (
+                        {(emailSummary.entities.people?.length ?? 0) > 0 && (
                           <div>
                             <div className="font-medium text-green-600 dark:text-green-400">👥 Kişiler:</div>
-                            {emailSummary.entities.people.map((person, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{person}</div>)}
+                            {(emailSummary.entities.people ?? []).map((person, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{person}</div>)}
                           </div>
                         )}
-                        {emailSummary.entities.organizations?.length > 0 && (
+                        {(emailSummary.entities.organizations?.length ?? 0) > 0 && (
                           <div>
                             <div className="font-medium text-purple-600 dark:text-purple-400">🏢 Kurumlar:</div>
-                            {emailSummary.entities.organizations.map((org, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{org}</div>)}
+                            {(emailSummary.entities.organizations ?? []).map((org, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{org}</div>)}
                           </div>
                         )}
-                        {emailSummary.entities.locations?.length > 0 && (
+                        {(emailSummary.entities.locations?.length ?? 0) > 0 && (
                           <div>
                             <div className="font-medium text-red-600 dark:text-red-400">📍 Konumlar:</div>
-                            {emailSummary.entities.locations.map((loc, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{loc}</div>)}
+                            {(emailSummary.entities.locations ?? []).map((loc, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{loc}</div>)}
                           </div>
                         )}
-                        {emailSummary.entities.amounts?.length > 0 && (
+                        {(emailSummary.entities.amounts?.length ?? 0) > 0 && (
                           <div>
                             <div className="font-medium text-yellow-600 dark:text-yellow-400">💰 Tutarlar:</div>
-                            {emailSummary.entities.amounts.map((amount, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{amount}</div>)}
+                            {(emailSummary.entities.amounts ?? []).map((amount, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{amount}</div>)}
                           </div>
                         )}
                       </div>
@@ -888,6 +910,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       {/* Email Template Manager Modal */}
       {showTemplateManager && (
         <EmailTemplateManager
+          isOpen={true}
           onClose={() => setShowTemplateManager(false)}
           onSelectTemplate={handleTemplateSelect}
         />

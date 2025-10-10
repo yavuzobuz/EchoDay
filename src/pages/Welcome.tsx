@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Logo from '../components/Logo';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface WelcomeProps {
   onGetStarted: () => void;
@@ -39,6 +41,10 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
   const [currentScene, setCurrentScene] = useState(0);
   const scenes = 4; // Toplam sahne sayısı
   
+  // Routing and auth
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  
   // OS detection and direct download links
   const getOS = () => {
     try {
@@ -56,10 +62,10 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
   const os = getOS();
 
   const downloadLinks = {
-    windows: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/EchoDay-Electron-v1.0.0.zip',
+    windows: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/EchoDay-1.0.0-win-unpacked.zip',
     mac: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_macOS.dmg',
     linux: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_Linux.AppImage',
-    android: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/EchoDay-debug.apk',
+    android: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/app-debug.apk',
   } as const;
 
   const primaryDownloadHref = os === 'mac' ? downloadLinks.mac : os === 'linux' ? downloadLinks.linux : os === 'android' ? downloadLinks.android : downloadLinks.windows;
@@ -92,6 +98,17 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
 
   const prevScene = () => {
     setCurrentScene((prev) => (prev - 1 + scenes) % scenes);
+  };
+  
+  // Quick start button under logo: go to /app if already signed in, else go to auth/start
+  const handleQuickStart = () => {
+    if (user) {
+      navigate('/app');
+    } else if (onNavigateToAuth) {
+      onNavigateToAuth();
+    } else {
+      onGetStarted();
+    }
   };
   
   return (
@@ -133,7 +150,14 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
           isLoaded ? 'opacity-100' : 'opacity-0'
         }`}>
           {onNavigateToAuth && (
-            <button onClick={onNavigateToAuth} className="text-sm text-[hsl(var(--accent))] hover:underline">Hesabın var mı? Giriş yap</button>
+            <button
+              onClick={handleQuickStart}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[hsl(var(--accent))] text-white font-semibold shadow hover:shadow-md hover:bg-[hsl(var(--accent)_/_0.9)] transition-all"
+              title="Hemen Başla"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5m5 5H3" /></svg>
+              Hemen Başla
+            </button>
           )}
         </div>
 
@@ -692,6 +716,138 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
               </svg>
             </div>
             <p className="text-sm text-gray-700 dark:text-gray-300 font-semibold">Sesli Komut Desteği</p>
+          </div>
+        </div>
+
+        {/* Yeni Özellikler - Commitlerden öne çıkanlar */}
+        <div className={`mb-12 transform transition-all duration-1000 delay-650 ${
+          isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+        }`}>
+          <h3 className="text-xl sm:text-2xl font-extrabold text-[hsl(var(--foreground))] mb-4 flex items-center gap-2">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-green-500 text-white text-xs">✓</span>
+            Yeni Özellikler
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Email → Görev/Not */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[hsl(var(--primary))]/15 text-[hsl(var(--primary))] flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18a1 1 0 011 1v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a1 1 0 011-1zm0 2l9 6 9-6"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">E-postadan Görev/Not</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">AI özet ve aksiyon maddeleri; tek tıkla Görev Oluştur/Notlara Ekle</div>
+              </div>
+            </div>
+            {/* Email Yanıtlama */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-[hsl(var(--accent))]/15 text-[hsl(var(--accent))] flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4h4a7 7 0 000-14h-1v2h1a5 5 0 010 10h-4z"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">E-postaya Yanıtla</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">Zengin editör, şablonlar, ek dosyalar; Yanıtla/Tümünü yanıtla</div>
+              </div>
+            </div>
+            {/* Gerçek Zamanlı Sesli Sohbet */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-red-500/10 text-red-600 flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 003-3V7a3 3 0 10-6 0v4a3 3 0 003 3z"/><path d="M5 11a7 7 0 0014 0h-2a5 5 0 11-10 0H5z"/><path d="M11 18h2v3h-2v-3z"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">Gerçek Zamanlı Sesli Sohbet</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">Anahtar kelime dinleme ve anlık AI transkripsiyonla akıcı sohbet</div>
+              </div>
+            </div>
+            {/* Yinelenen Görevler */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6v2a4 4 0 014 4h2a6 6 0 00-6-6zm-6 6H4a8 8 0 008 8v-2a6 6 0 01-6-6zm12 0a8 8 0 01-8 8v2a10 10 0 0010-10h-2zM6 12a6 6 0 016-6V4a8 8 0 00-8 8h2z"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">Yinelenen Görevler</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">Tamamlayınca bir sonraki oluşumu otomatik oluştur</div>
+              </div>
+            </div>
+            {/* ICS Dışa Aktarma */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2a1 1 0 012 0v2h6V2a1 1 0 112 0v2h1a2 2 0 012 2v2H4V6a2 2 0 012-2h1V2z"/><path d="M4 10h16v8a2 2 0 01-2 2H6a2 2 0 01-2-2v-8z"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">ICS Dışa Aktarma</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">AI süre tahminiyle takvime ekleyin</div>
+              </div>
+            </div>
+            {/* Zaman Çizelgesi + Gün Özeti */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-purple-500/10 text-purple-600 flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm1-6h-2v3h2V2zM4.22 5.64L2.8 7.06l2.12 2.12 1.42-1.42L4.22 5.64zM18.36 5.64l-1.42 1.42 2.12 2.12 1.42-1.42-2.12-2.12zM21 11h-3v2h3v-2zM6 13H3v-2h3v2zm1.78 5.36L6.36 19.2l-2.12 2.12 1.42 1.42 2.12-2.12zM19.78 19.78l-2.12-2.12-1.42 1.42 2.12 2.12 1.42-1.42z"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">Zaman Çizelgesi + Gün Özeti</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">Zaman bazlı görünüm ve günlük özet bildirimleri</div>
+              </div>
+            </div>
+            {/* Supabase Senkronizasyonu */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-teal-500/10 text-teal-600 flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M4 7c0-1.657 3.582-3 8-3s8 1.343 8 3-3.582 3-8 3-8-1.343-8-3zm16 5c0 1.657-3.582 3-8 3s-8-1.343-8-3"/><path d="M4 17c0 1.657 3.582 3 8 3s8-1.343 8-3V7"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">Supabase Senkronizasyonu</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">Kullanıcıya özel verilerle opsiyonel senk</div>
+              </div>
+            </div>
+            {/* PDF Analizi */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h8l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm8 7h5l-5-5v5z"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">PDF Analizi (Çok Dilli)</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">Belgelerden otomatik görev/not çıkarımı</div>
+              </div>
+            </div>
+            {/* Konum + Yol Tarifi */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-rose-500/10 text-rose-600 flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9a2 2 0 110-4 2 2 0 010 4z"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">Konum Hatırlatıcı + Yol Tarifi</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">Konuma bağlı tetikleyiciler ve AI yönlendirme</div>
+              </div>
+            </div>
+            {/* Mesaj Bildirimleri */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4a2 2 0 00-2 2v13a2 2 0 002 2h3l4 3 4-3h5a2 2 0 002-2V4a2 2 0 00-2-2z"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">Mesaj Bildirimleri</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">Electron yerel bildirim + toast; geliştirilmiş konuşma başlığı</div>
+              </div>
+            </div>
+            {/* Hatırlatma Sesleri */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-pink-500/10 text-pink-600 flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M10 21h4a2 2 0 11-4 0zm10-5h-1V9a7 7 0 10-14 0v7H4v2h16v-2z"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">Hatırlatma Sesleri</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">TTS ve 3 farklı alarm seçeneği</div>
+              </div>
+            </div>
+            {/* Android + OS Algılama */}
+            <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gray-500/10 text-gray-600 flex items-center justify-center">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>
+              </div>
+              <div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">Android APK + OS Algılama</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">Cihaza uygun doğrudan indirme bağlantısı</div>
+              </div>
+            </div>
           </div>
         </div>
 
