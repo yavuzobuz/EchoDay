@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import Header from './components/Header';
+import { useI18n } from './contexts/I18nContext';
 import TodoList from './components/TodoList';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ActionBar from './components/ActionBar';
@@ -60,6 +61,7 @@ type ViewMode = 'list' | 'timeline';
 
 const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, onNavigateToProfile, onNavigateToHome }) => {
     const navigate = useNavigate();
+    const { t } = useI18n();
     const location = useLocation();
     // Get authenticated user
     const { user } = useAuth();
@@ -1488,7 +1490,7 @@ const timer = setTimeout(async () => {
                     {/* Title and View Mode Switcher - Below Action Buttons */}
                     <div className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-4">
                         <h2 className="text-2xl sm:text-3xl font-bold flex items-center gap-3 text-gray-900 dark:text-white">
-                            Görevlerim & Notlarım
+                            {t('title.myItems','Görevlerim & Notlarım')}
                             <span className="text-sm px-3 py-1.5 rounded-lg bg-[var(--accent-color-600)]/10 text-[var(--accent-color-600)] font-semibold">
                                 {totalResults}
                             </span>
@@ -1502,7 +1504,7 @@ const timer = setTimeout(async () => {
                                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                                 }`}
                             >
-                                Tümü ({visibleTodos.length + visibleNotes.length})
+                                {t('filter.content.all','Tümü')} ({visibleTodos.length + visibleNotes.length})
                             </button>
                             <button 
                                 onClick={() => setContentFilter('tasks')} 
@@ -1512,7 +1514,7 @@ const timer = setTimeout(async () => {
                                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                                 }`}
                             >
-                                Görevler ({visibleTodos.length})
+                                {t('filter.content.tasks','Görevler')} ({visibleTodos.length})
                             </button>
                             <button 
                                 onClick={() => setContentFilter('notes')} 
@@ -1522,7 +1524,7 @@ const timer = setTimeout(async () => {
                                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                                 }`}
                             >
-                                Notlar ({visibleNotes.length})
+                                {t('filter.content.notes','Notlar')} ({visibleNotes.length})
                             </button>
                         </div>
                     </div>
@@ -1568,7 +1570,7 @@ const timer = setTimeout(async () => {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                                 </svg>
-                                Liste
+                                {t('nav.list','Liste')}
                             </button>
                             <button 
                                 onClick={() => setViewMode('timeline')} 
@@ -1581,7 +1583,7 @@ const timer = setTimeout(async () => {
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                     <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                                 </svg>
-                                Zaman Çizelgesi
+                                {t('nav.timeline','Zaman Çizelgesi')}
                             </button>
                         </div>
 
@@ -1608,7 +1610,7 @@ const timer = setTimeout(async () => {
                                                         : 'text-gray-600 dark:text-gray-400'
                                                     }`}
                                                 >
-                                                    Tüm Görevler
+                                                    {t('filter.status.all','Tüm Görevler')}
                                                 </button>
                                                 <button 
                                                     onClick={() => setTaskStatusFilter('active')} 
@@ -1618,7 +1620,7 @@ const timer = setTimeout(async () => {
                                                         : 'text-gray-600 dark:text-gray-400'
                                                     }`}
                                                 >
-                                                    Aktif
+                                                    {t('filter.status.active','Aktif')}
                                                 </button>
                                                 <button 
                                                     onClick={() => setTaskStatusFilter('completed')} 
@@ -1628,7 +1630,7 @@ const timer = setTimeout(async () => {
                                                         : 'text-gray-600 dark:text-gray-400'
                                                     }`}
                                                 >
-                                                    Tamamlanan
+                                                    {t('filter.status.completed','Tamamlanan')}
                                                 </button>
                                             </div>
 
@@ -1642,7 +1644,7 @@ const timer = setTimeout(async () => {
                                                         : 'text-gray-600 dark:text-gray-400'
                                                     }`}
                                                 >
-                                                    Gün
+                                                    {t('filter.range.day','Gün')}
                                                 </button>
                                                 <button 
                                                     onClick={() => setListRange('week')} 
@@ -1652,7 +1654,7 @@ const timer = setTimeout(async () => {
                                                         : 'text-gray-600 dark:text-gray-400'
                                                     }`}
                                                 >
-                                                    Hafta
+                                                    {t('filter.range.week','Hafta')}
                                                 </button>
                                                 <button 
                                                     onClick={() => setListRange('month')} 
@@ -1662,7 +1664,7 @@ const timer = setTimeout(async () => {
                                                         : 'text-gray-600 dark:text-gray-400'
                                                     }`}
                                                 >
-                                                    Ay
+                                                    {t('filter.range.month','Ay')}
                                                 </button>
                                                 <button 
                                                     onClick={() => setListRange('year')} 
@@ -1672,7 +1674,7 @@ const timer = setTimeout(async () => {
                                                         : 'text-gray-600 dark:text-gray-400'
                                                     }`}
                                                 >
-                                                    Yıl
+                                                    {t('filter.range.year','Yıl')}
                                                 </button>
                                                 <button 
                                                     onClick={() => setListRange('all')} 
@@ -1682,7 +1684,7 @@ const timer = setTimeout(async () => {
                                                         : 'text-gray-600 dark:text-gray-400'
                                                     }`}
                                                 >
-                                                    Tümü
+                                                    {t('filter.range.all','Tümü')}
                                                 </button>
                                             </div>
 
@@ -1714,7 +1716,7 @@ const timer = setTimeout(async () => {
                                                     : 'text-gray-600 dark:text-gray-400'
                                                 }`}
                                             >
-                                                Tüm Görevler
+                                                {t('filter.status.all','Tüm Görevler')}
                                             </button>
                                             <button 
                                                 onClick={() => setTaskStatusFilter('active')} 
@@ -1724,7 +1726,7 @@ const timer = setTimeout(async () => {
                                                     : 'text-gray-600 dark:text-gray-400'
                                                 }`}
                                             >
-                                                Aktif
+                                                {t('filter.status.active','Aktif')}
                                             </button>
                                             <button 
                                                 onClick={() => setTaskStatusFilter('completed')} 
@@ -1734,7 +1736,7 @@ const timer = setTimeout(async () => {
                                                     : 'text-gray-600 dark:text-gray-400'
                                                 }`}
                                             >
-                                                Tamamlanan
+                                                {t('filter.status.completed','Tamamlanan')}
                                             </button>
                                         </div>
 
@@ -1748,7 +1750,7 @@ const timer = setTimeout(async () => {
                                                     : 'text-gray-600 dark:text-gray-400'
                                                 }`}
                                             >
-                                                Gün
+                                                {t('filter.range.day','Gün')}
                                             </button>
                                             <button 
                                                 onClick={() => setListRange('week')} 
@@ -1758,7 +1760,7 @@ const timer = setTimeout(async () => {
                                                     : 'text-gray-600 dark:text-gray-400'
                                                 }`}
                                             >
-                                                Hafta
+                                                {t('filter.range.week','Hafta')}
                                             </button>
                                             <button 
                                                 onClick={() => setListRange('month')} 
@@ -1768,7 +1770,7 @@ const timer = setTimeout(async () => {
                                                     : 'text-gray-600 dark:text-gray-400'
                                                 }`}
                                             >
-                                                Ay
+                                                {t('filter.range.month','Ay')}
                                             </button>
                                             <button 
                                                 onClick={() => setListRange('year')} 
@@ -1778,7 +1780,7 @@ const timer = setTimeout(async () => {
                                                     : 'text-gray-600 dark:text-gray-400'
                                                 }`}
                                             >
-                                                Yıl
+                                                {t('filter.range.year','Yıl')}
                                             </button>
                                             <button 
                                                 onClick={() => setListRange('all')} 
@@ -1788,7 +1790,7 @@ const timer = setTimeout(async () => {
                                                     : 'text-gray-600 dark:text-gray-400'
                                                 }`}
                                             >
-                                                Tümü
+                                                {t('filter.range.all','Tümü')}
                                             </button>
                                         </div>
 

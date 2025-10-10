@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Todo, Priority } from '../types';
 
 import DayAgendaModal from './DayAgendaModal';
+import { useI18n } from '../contexts/I18nContext';
 
 interface TimelineViewProps {
   todos: Todo[];
@@ -61,6 +62,7 @@ function isSameDay(a: Date, b: Date) {
 }
 
 const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo, scale: scaleProp }) => {
+  const { t } = useI18n();
   const [scale, setScale] = useState<TimelineScale>('day');
   const [anchor, setAnchor] = useState<Date>(new Date());
   const activeScale: TimelineScale = (scaleProp as TimelineScale) || scale;
@@ -142,7 +144,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo, scale: s
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div className="inline-flex items-center gap-2">
           <button onClick={goPrev} className="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">◀</button>
-          <button onClick={goToday} className="px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">Bugün</button>
+          <button onClick={goToday} className="px-3 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">{t('common.today','Bugün')}</button>
           <button onClick={goNext} className="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">▶</button>
         </div>
         <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
@@ -153,9 +155,9 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo, scale: s
         </div>
       </div>
 
-{unscheduledTodos.length > 0 && (
+      {unscheduledTodos.length > 0 && (
         <div className="mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="font-bold text-lg mb-2 text-gray-800 dark:text-white">Zamansız Görevler</h3>
+          <h3 className="font-bold text-lg mb-2 text-gray-800 dark:text-white">{t('timeline.unscheduled','Zamansız Görevler')}</h3>
           <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto pr-1">
             {unscheduledTodos.map(todo => (
               <div key={todo.id} className="flex items-center gap-2 text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-full max-w-full">
@@ -224,7 +226,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo, scale: s
                   </div>
                   <div className="space-y-2">
                     {dayTodos.length === 0 && (
-                      <div className="text-xs text-gray-400">Görev yok</div>
+                      <div className="text-xs text-gray-400">{t('timeline.noTasks','Görev yok')}</div>
                     )}
 {dayTodos.map((todo) => (
 <button onClick={() => openAgenda(d)} key={todo.id} className="flex items-start gap-2 w-full text-left hover:bg-gray-100 dark:hover:bg-gray-800 rounded px-1 py-1 border border-transparent hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer">

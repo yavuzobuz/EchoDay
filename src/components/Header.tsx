@@ -1,6 +1,7 @@
 import React from 'react';
 import { AccentColor } from '../App';
 import Logo from './Logo';
+import { useI18n } from '../contexts/I18nContext';
 
 interface HeaderProps {
   theme: 'light' | 'dark';
@@ -12,6 +13,8 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ onNavigateToProfile, onNavigateToHome }) => {
+  const { lang, setLang } = useI18n();
+  const toggleLang = () => setLang(lang === 'tr' ? 'en' : 'tr');
   return (
     <header className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-sm sticky top-0 z-40 flex justify-between items-center border-b border-gray-200 dark:border-gray-800 px-3 sm:px-4 py-2 safe-area-top">
       <div className="flex items-center gap-2 sm:gap-3">
@@ -22,6 +25,15 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToProfile, onNavigateToHome }
       </div>
       {/* Theme switcher removed (moved to Profile page) */}
       <div className="flex items-center gap-1 sm:gap-2">
+        {/* Language toggle */}
+        <button
+          onClick={toggleLang}
+          className="px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+          aria-label="Language"
+          title="Language"
+        >
+          {lang === 'tr' ? 'EN' : 'TR'}
+        </button>
         {onNavigateToHome && (
           <button 
             onClick={onNavigateToHome}

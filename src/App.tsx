@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSettingsStorage } from './hooks/useSettingsStorage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { I18nProvider } from './contexts/I18nContext';
 import Welcome from './pages/Welcome';
 import Main from './Main';
 import Profile from './pages/Profile';
@@ -185,7 +186,9 @@ const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppContent />
+        <I18nProvider>
+          <AppContent />
+        </I18nProvider>
       </AuthProvider>
     </BrowserRouter>
   );
