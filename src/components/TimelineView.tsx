@@ -6,6 +6,8 @@ import DayAgendaModal from './DayAgendaModal';
 interface TimelineViewProps {
   todos: Todo[];
   onEditTodo?: (id: string, newText: string) => void;
+  // Optional external scale control from parent (day/week/month/year)
+  scale?: 'day' | 'week' | 'month' | 'year';
 }
 
 type TimelineScale = 'day' | 'week' | 'month' | 'year';
@@ -58,17 +60,19 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
-const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo }) => {
+const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo, scale: scaleProp }) => {
   const [scale, setScale] = useState<TimelineScale>('day');
   const [anchor, setAnchor] = useState<Date>(new Date());
+  const activeScale: TimelineScale = (scaleProp as TimelineScale) || scale;
 
   // Extend hours to cover from 8 AM to midnight (00:00)
   const hours = Array.from({ length: 17 }, (_, i) => i + 8); // 8 AM to 00:00
 
-  const allActiveTodos = useMemo(() => todos.filter(t => !t.completed), [todos]);
+  // Receive already-filtered todos from parent (status/date applied)
+  const filteredTodos = useMemo(() => todos, [todos]);
 
   const range = useMemo(() => {
-    switch (scale) {
+    switch (activeScale) {
       case 'day':
         return { start: startOfDay(anchor), end: new Date(startOfDay(anchor).getTime() + 24 * 60 * 60 * 1000 - 1) };
       case 'week':
@@ -78,10 +82,10 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo }) => {
       case 'year':
         return { start: startOfYear(anchor), end: endOfYear(anchor) };
     }
-  }, [anchor, scale]);
+  }, [anchor, activeScale]);
 
-  const scheduledTodos = useMemo(() => allActiveTodos.filter(t => t.datetime && new Date(t.datetime) >= range.start && new Date(t.datetime) <= range.end), [allActiveTodos, range.start, range.end]);
-  const unscheduledTodos = useMemo(() => allActiveTodos.filter(t => !t.datetime), [allActiveTodos]);
+  const scheduledTodos = useMemo(() => filteredTodos.filter(t => t.datetime && new Date(t.datetime) >= range.start && new Date(t.datetime) <= range.end), [filteredTodos, range.start, range.end]);
+  const unscheduledTodos = useMemo(() => filteredTodos.filter(t => !t.datetime), [filteredTodos]);
 
   const getTaskPosition = (datetime: string) => {
     const date = new Date(datetime);
@@ -101,18 +105,18 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo }) => {
 
   const goPrev = () => {
     const d = new Date(anchor);
-    if (scale === 'day') d.setDate(d.getDate() - 1);
-    if (scale === 'week') d.setDate(d.getDate() - 7);
-    if (scale === 'month') d.setMonth(d.getMonth() - 1);
-    if (scale === 'year') d.setFullYear(d.getFullYear() - 1);
+    if (activeScale === 'day') d.setDate(d.getDate() - 1);
+    if (activeScale === 'week') d.setDate(d.getDate() - 7);
+    if (activeScale === 'month') d.setMonth(d.getMonth() - 1);
+    if (activeScale === 'year') d.setFullYear(d.getFullYear() - 1);
     setAnchor(d);
   };
   const goNext = () => {
     const d = new Date(anchor);
-    if (scale === 'day') d.setDate(d.getDate() + 1);
-    if (scale === 'week') d.setDate(d.getDate() + 7);
-    if (scale === 'month') d.setMonth(d.getMonth() + 1);
-    if (scale === 'year') d.setFullYear(d.getFullYear() + 1);
+    if (activeScale === 'day') d.setDate(d.getDate() + 1);
+    if (activeScale === 'week') d.setDate(d.getDate() + 7);
+    if (activeScale === 'month') d.setMonth(d.getMonth() + 1);
+    if (activeScale === 'year') d.setFullYear(d.getFullYear() + 1);
     setAnchor(d);
   };
   const goToday = () => setAnchor(new Date());
@@ -142,16 +146,10 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo }) => {
           <button onClick={goNext} className="px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">▶</button>
         </div>
         <div className="text-sm font-semibold text-gray-800 dark:text-gray-100">
-          {scale === 'day' && dayLabel}
-          {scale === 'week' && `Hafta: ${weekLabel}`}
-          {scale === 'month' && monthLabel}
-          {scale === 'year' && `${yearLabel}`}
-        </div>
-        <div className="inline-flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
-          <button onClick={() => setScale('day')} className={`px-3 py-1 text-sm rounded-md ${scale === 'day' ? 'bg-white dark:bg-gray-800 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Gün</button>
-          <button onClick={() => setScale('week')} className={`px-3 py-1 text-sm rounded-md ${scale === 'week' ? 'bg-white dark:bg-gray-800 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Hafta</button>
-          <button onClick={() => setScale('month')} className={`px-3 py-1 text-sm rounded-md ${scale === 'month' ? 'bg-white dark:bg-gray-800 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Ay</button>
-          <button onClick={() => setScale('year')} className={`px-3 py-1 text-sm rounded-md ${scale === 'year' ? 'bg-white dark:bg-gray-800 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Yıl</button>
+          {activeScale === 'day' && dayLabel}
+          {activeScale === 'week' && `Hafta: ${weekLabel}`}
+          {activeScale === 'month' && monthLabel}
+          {activeScale === 'year' && `${yearLabel}`}
         </div>
       </div>
 
@@ -170,7 +168,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo }) => {
       )}
 
       {/* Views by scale */}
-      {scale === 'day' && (
+      {activeScale === 'day' && (
         <div className="relative">
           {/* Hour markers */}
           {hours.map(hour => (
@@ -204,7 +202,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo }) => {
         </div>
       )}
 
-      {scale === 'week' && (() => {
+      {activeScale === 'week' && (() => {
         const days: Date[] = Array.from({ length: 7 }, (_, i) => {
           const d = startOfWeek(anchor);
           d.setDate(d.getDate() + i);
@@ -247,7 +245,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo }) => {
         );
       })()}
 
-      {scale === 'month' && (() => {
+      {activeScale === 'month' && (() => {
         const first = startOfMonth(anchor);
         const last = endOfMonth(anchor);
         const firstWeekStart = startOfWeek(first);
@@ -300,14 +298,14 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo }) => {
         );
       })()}
 
-      {scale === 'year' && (() => {
+      {activeScale === 'year' && (() => {
         const months = Array.from({ length: 12 }, (_, m) => new Date(anchor.getFullYear(), m, 1));
         return (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {months.map((mDate, idx) => {
               const mStart = startOfMonth(mDate);
               const mEnd = endOfMonth(mDate);
-              const monthTodos = allActiveTodos.filter(t => t.datetime && new Date(t.datetime) >= mStart && new Date(t.datetime) <= mEnd);
+              const monthTodos = filteredTodos.filter(t => t.datetime && new Date(t.datetime) >= mStart && new Date(t.datetime) <= mEnd);
               return (
                 <div key={idx} className="border border-gray-200/60 dark:border-gray-700/60 rounded-lg p-3 bg-gray-50 dark:bg-gray-900/40">
                   <div className="flex items-baseline justify-between mb-2">
@@ -332,7 +330,7 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo }) => {
           </div>
         );
       })()}
-      <DayAgendaModal isOpen={isAgendaOpen} onClose={closeAgenda} date={agendaDate} todos={allActiveTodos} onEditTodo={(id, text) => onEditTodo && onEditTodo(id, text)} />
+      <DayAgendaModal isOpen={isAgendaOpen} onClose={closeAgenda} date={agendaDate} todos={filteredTodos} onEditTodo={(id, text) => onEditTodo && onEditTodo(id, text)} />
     </div>
   );
 };

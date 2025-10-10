@@ -106,7 +106,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const startOfYear = (d: Date) => new Date(d.getFullYear(), 0, 1);
     const endOfYear = (d: Date) => new Date(d.getFullYear(), 11, 31, 23,59,59,999);
 
-    const [listRange, setListRange] = useState<'all' | 'day' | 'week' | 'month'>('all');
+    const [listRange, setListRange] = useState<'all' | 'day' | 'week' | 'month' | 'year'>('all');
 
     // Filter and search todos
     const visibleTodos = React.useMemo(() => {
@@ -128,6 +128,9 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             } else if (listRange === 'month') {
                 s = startOfMonth(now);
                 e = endOfMonth(now);
+            } else if (listRange === 'year') {
+                s = startOfYear(now);
+                e = endOfYear(now);
             }
             list = list.filter(t => t.datetime && (new Date(t.datetime) >= s && new Date(t.datetime) <= e));
         }
@@ -1490,65 +1493,6 @@ const timer = setTimeout(async () => {
                                 {totalResults}
                             </span>
                         </h2>
-                        <div className="inline-flex items-center p-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-                            <button 
-                                onClick={() => setViewMode('list')} 
-                                className={`px-4 sm:px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 ${
-                                    viewMode === 'list' 
-                                    ? 'bg-[var(--accent-color-600)] text-white shadow-sm' 
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                                }`}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                                </svg>
-                                Liste
-                            </button>
-                            <button 
-                                onClick={() => setViewMode('timeline')} 
-                                className={`px-4 sm:px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 ${
-                                    viewMode === 'timeline' 
-                                    ? 'bg-[var(--accent-color-600)] text-white shadow-sm' 
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                                }`}
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                                </svg>
-                                Zaman Çizelgesi
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Unified Search and Filter Bar */}
-                <div className="mb-6 space-y-3">
-                    {/* Search Bar */}
-                    <div className="relative">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                        </svg>
-                        <input 
-                            value={searchQuery} 
-                            onChange={(e) => setSearchQuery(e.target.value)} 
-                            placeholder="Görevlerde ve notlarda ara..." 
-                            className="w-full pl-12 pr-4 py-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-500)] shadow-sm transition-all"
-                        />
-                        {searchQuery && (
-                            <button
-                                onClick={() => setSearchQuery('')}
-                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                                </svg>
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Filter Tabs */}
-                    <div className="flex flex-wrap items-center gap-3">
-                        {/* Content Type Filter */}
                         <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
                             <button 
                                 onClick={() => setContentFilter('all')} 
@@ -1581,42 +1525,67 @@ const timer = setTimeout(async () => {
                                 Notlar ({visibleNotes.length})
                             </button>
                         </div>
+                    </div>
+                </div>
 
-                        {/* Task Status Filter - moved inside list toolbar when viewMode==='list' */}
-                        {(contentFilter === 'all' || contentFilter === 'tasks') && viewMode !== 'list' && (
-                            <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
-                                <button 
-                                    onClick={() => setTaskStatusFilter('all')} 
-                                    className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${
-                                        taskStatusFilter === 'all' 
-                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
-                                        : 'text-gray-600 dark:text-gray-400'
-                                    }`}
-                                >
-                                    Tüm Görevler
-                                </button>
-                                <button 
-                                    onClick={() => setTaskStatusFilter('active')} 
-                                    className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${
-                                        taskStatusFilter === 'active' 
-                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
-                                        : 'text-gray-600 dark:text-gray-400'
-                                    }`}
-                                >
-                                    Aktif
-                                </button>
-                                <button 
-                                    onClick={() => setTaskStatusFilter('completed')} 
-                                    className={`px-3 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all ${
-                                        taskStatusFilter === 'completed' 
-                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
-                                        : 'text-gray-600 dark:text-gray-400'
-                                    }`}
-                                >
-                                    Tamamlanan
-                                </button>
-                            </div>
+                {/* Unified Search and Filter Bar */}
+                <div className="mb-6 space-y-3">
+                    {/* Search Bar */}
+                    <div className="relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+                        </svg>
+                        <input 
+                            value={searchQuery} 
+                            onChange={(e) => setSearchQuery(e.target.value)} 
+                            placeholder="Görevlerde ve notlarda ara..." 
+                            className="w-full pl-12 pr-4 py-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-500)] shadow-sm transition-all"
+                        />
+                        {searchQuery && (
+                            <button
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                </svg>
+                            </button>
                         )}
+                    </div>
+
+                    {/* Filter Tabs */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* View Mode Switcher (moved here) */}
+                        <div className="flex items-center p-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+                            <button 
+                                onClick={() => setViewMode('list')} 
+                                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 ${
+                                    viewMode === 'list' 
+                                    ? 'bg-[var(--accent-color-600)] text-white shadow-sm' 
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                }`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                                </svg>
+                                Liste
+                            </button>
+                            <button 
+                                onClick={() => setViewMode('timeline')} 
+                                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 flex items-center gap-2 ${
+                                    viewMode === 'timeline' 
+                                    ? 'bg-[var(--accent-color-600)] text-white shadow-sm' 
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                }`}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                                </svg>
+                                Zaman Çizelgesi
+                            </button>
+                        </div>
+
+                        {/* Task Status Filter moved into each view's own container */}
 
                     </div>
                 </div>
@@ -1627,7 +1596,7 @@ const timer = setTimeout(async () => {
                             {viewMode === 'list' ? (
 <div className="bg-white/80 dark:bg-gray-800/60 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4">
                                     {/* List Toolbar */}
-                                    <div className="flex flex-col md:flex-row md:items-center md:justify-start gap-3 mb-3">
+                                    <div className="flex flex-col gap-3 mb-3">
                                         <div className="flex flex-wrap items-center gap-2">
                                             {/* Status filter inside list card */}
                                             <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
@@ -1663,8 +1632,48 @@ const timer = setTimeout(async () => {
                                                 </button>
                                             </div>
 
-                                            {/* Date range filter inside list card */}
+                                            {/* Date range below status (list) */}
                                             <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+                                                <button 
+                                                    onClick={() => setListRange('day')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        listRange === 'day' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Gün
+                                                </button>
+                                                <button 
+                                                    onClick={() => setListRange('week')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        listRange === 'week' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Hafta
+                                                </button>
+                                                <button 
+                                                    onClick={() => setListRange('month')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        listRange === 'month' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Ay
+                                                </button>
+                                                <button 
+                                                    onClick={() => setListRange('year')} 
+                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                        listRange === 'year' 
+                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                        : 'text-gray-600 dark:text-gray-400'
+                                                    }`}
+                                                >
+                                                    Yıl
+                                                </button>
                                                 <button 
                                                     onClick={() => setListRange('all')} 
                                                     className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
@@ -1675,37 +1684,8 @@ const timer = setTimeout(async () => {
                                                 >
                                                     Tümü
                                                 </button>
-                                                <button 
-                                                    onClick={() => setListRange('day')} 
-                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
-                                                        listRange === 'day' 
-                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
-                                                        : 'text-gray-600 dark:text-gray-400'
-                                                    }`}
-                                                >
-                                                    Bugün
-                                                </button>
-                                                <button 
-                                                    onClick={() => setListRange('week')} 
-                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
-                                                        listRange === 'week' 
-                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
-                                                        : 'text-gray-600 dark:text-gray-400'
-                                                    }`}
-                                                >
-                                                    Bu Hafta (Pzt–Paz)
-                                                </button>
-                                                <button 
-                                                    onClick={() => setListRange('month')} 
-                                                    className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
-                                                        listRange === 'month' 
-                                                        ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
-                                                        : 'text-gray-600 dark:text-gray-400'
-                                                    }`}
-                                                >
-                                                    Bu Ay
-                                                </button>
                                             </div>
+
                                         </div>
 
                                     </div>
@@ -1721,7 +1701,101 @@ const timer = setTimeout(async () => {
                                     />
                                 </div>
                             ) : (
-<TimelineView todos={todos.filter(t => !t.isDeleted)} onEditTodo={(id, newText) => handleEditTodo(id, newText)} />
+                                <div className="bg-white/80 dark:bg-gray-800/60 backdrop-blur-md border border-gray-200/60 dark:border-gray-700/60 rounded-xl sm:rounded-2xl shadow-lg p-3 sm:p-4">
+                                    {/* Timeline Toolbar */}
+                                    <div className="flex flex-col gap-3 mb-3">
+                                        {/* Status filter inside timeline card */}
+                                        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+                                            <button 
+                                                onClick={() => setTaskStatusFilter('all')} 
+                                                className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                    taskStatusFilter === 'all' 
+                                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                    : 'text-gray-600 dark:text-gray-400'
+                                                }`}
+                                            >
+                                                Tüm Görevler
+                                            </button>
+                                            <button 
+                                                onClick={() => setTaskStatusFilter('active')} 
+                                                className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                    taskStatusFilter === 'active' 
+                                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                    : 'text-gray-600 dark:text-gray-400'
+                                                }`}
+                                            >
+                                                Aktif
+                                            </button>
+                                            <button 
+                                                onClick={() => setTaskStatusFilter('completed')} 
+                                                className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                    taskStatusFilter === 'completed' 
+                                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                    : 'text-gray-600 dark:text-gray-400'
+                                                }`}
+                                            >
+                                                Tamamlanan
+                                            </button>
+                                        </div>
+
+                                        {/* Date range below status (timeline) */}
+                                        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-xl p-1">
+                                            <button 
+                                                onClick={() => setListRange('day')} 
+                                                className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                    listRange === 'day' 
+                                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                    : 'text-gray-600 dark:text-gray-400'
+                                                }`}
+                                            >
+                                                Gün
+                                            </button>
+                                            <button 
+                                                onClick={() => setListRange('week')} 
+                                                className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                    listRange === 'week' 
+                                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                    : 'text-gray-600 dark:text-gray-400'
+                                                }`}
+                                            >
+                                                Hafta
+                                            </button>
+                                            <button 
+                                                onClick={() => setListRange('month')} 
+                                                className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                    listRange === 'month' 
+                                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                    : 'text-gray-600 dark:text-gray-400'
+                                                }`}
+                                            >
+                                                Ay
+                                            </button>
+                                            <button 
+                                                onClick={() => setListRange('year')} 
+                                                className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                    listRange === 'year' 
+                                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                    : 'text-gray-600 dark:text-gray-400'
+                                                }`}
+                                            >
+                                                Yıl
+                                            </button>
+                                            <button 
+                                                onClick={() => setListRange('all')} 
+                                                className={`px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                                                    listRange === 'all' 
+                                                    ? 'bg-white dark:bg-gray-700 text-[var(--accent-color-600)] shadow-sm' 
+                                                    : 'text-gray-600 dark:text-gray-400'
+                                                }`}
+                                            >
+                                                Tümü
+                                            </button>
+                                        </div>
+
+                                    </div>
+
+<TimelineView todos={visibleTodos} scale={(listRange === 'all' ? 'month' : listRange) as 'day' | 'week' | 'month' | 'year'} onEditTodo={(id, newText) => handleEditTodo(id, newText)} />
+                                </div>
                             )}
                         </div>
                     )}
