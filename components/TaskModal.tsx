@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useI18n } from '../src/contexts/I18nContext';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -8,6 +9,7 @@ interface TaskModalProps {
 }
 
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => {
+  const { t } = useI18n();
   const [description, setDescription] = useState('');
 
   const handleTranscript = (transcript: string) => {
@@ -44,14 +46,14 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-lg p-6 transition-colors duration-300">
-        <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Yeni Görev Ekle</h2>
+        <h2 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">{t('modal.addTask.title', 'Yeni Görev Ekle')}</h2>
         <form onSubmit={handleSubmit}>
           <textarea
             className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none transition-colors duration-300"
             rows={4}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Görevinizi yazın veya mikrofon ile söyleyin..."
+            placeholder={t('modal.addTask.placeholder', 'Görevinizi yazın veya mikrofon ile söyleyin...')}
           />
           <div className="mt-4 flex justify-between items-center">
             {hasSupport ? (
@@ -65,7 +67,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
                 </svg>
               </button>
             ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400">Ses tanıma desteklenmiyor.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{t('modal.addTask.speechNotSupported', 'Ses tanıma desteklenmiyor.')}</p>
             )}
 
             <div className="flex gap-2">
@@ -74,14 +76,14 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
                 onClick={onClose}
                 className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500"
               >
-                İptal
+                {t('button.cancel', 'İptal')}
               </button>
               <button
                 type="submit"
                 className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50"
                 disabled={!description.trim()}
               >
-                Ekle
+                {t('button.add', 'Ekle')}
               </button>
             </div>
           </div>

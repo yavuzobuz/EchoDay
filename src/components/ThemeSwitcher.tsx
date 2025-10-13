@@ -1,5 +1,6 @@
 import React from 'react';
 import { AccentColor } from '../App';
+import { useI18n } from '../contexts/I18nContext';
 
 const SunIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -27,6 +28,7 @@ interface ThemeSwitcherProps {
 }
 
 const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ theme, setTheme, accentColor, setAccentColor }) => {
+  const { t } = useI18n();
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     console.log('[ThemeSwitcher] Toggling theme from', theme, 'to', newTheme);
@@ -40,14 +42,14 @@ const ThemeSwitcher: React.FC<ThemeSwitcherProps> = ({ theme, setTheme, accentCo
             key={color.name}
             onClick={() => setAccentColor(color.name)}
             className={`w-6 h-6 rounded-full ${color.className} transition-transform transform hover:scale-110 ${accentColor === color.name ? 'ring-2 ring-offset-2 ring-white dark:ring-offset-gray-800' : ''}`}
-            aria-label={`Set accent color to ${color.name}`}
+            aria-label={t('profile.accentColorAria', `Set accent color to ${color.name}`).replace('{color}', color.name)}
          />
        ))}
        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
        <button
           onClick={toggleTheme}
           className="p-1.5 rounded-full text-gray-600 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
-          aria-label="Toggle theme"
+          aria-label={t('common.toggleTheme', 'Toggle theme')}
        >
           {theme === 'light' ? <MoonIcon /> : <SunIcon />}
        </button>

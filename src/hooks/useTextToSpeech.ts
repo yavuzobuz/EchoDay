@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useI18n } from '../contexts/I18nContext';
 
 export interface TTSSettings {
   enabled: boolean;
@@ -37,6 +38,7 @@ const saveTTSSettings = (settings: TTSSettings) => {
 };
 
 export const useTextToSpeech = () => {
+  const { lang } = useI18n();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [settings, setSettings] = useState<TTSSettings>(loadTTSSettings);
@@ -46,15 +48,16 @@ export const useTextToSpeech = () => {
   const synth = typeof window !== 'undefined' ? window.speechSynthesis : null;
   const hasSupport = !!synth;
 
-  // Load available voices
+  // Load available voices filtered by current language
   useEffect(() => {
     if (!hasSupport || !synth) return;
     
     const loadVoices = () => {
       const voices = synth.getVoices();
-      // Filter Turkish voices
-      const turkishVoices = voices.filter(v => v.lang.startsWith('tr'));
-      setAvailableVoices(turkishVoices.length > 0 ? turkishVoices : voices);
+      // Filter voices by current language (tr or en)
+      const langPrefix = lang === 'tr' ? 'tr' : 'en';
+      const filteredVoices = voices.filter(v => v.lang.toLowerCase().startsWith(langPrefix));
+      setAvailableVoices(filteredVoices.length > 0 ? filteredVoices : voices);
     };
     
     loadVoices();
@@ -63,7 +66,7 @@ export const useTextToSpeech = () => {
     if (synth.onvoiceschanged !== undefined) {
       synth.onvoiceschanged = loadVoices;
     }
-  }, [hasSupport, synth]);
+  }, [hasSupport, synth, lang]);
 
   const updateSettings = useCallback((newSettings: Partial<TTSSettings>) => {
     setSettings(prev => {
@@ -97,16 +100,24 @@ export const useTextToSpeech = () => {
     const finalSettings = { ...settings, ...customSettings };
     const utterance = new SpeechSynthesisUtterance(cleanedText);
     
-    utterance.lang = 'tr-TR';
+    // Set language based on i18n context
+    utterance.lang = lang === 'tr' ? 'tr-TR' : 'en-US';
     utterance.rate = finalSettings.rate;
     utterance.pitch = finalSettings.pitch;
     utterance.volume = finalSettings.volume;
     
-    // Set voice if specified
+    // Set voice if specified, otherwise use best match for current language
     if (finalSettings.voice && availableVoices.length > 0) {
       const selectedVoice = availableVoices.find(v => v.name === finalSettings.voice);
       if (selectedVoice) {
         utterance.voice = selectedVoice;
+      }
+    } else if (availableVoices.length > 0) {
+      // Auto-select best voice for current language
+      const langPrefix = lang === 'tr' ? 'tr' : 'en';
+      const langVoice = availableVoices.find(v => v.lang.toLowerCase().startsWith(langPrefix));
+      if (langVoice) {
+        utterance.voice = langVoice;
       }
     }
     

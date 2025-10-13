@@ -65,7 +65,16 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const location = useLocation();
     // Get authenticated user
     const { user } = useAuth();
-    const userId = user?.id || 'guest';
+    
+    // Create consistent userId across platforms for data sync
+    const [deviceId] = useLocalStorage<string>('device_id', (() => {
+        const id = uuidv4();
+        console.log('[Main] Generated new device ID:', id);
+        return id;
+    })());
+    
+    const userId = user?.id || deviceId; // Use authenticated user ID or consistent device ID
+    console.log('[Main] Using userId for storage:', userId);
     
     // User-specific localStorage keys
     const [todos, setTodos] = useLocalStorage<Todo[]>(`todos_${userId}`, []);
@@ -83,9 +92,8 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     
     // Component State
     const [viewMode, setViewMode] = useState<ViewMode>('list');
-    const [isSelectionModeActive, setIsSelectionModeActive] = useState<boolean>(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [loadingMessage, setLoadingMessage] = useState('AI Düşünüyor...');
+    const [loadingMessage, setLoadingMessage] = useState(t('common.aiThinking', 'AI Düşünüyor...'));
     const [aiMessage, setAiMessage] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [activeReminders, setActiveReminders] = useState<ActiveReminder[]>([]);
@@ -180,6 +188,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [shareItem, setShareItem] = useState<Todo | Note | null>(null);
     const [shareType, setShareType] = useState<'todo' | 'note'>('todo');
+    
 
     const [todoForDirections, setTodoForDirections] = useState<Todo | null>(null);
     const [dailyBriefing, setDailyBriefing] = useState<DailyBriefing | null>(null);
@@ -187,33 +196,32 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
     const checkApiKey = useCallback(() => {
         if (!apiKey) {
-            setNotification({ message: 'Lütfen profil sayfasından Gemini API anahtarınızı girin.', type: 'error' });
+            setNotification({ message: t('main.apiKey.missing', 'Lütfen profil sayfasından Gemini API anahtarınızı girin.'), type: 'error' });
             return false;
         }
         return true;
-    }, [apiKey]);
+    }, [apiKey, t]);
     
-    // --- Wake Word Recognition ---
-    const wakeWordListener = useSpeechRecognition(
-        (transcript) => {
-            if (transcript) {
-                mainCommandListener.startListening();
-            }
-        },
-        { continuous: true, stopOnKeywords: [assistantName.toLowerCase()] }
-    );
+    // --- Wake Word Recognition (disabled - reserved for future use) ---
+//     const wakeWordListener = useSpeechRecognition(
+    //     (transcript) => {
+    //         if (transcript) {
+    //             mainCommandListener.startListening();
+    //         }
+    //     },
+    //     { continuous: true, stopOnKeywords: [assistantName.toLowerCase()] }
+    // );
     
     // --- Main Command Recognition (after wake word) ---
     const mainCommandListener = useSpeechRecognition(
         (command) => {
             if (command) {
-                console.log('[Main] Command received:', command);
                 handleAddTask(command);
             }
         },
         { 
-            continuous: false,
-            stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'ekle', 'oluştur', 'ok']
+            continuous: true,  // Allow longer speech input
+            stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'kayıt', 'ekle', 'oluştur', 'ok']
         }
     );
     
@@ -222,45 +230,33 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         return !!(window as any).isElectron || !!(window as any).electronAPI;
     });
 
-    // Request speech permission on mount
-    useEffect(() => {
-        // Disable wake word listener in Electron (causes network errors)
-        if (isElectron) {
-            console.log('[Main] Wake word listener disabled in Electron');
-            // Don't show warning - user can still use manual buttons
-            return;
-        }
-        
-        wakeWordListener.checkAndRequestPermission();
-    }, [wakeWordListener.checkAndRequestPermission, isElectron]);
-
-
-    // Wake word effect management (disabled in Electron)
-    useEffect(() => {
-        // Skip wake word listener in Electron
-        if (isElectron) {
-            return;
-        }
-        
-        const canListen = !isTaskModalOpen && !isChatOpen && !isImageTaskModalOpen && !isLocationPromptOpen && !isSuggestionsModalOpen && !isNotepadAiModalOpen && !isArchiveModalOpen && !isSelectionModeActive && !mainCommandListener.isListening;
-        
-        if (canListen && !wakeWordListener.isListening) {
-             try {
-                wakeWordListener.startListening();
-             } catch (e) {
-                console.error("Wake word listener start error:", e);
-             }
-        } else if (!canListen && wakeWordListener.isListening) {
-            wakeWordListener.stopListening();
-        }
-    }, [isTaskModalOpen, isChatOpen, isImageTaskModalOpen, isLocationPromptOpen, isSuggestionsModalOpen, isNotepadAiModalOpen, isArchiveModalOpen, isSelectionModeActive, mainCommandListener.isListening, wakeWordListener, isElectron]);
+    // Wake word listener disabled in Electron - causes issues with continuous speech recognition
+    // Users should use manual voice input via modal buttons instead
+    // 
+    // useEffect(() => {
+    //     wakeWordListener.checkAndRequestPermission();
+    // }, [wakeWordListener.checkAndRequestPermission]);
+    //
+    // useEffect(() => {
+    //     const canListen = !isTaskModalOpen && !isChatOpen && !isImageTaskModalOpen && !isLocationPromptOpen && !isSuggestionsModalOpen && !isNotepadAiModalOpen && !isArchiveModalOpen && !isSelectionModeActive && !mainCommandListener.isListening;
+    //     
+    //     if (canListen && !wakeWordListener.isListening) {
+    //          try {
+    //             wakeWordListener.startListening();
+    //          } catch (e) {
+    //             console.error('[Main] Wake word listener start error:', e);
+    //          }
+    //     } else if (!canListen && wakeWordListener.isListening) {
+    //         wakeWordListener.stopListening();
+    //     }
+    // }, [isTaskModalOpen, isChatOpen, isImageTaskModalOpen, isLocationPromptOpen, isSuggestionsModalOpen, isNotepadAiModalOpen, isArchiveModalOpen, isSelectionModeActive, mainCommandListener.isListening, wakeWordListener.isListening, wakeWordListener.startListening, wakeWordListener.stopListening]);
 
 
     // --- Task Management ---
     const handleAddTask = useCallback(async (description: string, imageBase64?: string, imageMimeType?: string) => {
         if (!checkApiKey()) return;
         setIsLoading(true);
-        setLoadingMessage('Göreviniz analiz ediliyor...');
+        setLoadingMessage(t('main.addTask.analyzing', 'Göreviniz analiz ediliyor...'));
 
         try {
             // FIX: Use the specific AnalyzedTaskData type for the AI result.
@@ -271,9 +267,9 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             if (aiResult) {
                 // FIX: Destructure the AI result to separate core Todo properties from metadata.
                 // This resolves the type error and provides a cleaner data structure.
-                let { text, priority, datetime, reminderMinutesBefore, ...metadata } = aiResult;
+                let { text, priority, datetime, reminderMinutesBefore, location, ...metadata } = aiResult;
                 
-                console.log('[Main] AI Result:', { text, priority, datetime, reminderMinutesBefore });
+                console.log('[Main] AI Result:', { text, priority, datetime, reminderMinutesBefore, location });
                 
                 // Fallback: parse Turkish date if AI didn't set datetime
                 if (!datetime) {
@@ -314,24 +310,30 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                     datetime: datetime || null,
                     completed: false,
                     createdAt: new Date().toISOString(),
-                    aiMetadata: metadata,
+                    aiMetadata: {
+                        ...metadata,
+                        ...(location && { 
+                            destination: location,
+                            requiresRouting: true 
+                        })
+                    },
                     reminders: reminders,
                 };
                 setTodos(prev => [newTodo, ...prev]);
                 
                 // Show success message with reminder info if applicable
-                let successMsg = 'Yeni görev eklendi!';
+                let successMsg = t('main.addTask.success', 'Yeni görev eklendi!');
                 console.log('[Main] Checking reminder status:', { hasReminders: !!reminders, hasDatetime: !!datetime });
                 if (reminders && reminders.length > 0) {
                     const mins = reminderMinutesBefore || 0;
                     if (mins >= 1440) {
                         const days = Math.floor(mins / 1440);
-                        successMsg += ` Hatırlatma: ${days} gün önce`;
+                        successMsg += ` ${t('main.reminder.prefix', 'Hatırlatma:')} ${days} ${t('unit.day', 'gün')} ${t('common.before', 'önce')}`;
                     } else if (mins >= 60) {
                         const hours = Math.floor(mins / 60);
-                        successMsg += ` Hatırlatma: ${hours} saat önce`;
+                        successMsg += ` ${t('main.reminder.prefix', 'Hatırlatma:')} ${hours} ${t('unit.hour', 'saat')} ${t('common.before', 'önce')}`;
                     } else {
-                        successMsg += ` Hatırlatma: ${mins} dakika önce`;
+                        successMsg += ` ${t('main.reminder.prefix', 'Hatırlatma:')} ${mins} ${t('unit.minute', 'dakika')} ${t('common.before', 'önce')}`;
                     }
                     setNotification({ message: successMsg, type: 'success' });
                 } else if (datetime && !reminders) {
@@ -477,7 +479,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                 const { deleteTodos } = await import('./services/supabaseClient');
                 await deleteTodos(userId, [id]);
                 setNotification({ 
-                    message: 'Görev silindi.', 
+                    message: t('main.delete.success', 'Görev silindi.'), 
                     type: 'success' 
                 });
             } catch (error) {
@@ -485,13 +487,13 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                 // Geri al (revert) – sunucu silinemediyse yerelde isDeleted=false yap
                 setTodos(prev => prev.map(t => t.id === id ? { ...t, isDeleted: false } : t));
                 setNotification({ 
-                    message: 'Görev sunucuya silinemedi. Lütfen tekrar deneyin.', 
+                    message: t('main.delete.failed', 'Görev sunucuya silinemedi. Lütfen tekrar deneyin.'), 
                     type: 'error' 
                 });
             }
         } else {
             setNotification({ 
-                message: 'Görev geçici olarak silindi.', 
+                message: t('main.delete.temp', 'Görev geçici olarak silindi.'), 
                 type: 'success' 
             });
         }
@@ -526,7 +528,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
         if (!checkApiKey()) return;
 
         setIsLoading(true);
-        setLoadingMessage('Yol tarifi alınıyor...');
+        setLoadingMessage(t('main.directions.loading', 'Yol tarifi alınıyor...'));
         const directions = await geminiService.getDirections(apiKey, origin, todoForDirections.aiMetadata.destination);
         setIsLoading(false);
 
@@ -540,7 +542,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                 }
             } : t));
         } else {
-            setNotification({ message: 'Yol tarifi alınamadı.', type: 'error' });
+            setNotification({ message: t('main.directions.failed', 'Yol tarifi alınamadı.'), type: 'error' });
         }
         setTodoForDirections(null);
     };
@@ -608,7 +610,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             
             // Description varsa görevi ekle
             await handleAddTask(intentResult.description);
-            const modelMessage: ChatMessage = { role: 'model', text: `Elbette, "${intentResult.description}" görevi listeye eklendi.` };
+            const modelMessage: ChatMessage = { role: 'model', text: `"${intentResult.description}" görevi başarıyla listeye eklendi.` };
             setChatHistory(prev => [...prev, modelMessage]);
             setIsLoading(false);
             return;
@@ -620,7 +622,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
             if (!intentResult.description || intentResult.description.includes('[Kullanıcı not eklemek istiyor ama içerik belirtmedi]')) {
                 const modelMessage: ChatMessage = { 
                     role: 'model', 
-                    text: 'Elbette, not ekleyebilirim. Hangi notu kaydetmek istersiniz? Lütfen not içeriğini belirtin.' 
+                    text: 'Tabii, not ekleyebilirim. Hangi notu kaydetmek istersiniz? Lütfen not içeriğini belirtin.'
                 };
                 setChatHistory(prev => [...prev, modelMessage]);
                 setIsLoading(false);
@@ -809,11 +811,11 @@ const top = sorted;
         if (!checkApiKey()) return;
         setIsNotepadAiModalOpen(false);
         setIsLoading(true);
-        setLoadingMessage('Notlarınız işleniyor...');
+        setLoadingMessage(t('main.notes.processing', 'Notlarınız işleniyor...'));
         
         const result = await geminiService.processNotesWithPrompt(apiKey, selectedNotes, prompt);
         
-        setAiMessage(result || 'Sonuç alınamadı.');
+        setAiMessage(result || t('main.result.empty', 'Sonuç alınamadı.'));
         setIsLoading(false);
     };
 
@@ -822,7 +824,7 @@ const top = sorted;
         if (!checkApiKey()) return;
         
         setIsLoading(true);
-        setLoadingMessage('PDF analiz ediliyor...');
+        setLoadingMessage(t('main.pdf.analyzing', 'PDF analiz ediliyor...'));
         
         try {
             // Convert PDF to base64
@@ -906,13 +908,13 @@ const top = sorted;
                     message: `✅ ${newTasks.length} görev ve ${newNotes.length} not eklendi!`, 
                     type: 'success' 
                 });
-            } else {
-                throw new Error('PDF analizi başarısız');
-            }
+                } else {
+                    throw new Error(t('main.pdf.failedShort', 'PDF analizi başarısız'));
+                }
         } catch (error: any) {
             console.error('PDF analysis error:', error);
             setNotification({ 
-                message: `PDF analizi başarısız: ${error.message || 'Bilinmeyen hata'}`, 
+                message: `${t('main.pdf.failed', 'PDF analizi başarısız:')} ${error.message || t('common.unknownError', 'Bilinmeyen hata')}`, 
                 type: 'error' 
             });
         } finally {
@@ -926,7 +928,7 @@ const top = sorted;
         if (!note || !note.imageUrl) return;
 
         setIsLoading(true);
-        setLoadingMessage('Resimdeki metin çıkarılıyor...');
+        setLoadingMessage(t('main.image.ocr.loading', 'Resimdeki metin çıkarılıyor...'));
 
         try {
             let extractedText: string | null = null;
@@ -950,13 +952,13 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
             if (extractedText) {
                 const updatedText = note.text ? `${note.text}\n\n--- AI Analizi ---\n${extractedText}` : extractedText;
                 setNotes(notes.map(n => n.id === noteId ? { ...n, text: updatedText, updatedAt: new Date().toISOString() } : n));
-                setNotification({ message: 'Resimden metin çıkarıldı.', type: 'success' });
+                setNotification({ message: t('main.image.ocr.success', 'Resimden metin çıkarıldı.'), type: 'success' });
             } else {
-                setNotification({ message: 'Resimden metin çıkarılamadı.', type: 'error' });
+                setNotification({ message: t('main.image.ocr.failed', 'Resimden metin çıkarılamadı.'), type: 'error' });
             }
         } catch (error: any) {
             console.error('Image analysis error:', error);
-            setNotification({ message: `Resim analizi başarısız: ${error.message || 'Bilinmeyen hata'}`, type: 'error' });
+            setNotification({ message: `${t('main.image.analysisFailed', 'Resim analizi başarısız:')} ${error.message || t('common.unknownError', 'Bilinmeyen hata')}`, type: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -997,7 +999,7 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
             setDailyBriefing(briefing);
             setIsSuggestionsModalOpen(true);
         } else {
-            setNotification({ message: 'Günlük özet alınamadı.', type: 'error' });
+            setNotification({ message: t('main.dailySummary.failed', 'Günlük özet alınamadı.'), type: 'error' });
         }
     };
 
@@ -1103,13 +1105,13 @@ const timer = setTimeout(async () => {
                     setNotes(notes.filter(note => note.pinned || note.favorite));
                     setLastArchiveDate(todayStr);
                     setNotification({
-                        message: `${completedTodos.length} görev arşivlendi. Tamamlanmayanlar sonraki güne taşındı.`,
+                        message: `${completedTodos.length} ${t('unit.task', 'görev')} ${t('main.autoArchive.archived', 'arşivlendi.')} ${t('main.autoArchive.carriedOver', 'Tamamlanmayanlar sonraki güne taşındı.')}`,
                         type: 'success'
                     });
                 } catch (error: any) {
                     console.error('[Main] Auto-archive failed:', error);
                     setNotification({
-                        message: error.message || 'Otomatik arşivleme başarısız oldu.',
+                        message: error.message || t('main.autoArchive.failed', 'Otomatik arşivleme başarısız oldu.'),
                         type: 'error'
                     });
                 }
@@ -1249,8 +1251,8 @@ const timer = setTimeout(async () => {
                         if (msg.sender_id === userId) return;
                         // If on Messages page and app has focus, suppress extra notification (page handles it)
                         if (location.pathname.includes('/messages') && document.hasFocus()) return;
-                        const title = 'Yeni mesaj';
-                        const text = msg.type === 'text' ? (msg.body || '') : 'Dosya gönderdi';
+                        const title = t('main.message.new', 'Yeni mesaj');
+                        const text = msg.type === 'text' ? (msg.body || '') : t('main.message.sentFile', 'Dosya gönderdi');
                         const { NotificationService } = await import('./services/notificationService');
                         NotificationService.notifyMessage(title, text);
                     } catch (e) {
@@ -1321,9 +1323,28 @@ const timer = setTimeout(async () => {
     
     const handleUpdateReminders = useCallback((todoId: string, reminders: ReminderConfig[]) => {
         console.log('[Main] Updating reminders for todo:', todoId);
-        setTodos(prev => prev.map(todo => 
-            todo.id === todoId ? { ...todo, reminders } : todo
-        ));
+        console.log('[Main] New reminders:', reminders);
+        
+        setTodos(prev => {
+            const updated = prev.map(todo => {
+                if (todo.id === todoId) {
+                    const updatedTodo = { ...todo, reminders };
+                    console.log('[Main] Updated todo with reminders:', updatedTodo);
+                    return updatedTodo;
+                }
+                return todo;
+            });
+            
+            // Debug: Verify the todo was updated
+            const updatedTodo = updated.find(t => t.id === todoId);
+            if (updatedTodo) {
+                console.log('[Main] Verification - Todo reminders count:', updatedTodo.reminders?.length || 0);
+                console.log('[Main] Verification - Todo reminders:', updatedTodo.reminders);
+            }
+            
+            return updated;
+        });
+        
         setNotification({ message: 'Hatırlatmalar güncellendi', type: 'success' });
     }, [setTodos]);
 
@@ -1391,22 +1412,22 @@ const timer = setTimeout(async () => {
                 <div className="flex flex-col gap-4 mb-6">
 
                     {/* Action Buttons - Modern Grid Layout */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 lg:gap-4 px-1 sm:px-0">
                         <button 
                             onClick={() => navigate('/messages')} 
-                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                            className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group min-h-[48px] btn-touch-friendly"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2H7l-3.5 2.333A1 1 0 012 17.5V5z"/>
                             </svg>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
-                                Mesajlar
+                                {t('main.messages','Messages')}
                             </span>
                         </button>
 
                         <button 
                             onClick={() => navigate('/email')} 
-                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                            className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group min-h-[48px] btn-touch-friendly"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
@@ -1419,27 +1440,27 @@ const timer = setTimeout(async () => {
 
                         <button 
                             onClick={handleGetDailyBriefing} 
-                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                            className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group min-h-[48px] btn-touch-friendly"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                             </svg>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
-                                <span className="hidden sm:inline">Günün Özeti</span>
-                                <span className="sm:hidden">Özet</span>
+                                <span className="hidden sm:inline">{t('main.dailySummary','Daily Summary')}</span>
+                                <span className="sm:hidden">{t('main.summary','Summary')}</span>
                             </span>
                         </button>
 
                         <button 
                             onClick={() => setShowContextInsights(true)} 
-                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                            className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group min-h-[48px] btn-touch-friendly"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z" />
                                 <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z" />
                             </svg>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
-                                İçgörüler
+                                {t('main.insights','Insights')}
                             </span>
                         </button>
 
@@ -1452,7 +1473,7 @@ const timer = setTimeout(async () => {
                                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                                 </svg>
                                 <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
-                                    AI Önerileri
+                                    {t('main.aiSuggestions','AI Suggestions')}
                                     <span className="ml-1 text-xs bg-indigo-600 text-white px-1.5 py-0.5 rounded-full">
                                         {proactiveSuggestions.length}
                                     </span>
@@ -1462,27 +1483,27 @@ const timer = setTimeout(async () => {
 
                         <button 
                             onClick={() => setIsArchiveModalOpen(true)} 
-                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                            className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group min-h-[48px] btn-touch-friendly"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
                                 <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
                             </svg>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
-                                Arşiv
+                                {t('main.archive','Archive')}
                             </span>
                         </button>
 
                         <button 
                             onClick={handleExportICS} 
-                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group"
+                            className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group min-h-[48px] btn-touch-friendly"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                             </svg>
                             <span className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white">
-                                <span className="hidden sm:inline">Takvim Dışa Aktar</span>
-                                <span className="sm:hidden">Dışa Aktar</span>
+                                <span className="hidden sm:inline">{t('main.exportCalendar','Export Calendar')}</span>
+                                <span className="sm:hidden">{t('main.export','Export')}</span>
                             </span>
                         </button>
                     </div>
@@ -1540,7 +1561,7 @@ const timer = setTimeout(async () => {
                         <input 
                             value={searchQuery} 
                             onChange={(e) => setSearchQuery(e.target.value)} 
-                            placeholder="Görevlerde ve notlarda ara..." 
+                            placeholder={t('main.searchPlaceholder','Search in tasks and notes...')}
                             className="w-full pl-12 pr-4 py-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-500)] shadow-sm transition-all"
                         />
                         {searchQuery && (
@@ -1830,7 +1851,7 @@ const timer = setTimeout(async () => {
                                    console.warn('[Main] Remote delete (bulk) failed:', e);
                                }
                            }}
-                           onSelectionModeChange={setIsSelectionModeActive}
+                           onSelectionModeChange={(active) => console.log('Selection mode:', active)}
                        />
                         </div>
                     )}

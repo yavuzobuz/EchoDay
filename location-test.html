@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konum Algılama Testi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .input-group {
+            margin-bottom: 15px;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <h1>🗺️ EchoDay Konum Algılama Testi</h1>
+    
+    <div class="test-card">
+        <h2>API Anahtarı</h2>
+        <div class="input-group">
+            <input type="password" id="apiKey" placeholder="Gemini API anahtarınızı girin...">
+        </div>
+    </div>
+
+    <div class="test-card">
+        <h2>Test Görevleri</h2>
+        <div class="input-group">
+            <textarea id="taskInput" rows="3" placeholder="Görev açıklamasını girin...">Bostancı final okullarında kahvaltı - 09:30</textarea>
+        </div>
+        <button onclick="testLocationExtraction()">🔍 Konum Algılama Testi</button>
+        <div id="result" class="result" style="display:none;"></div>
+    </div>
+
+    <div class="test-card">
+        <h2>Hazır Test Senaryoları</h2>
+        <button onclick="runAllTests()">🚀 Tüm Testleri Çalıştır</button>
+        <div id="allResults" style="margin-top:20px;"></div>
+    </div>
+
+    <script type="module">
+        import { GoogleGenerativeAI, SchemaType } from 'https://esm.run/@google/generative-ai';
+        
+        window.testLocationExtraction = async function() {
+            const apiKey = document.getElementById('apiKey').value;
+            const taskInput = document.getElementById('taskInput').value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!apiKey) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ API anahtarı gerekli!';
+                resultDiv.style.display = 'block';
+                return;
+            }
+            
+            resultDiv.className = 'result info';
+            resultDiv.textContent = '⏳ Analiz ediliyor...';
+            resultDiv.style.display = 'block';
+            
+            try {
+                const genAI = new GoogleGenerativeAI(apiKey);
+                
+                const taskSchema = {
+                    type: SchemaType.OBJECT,
+                    properties: {
+                        text: { type: SchemaType.STRING },
+                        priority: { type: SchemaType.STRING, enum: ['high', 'medium'] },
+                        datetime: { type: SchemaType.STRING, nullable: true },
+                        category: { type: SchemaType.STRING, nullable: true },
+                        location: { type: SchemaType.STRING, nullable: true },
+                        destination: { type: SchemaType.STRING, nullable: true },
+                        requiresRouting: { type: SchemaType.BOOLEAN, nullable: true },
+                        reminderMinutesBefore: { type: SchemaType.NUMBER, nullable: true },
+                    },
+                    required: ['text', 'priority'],
+                };
+                
+                const model = genAI.getGenerativeModel({
+                    model: 'gemini-2.0-flash',
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: taskSchema,
+                        temperature: 0.2,
+                    },
+                });
+                
+                const prompt = `Aşağıdaki görev tanımını analiz et ve konum bilgilerini çıkar.
+
+KONUM ÇIKARMA:
+- HER ZAMAN görevdeki konum bilgilerini kontrol et
+- Konum örnekleri: okul isimleri, restoran isimleri, hastane isimleri, şirket isimleri, semt isimleri
+- Konum varsa "location" alanını doldur
+- Örnekler:
+  * "Bostancı final okullarında" -> location: "Bostancı final okulları"
+  * "Memorial Hastanesi'nde" -> location: "Memorial Hastanesi"
+  * "Kadıköy'de" -> location: "Kadıköy"
+- Konum belirtilmişse, requiresRouting: true ve destination alanına da aynı konumu ekle
+
+Görev: "${taskInput}"`;
+                
+                const result = await model.generateContent(prompt);
+                const response = await result.response;
+                const data = JSON.parse(response.text());
+                
+                resultDiv.className = 'result success';
+                resultDiv.textContent = '✅ Analiz Sonucu:\n\n' + JSON.stringify(data, null, 2);
+                
+                // Konum kontrolü
+                if (data.location) {
+                    resultDiv.textContent += '\n\n🎯 KONUM ALGILANDI: ' + data.location;
+                } else {
+                    resultDiv.textContent += '\n\n⚠️ KONUM ALGILANMADI!';
+                }
+                
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ Hata: ' + error.message;
+            }
+        };
+        
+        window.runAllTests = async function() {
+            const testCases = [
+                "Bostancı final okullarında kahvaltı - 09:30",
+                "Memorial Hastanesi'nde randevu saat 14:00",
+                "Kadıköy'de alışveriş yapacağım",
+                "Starbucks'ta toplantı var yarın 10:00",
+                "İstanbul Havalimanı'nda buluşma",
+                "Zorlu Center'da konser 20:00",
+                "Ataşehir Metropol İstanbul'da toplantı"
+            ];
+            
+            const apiKey = document.getElementById('apiKey').value;
+            const resultsDiv = document.getElementById('allResults');
+            
+            if (!apiKey) {
+                resultsDiv.innerHTML = '<div class="result error">❌ API anahtarı gerekli!</div>';
+                return;
+            }
+            
+            resultsDiv.innerHTML = '<div class="result info">⏳ Testler çalıştırılıyor...</div>';
+            
+            let html = '';
+            for (const testCase of testCases) {
+                document.getElementById('taskInput').value = testCase;
+                await testLocationExtraction();
+                const result = document.getElementById('result').innerHTML;
+                html += `<div style="margin-bottom: 20px;">
+                    <strong>Test: ${testCase}</strong>
+                    ${result}
+                </div>`;
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Rate limit için bekle
+            }
+            
+            resultsDiv.innerHTML = html;
+        };
+    </script>
+</body>
+</html>

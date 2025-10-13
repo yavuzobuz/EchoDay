@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MobileModal, ModalSection, ModalActions } from './MobileModal';
+import { useI18n } from '../contexts/I18nContext';
 
 interface ImageTaskModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface ImageTaskModalProps {
 
 const ImageTaskModal: React.FC<ImageTaskModalProps> = ({ isOpen, onClose, onAddTask }) => {
   const [description, setDescription] = useState('');
+  const { t } = useI18n();
   const [image, setImage] = useState<{ b64: string, mime: string, url: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -46,12 +48,12 @@ const ImageTaskModal: React.FC<ImageTaskModalProps> = ({ isOpen, onClose, onAddT
     <MobileModal
       isOpen={isOpen}
       onClose={onClose}
-      title="Resimle Görev Oluştur"
+      title={t('imageTask.title','Resimle Görev Oluştur')}
       fullScreen={false}
       swipeToClose={true}
     >
       <form onSubmit={handleSubmit}>
-        <ModalSection title="1. Bir Resim Yükleyin">
+        <ModalSection title={t('imageTask.step1','1. Bir Resim Yükleyin')}>
           <input 
             type="file" 
             accept="image/*" 
@@ -76,11 +78,11 @@ const ImageTaskModal: React.FC<ImageTaskModalProps> = ({ isOpen, onClose, onAddT
               <div className="w-full">
                 <img 
                   src={image.url} 
-                  alt="Yüklenen görsel" 
+                  alt={t('imageTask.uploadedAlt','Yüklenen görsel')} 
                   className="max-h-56 md:max-h-48 mx-auto rounded-lg shadow-md" 
                 />
                 <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                  Değiştirmek için tıklayın
+                  {t('imageTask.clickToChange','Değiştirmek için tıklayın')}
                 </p>
               </div>
             ) : (
@@ -92,10 +94,10 @@ const ImageTaskModal: React.FC<ImageTaskModalProps> = ({ isOpen, onClose, onAddT
                 </div>
                 <div>
                   <p className="text-base md:text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Resim seçmek için tıklayın
+                    {t('imageTask.clickToSelect','Resim seçmek için tıklayın')}
                   </p>
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    PNG, JPG, HEIC desteklenir
+                    {t('imageTask.formats','PNG, JPG, HEIC desteklenir')}
                   </p>
                 </div>
               </div>
@@ -103,7 +105,7 @@ const ImageTaskModal: React.FC<ImageTaskModalProps> = ({ isOpen, onClose, onAddT
           </div>
         </ModalSection>
 
-        <ModalSection title="2. AI'ya Ne Yapmasını İstediğinizi Söyleyin">
+        <ModalSection title={t('imageTask.step2','2. AI\'ya Ne Yapmasını İstediğinizi Söyleyin')}>
           <textarea
             id="img-task-desc"
             className="
@@ -119,7 +121,7 @@ const ImageTaskModal: React.FC<ImageTaskModalProps> = ({ isOpen, onClose, onAddT
             rows={4}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Örn: Bu faturanın son ödeme tarihini görev olarak ekle."
+            placeholder={t('imageTask.placeholder','Örn: Bu faturanın son ödeme tarihini görev olarak ekle.')}
           />
         </ModalSection>
 
@@ -138,7 +140,7 @@ const ImageTaskModal: React.FC<ImageTaskModalProps> = ({ isOpen, onClose, onAddT
               min-h-[48px] md:min-h-[44px]
             "
           >
-            İptal
+            {t('common.cancel','İptal')}
           </button>
           <button 
             type="submit" 
@@ -154,7 +156,7 @@ const ImageTaskModal: React.FC<ImageTaskModalProps> = ({ isOpen, onClose, onAddT
             " 
             disabled={!image || !description.trim()}
           >
-            Görev Oluştur
+            {t('imageTask.create','Görev Oluştur')}
           </button>
         </ModalActions>
       </form>

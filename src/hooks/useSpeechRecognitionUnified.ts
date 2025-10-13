@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useElectronSpeechRecognition } from './useElectronSpeechRecognition';
+import { speechRecognitionManager } from './speechRecognitionManager';
 
 // Web Speech API types
 interface WebSpeechRecognition {
@@ -39,7 +40,6 @@ export const useSpeechRecognition = (
   
   // Platform detection after all hooks
   const isWeb = Capacitor.getPlatform() === 'web';
-  const maxRetries = 3;
   
   // Update refs in useEffect hooks
   useEffect(() => {
@@ -50,21 +50,13 @@ export const useSpeechRecognition = (
     finalTranscriptRef.current = transcript;
   }, [transcript]);
   
-  // Platform desteğini kontrol et
+  // Platform desteğini kontrol et - singleton manager kullan
   useEffect(() => {
-    // Check if running in Electron
-    isElectronRef.current = !!(window as any).isElectron || !!(window as any).electronAPI;
-    
     if (isWeb) {
-      // Web platformunda Web Speech API kullan (Electron değilse)
-      if (WebSpeechRecognitionAPI && !isElectronRef.current) {
-        setHasSupport(true);
-      } else if (isElectronRef.current) {
-        // Electron'da Web Speech API genellikle desteklenmez; Electron fallback kullanacağız
-        setHasSupport(true); // Fallback destekliyoruz
-      } else {
-        setHasSupport(false);
-      }
+      // Web platformunda singleton manager ile kontrol et
+      const { hasSupport: webHasSupport, isElectron } = speechRecognitionManager.checkSupport();
+      isElectronRef.current = isElectron;
+      setHasSupport(webHasSupport);
     } else {
       // Mobil platformlarda Capacitor desteğini kontrol et
       import('@capacitor-community/speech-recognition').then(({ SpeechRecognition }) => {
@@ -79,13 +71,27 @@ export const useSpeechRecognition = (
     }
   }, [isWeb]);
   
-  // Web Speech API setup
+  // Cleanup effect
   useEffect(() => {
-    // Electron ortamında Web Speech API'yi kurmayalım; fallback kullanılacak
-    if (!isWeb || !WebSpeechRecognitionAPI || isElectronRef.current) return;
-    
-    const rec = new WebSpeechRecognitionAPI();
-    recognitionRef.current = rec;
+    return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
+      
+      // Clean up if this instance was listening
+      if (recognitionRef.current && isListening) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // Ignore errors when stopping
+        }
+        recognitionRef.current = null;
+      }
+    };
+  }, [isListening]);
+  
+  // Setup recognition handlers when starting to listen
+  const setupRecognitionHandlers = useCallback((rec: WebSpeechRecognition) => {
     const stopWordsOption = options?.stopOnKeywords;
     const useStopWords = stopWordsOption !== false;
     const continuous = options?.continuous ?? true;
@@ -115,63 +121,87 @@ export const useSpeechRecognition = (
       }
 
       if (useStopWords) {
-        const lowerCaseTranscript = currentTranscript.toLowerCase().trim();
+        // Use Turkish locale-aware case conversion for better matching
+        const normalizedTranscript = currentTranscript.toLocaleLowerCase('tr-TR').trim();
         
-        let stopWords = ['tamam', 'bitti', 'ok'];
+        // Turkish final phrases that should stop recording
+        // Include both i/ı variations to handle Turkish case conversion properly
+        // Note: BITTI -> bıttı, bitti -> bitti
+        let stopWords = ['tamam', 'bitti', 'bıttı', 'kaydet', 'kayıt', 'ok'];
         if (Array.isArray(stopWordsOption)) {
             stopWords = stopWordsOption;
         }
         
-        const sortedStopWords = [...stopWords].sort((a, b) => b.length - a.length);
-        const stopWordTriggered = sortedStopWords.find(word => lowerCaseTranscript.endsWith(word.toLowerCase()));
+        // Normalize stop words to Turkish lowercase for consistent matching
+        const normalizedStopWords = stopWords.map(word => word.toLocaleLowerCase('tr-TR'));
+        const sortedStopWords = [...normalizedStopWords].sort((a, b) => b.length - a.length);
+        
+        // Find the stop word that matches at the end of transcript
+        const stopWordTriggered = sortedStopWords.find(word => {
+          // Check if transcript ends with the stop word (with optional punctuation/spaces)
+          const pattern = new RegExp(`\\s*${word.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\s*[.,!?]*\\s*$`);
+          return pattern.test(normalizedTranscript);
+        });
 
         if (stopWordTriggered) {
-          const commandEndIndex = lowerCaseTranscript.lastIndexOf(stopWordTriggered.toLowerCase());
-          const command = currentTranscript.substring(0, commandEndIndex).trim();
-          cleanedTranscriptRef.current = command;
-          rec.stop();
+          // Find the position where the stop word starts
+          const pattern = new RegExp(`\\s*${stopWordTriggered.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\s*[.,!?]*\\s*$`);
+          const match = normalizedTranscript.match(pattern);
+          if (match && match.index !== undefined) {
+            const command = currentTranscript.substring(0, match.index).trim();
+            cleanedTranscriptRef.current = command;
+            rec.stop();
+          }
         }
       }
     };
 
     rec.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
+      console.error('[SpeechRecognition] Error event:', event.error, event);
       setIsListening(false);
       
       // Handle specific error cases
-      if (event.error === 'network') {
-        console.warn('Network error in speech recognition. This might be due to offline status or security restrictions.');
+      if (event.error === 'not-allowed') {
+        const debugInfo = {
+          error: 'not-allowed',
+          hasPermissionsAPI: !!navigator.permissions,
+          url: window.location.href,
+          isSecure: window.isSecureContext,
+          protocol: window.location.protocol,
+          userAgent: navigator.userAgent.substring(0, 50) + '...'
+        };
         
-        // Try retry with counter to prevent infinite loops
-        if (retryCountRef.current < maxRetries) {
-          retryCountRef.current += 1;
-          console.log(`Retrying speech recognition (attempt ${retryCountRef.current}/${maxRetries})`);
-          
-          setTimeout(() => {
-            if (recognitionRef.current && hasSupport) {
-              try {
-                // Reset and try different settings
-                recognitionRef.current.continuous = false;
-                recognitionRef.current.interimResults = false;
-                transcriptReadyCalledRef.current = false;
-                cleanedTranscriptRef.current = null;
-                setTranscript('');
-                recognitionRef.current.start();
-                setIsListening(true);
-              } catch (retryError) {
-                console.error('Retry failed:', retryError);
-                retryCountRef.current = maxRetries; // Stop retrying
-              }
-            }
-          }, 2000); // Longer delay
+        console.error('[SpeechRecognition] Microphone permission denied:', debugInfo);
+        
+        // Check actual permission state
+        if (navigator.permissions) {
+          navigator.permissions.query({name: 'microphone'}).then(result => {
+            const permState = result.state;
+            console.error('[SpeechRecognition] Permission state:', permState);
+            
+            // Mobil için detaylı alert
+            alert(`🎤 Mikrofon Sorunu:\n\nDurum: ${permState}\nProtokol: ${window.location.protocol}\nGüvenli: ${window.isSecureContext}\n\nÇözüm: Tarayıcı adres çubuğundaki mikrofon simgesine bas → "Allow" seç`);
+          }).catch(e => {
+            console.error('[SpeechRecognition] Permission query failed:', e);
+            alert(`🎤 Mikrofon izni sorunu!\n\nHata: ${e.message || 'Bilinmeyen'}\nProtokol: ${window.location.protocol}\n\nÇözüm: Tarayıcı ayarlarından mikrofon iznini ver`);
+          });
         } else {
-          console.error('Max retries reached. Speech recognition unavailable.');
-          setHasSupport(false);
+          alert(`🎤 Mikrofon Sorunu!\n\nTarayıcınız Permission API'yi desteklemiyor.\nProtokol: ${window.location.protocol}\n\nHTTPS gerekli!`);
         }
-      } else if (event.error === 'not-allowed') {
-        console.error('Microphone access not allowed. Please check permissions.');
       } else if (event.error === 'no-speech') {
-        console.log('No speech detected. This is usually not an error.');
+        console.warn('[SpeechRecognition] No speech detected');
+        // Bu normal bir durum, kullanıcıyı uyarmaya gerek yok
+      } else if (event.error === 'audio-capture') {
+        console.error('[SpeechRecognition] Audio capture failed');
+        alert('Ses kaydı başarısız. Mikrofonunuzun düzgün çalıştığından emin olun.');
+      } else if (event.error === 'network') {
+        console.error('[SpeechRecognition] Network error');
+        alert('Ağ hatası. İnternet bağlantınızı kontrol edin.');
+      } else if (event.error === 'service-not-allowed') {
+        console.error('[SpeechRecognition] Service not allowed');
+        alert('Ses tanıma servisi izin verilmedi.');
+      } else {
+        console.error('[SpeechRecognition] Unknown error:', event.error);
       }
     };
 
@@ -191,19 +221,7 @@ export const useSpeechRecognition = (
 
       cleanedTranscriptRef.current = null;
     };
-
-    return () => {
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
-      rec.onresult = null;
-      rec.onerror = null;
-      rec.onend = null;
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, [options, isWeb]);
+  }, [options, hasSupport, setIsListening, setTranscript, setHasSupport, onTranscriptReadyRef, finalTranscriptRef]);
   
   const startListening = useCallback(async () => {
     if (!hasSupport || isListening) return;
@@ -211,28 +229,122 @@ export const useSpeechRecognition = (
     // Reset retry counter on new start
     retryCountRef.current = 0;
     
-    // Electron'da her zaman fallback kullan
-    if (isWeb && !isElectronRef.current) {
-      // Web Speech API kullan (Electron değilse)
-      if (recognitionRef.current) {
+    // Web Speech API kullan (Electron dahil)
+    if (isWeb) {
+      // Enhanced mobile permission check
+      try {
+        // First, test actual microphone access with getUserMedia
+        console.log('[SpeechRecognition] Testing microphone access...');
+        
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            sampleRate: 16000
+          }
+        });
+        
+        // If we get here, we have mic access - stop the stream immediately
+        stream.getTracks().forEach(track => track.stop());
+        console.log('[SpeechRecognition] Microphone access confirmed');
+        
+      } catch (micError) {
+        console.error('[SpeechRecognition] Microphone access failed:', micError);
+        
+        let errorMsg = '🎤 Mikrofon Erişim Hatası\n\n';
+        
+        const error = micError as Error;
+        if (error.name === 'NotAllowedError') {
+          errorMsg += 'İzin reddedildi.\n\n';
+          errorMsg += 'Çözüm:\n';
+          errorMsg += '1. Tarayıcı adres çubuğundaki mikrofon 🎤 simgesine bas\n';
+          errorMsg += '2. "Allow" veya "İzin Ver" seç\n';
+          errorMsg += '3. Sayfayı yenile ve tekrar dene';
+        } else if (error.name === 'NotFoundError') {
+          errorMsg += 'Mikrofon bulunamadı.\n\nLütfen mikrofonunuzun düzgün bağlı olduğundan emin olun.';
+        } else if (error.name === 'NotReadableError') {
+          errorMsg += 'Mikrofon başka bir uygulama tarafından kullanılıyor.';
+        } else {
+          errorMsg += `Hata: ${error.message || 'Bilinmeyen hata'}`;
+        }
+        
+        alert(errorMsg);
+        return;
+      }
+      
+      // Additional permission API check if available
+      if (navigator.permissions) {
         try {
+          const permission = await navigator.permissions.query({name: 'microphone'});
+          console.log('[SpeechRecognition] Permission API state:', permission.state);
+          
+          if (permission.state === 'denied') {
+            alert('Mikrofon izni reddedilmiş. Tarayıcı ayarlarından mikrofon iznini aktifleştirin.');
+            return;
+          }
+        } catch (e) {
+          console.warn('[SpeechRecognition] Permission API check failed:', e);
+        }
+      }
+      
+      try {
+        // Eğer zaten dinliyorsak, önce durdur
+        if (isListening && recognitionRef.current) {
+          console.log('[SpeechRecognition] Already listening, stopping first...');
+          try {
+            recognitionRef.current.stop();
+          } catch (e) {
+            // Ignore stop errors
+          }
+          recognitionRef.current = null;
+          setIsListening(false);
+          // Kısa bir bekleme süresi ekle
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        // Create a new recognition instance for this listening session
+        if (!recognitionRef.current) {
+          const rec = speechRecognitionManager.createRecognitionInstance();
+          recognitionRef.current = rec;
+          setupRecognitionHandlers(rec);
+        }
+        
+        if (recognitionRef.current) {
           transcriptReadyCalledRef.current = false;
           cleanedTranscriptRef.current = null;
           setTranscript('');
+          
+          console.log('[SpeechRecognition] Starting speech recognition...');
           recognitionRef.current.start();
           setIsListening(true);
-        } catch (error) {
-          console.error('Failed to start speech recognition:', error);
-          setIsListening(false);
+        }
+      } catch (error) {
+        console.error('[SpeechRecognition] Failed to start:', error);
+        setIsListening(false);
           
-          // Check if this is a security/permission issue
-          if (error instanceof DOMException) {
-            if (error.name === 'NotAllowedError') {
-              console.error('Microphone permission denied');
-            } else if (error.name === 'NotSupportedError') {
-              console.error('Speech recognition not supported in this context');
-            }
+        // Check if this is a security/permission issue
+        if (error instanceof DOMException) {
+          if (error.name === 'NotAllowedError') {
+            console.error('[SpeechRecognition] Mikrophone permission denied');
+            alert('Mikrofon izni reddedildi. Lütfen tarayıcı ayarlarından mikrofon iznini verin.');
+          } else if (error.name === 'NotSupportedError') {
+            console.error('[SpeechRecognition] Not supported in this context');
+            alert('Bu tarayıcıda ses tanıma desteklenmiyor.');
+          } else if (error.name === 'ServiceNotAvailableError') {
+            console.error('[SpeechRecognition] Service not available');
+            alert('Ses tanıma servisi şu anda kullanılamıyor. İnternet bağlantınızı kontrol edin.');
+          } else if (error.name === 'InvalidStateError') {
+            console.warn('[SpeechRecognition] Recognition already started, ignoring...');
+            // Bu durumda sadece uyarı ver, hata mesajı gösterme
+            return;
           }
+        } else {
+          console.error('[SpeechRecognition] Unexpected error:', error);
+          alert('Ses tanıma başlatılırken beklenmeyen bir hata oluştu.');
+        }
+        // Clean up instance if start failed
+        if (recognitionRef.current) {
+          recognitionRef.current = null;
         }
       }
     } else {
@@ -289,19 +401,25 @@ export const useSpeechRecognition = (
         alert('Sesli tanıma özelliği bu cihazda kullanılamıyor.');
       }
     }
-  }, [isListening, hasSupport, isWeb]);
+  }, [isListening, hasSupport, isWeb, setupRecognitionHandlers]);
 
   const stopListening = useCallback(async () => {
     if (!isListening) return;
     
-    if (isWeb && !isElectronRef.current) {
-      // Web Speech API durdur (Electron değilse)
+    if (isWeb) {
+      // Web Speech API durdur (Electron dahil)
       if (recognitionRef.current) {
         if (silenceTimerRef.current) {
           clearTimeout(silenceTimerRef.current);
           silenceTimerRef.current = null;
         }
-        recognitionRef.current.stop();
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          // Ignore errors when stopping
+        }
+        // Clean up the instance after stopping
+        recognitionRef.current = null;
         setIsListening(false);
       }
     } else {
@@ -332,21 +450,37 @@ export const useSpeechRecognition = (
             await SpeechRecognition.requestPermissions();
         }
       } catch (e) {
-        console.log('İzin kontrolü başarısız:', e);
+        // Permission check failed - silent
       }
     }
     // Web için otomatik olarak tarayıcı soracak
   }, [hasSupport, isWeb]);
 
-  // Electron fallback hook'u her zaman en üstte çağırıyoruz (hook kuralları için) ve gerektiğinde kullanıyoruz
+  // Electron fallback hook - ALWAYS use in Electron because Web Speech API has network issues
   const electronSR = useElectronSpeechRecognition((t) => onTranscriptReadyRef.current(t), { 
     continuous: options?.continuous,
     stopOnKeywords: typeof options?.stopOnKeywords === 'boolean' ? undefined : options?.stopOnKeywords
   });
 
-  const useElectron = isElectronRef.current || (!WebSpeechRecognitionAPI && isWeb);
+  // Check if running in Electron
+  const isElectron = isElectronRef.current;
+  
+  // ALWAYS use Electron SR in Electron environment (Web Speech API causes network errors)
+  if (isWeb && isElectron) {
+    return {
+      isListening: electronSR.isListening,
+      transcript: electronSR.transcript,
+      startListening: electronSR.startListening,
+      stopListening: electronSR.stopListening,
+      hasSupport: electronSR.hasSupport,
+      checkAndRequestPermission: electronSR.checkAndRequestPermission || (() => Promise.resolve()),
+    };
+  }
+  
+  // Fallback to Electron SR if Web Speech API not available
+  const useElectronFallback = !WebSpeechRecognitionAPI && isWeb;
 
-  if (useElectron) {
+  if (useElectronFallback) {
     return {
       isListening: electronSR.isListening,
       transcript: electronSR.transcript,

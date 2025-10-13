@@ -1,5 +1,15 @@
 import { Todo, Note, DashboardStats, DayStat, CategoryStats, TimeAnalysis, PeriodicReport } from '../types';
-import { supabase, archiveUpsertNotes, archiveUpsertTodos, archiveFetchByDate, archiveSearch } from './supabaseClient';
+import { 
+  supabase, 
+  archiveUpsertNotes, 
+  archiveUpsertTodos, 
+  archiveFetchByDate, 
+  archiveSearch,
+  unarchiveTodos as unarchiveTodosSupabase,
+  unarchiveNotes as unarchiveNotesSupabase,
+  batchArchiveTodos,
+  batchArchiveNotes
+} from './supabaseClient';
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -37,9 +47,162 @@ const canUseSupabase = (userId: string): boolean => {
   return true;
 };
 
+// ==================== TYPES ====================
+
+export interface ArchiveFilters {
+  categories?: string[];
+  priorities?: string[];
+  dateRange?: { start: Date; end: Date };
+  completed?: boolean;
+  hasAIMetadata?: boolean;
+  olderThan?: number; // days
+  searchText?: string;
+  limit?: number;
+}
+
+export interface BatchArchiveOptions {
+  batchSize?: number;
+  filters?: ArchiveFilters;
+  progressCallback?: (current: number, total: number) => void;
+}
+
+// ==================== FILTER HELPERS ====================
+
+const applyFiltersToTodos = (todos: Todo[], filters: ArchiveFilters): Todo[] => {
+  let filtered = [...todos];
+  
+  // Kategori filtresi
+  if (filters.categories && filters.categories.length > 0) {
+    filtered = filtered.filter(todo => {
+      const category = todo.aiMetadata?.category || 'Kategorizsiz';
+      return filters.categories!.includes(category);
+    });
+  }
+  
+  // Öncelik filtresi
+  if (filters.priorities && filters.priorities.length > 0) {
+    filtered = filtered.filter(todo => filters.priorities!.includes(todo.priority));
+  }
+  
+  // Tarih aralığı filtresi
+  if (filters.dateRange) {
+    filtered = filtered.filter(todo => {
+      const createdDate = new Date(todo.createdAt);
+      return createdDate >= filters.dateRange!.start && createdDate <= filters.dateRange!.end;
+    });
+  }
+  
+  // Tamamlanma durumu filtresi
+  if (filters.completed !== undefined) {
+    filtered = filtered.filter(todo => todo.completed === filters.completed);
+  }
+  
+  // AI metadata filtresi
+  if (filters.hasAIMetadata !== undefined) {
+    filtered = filtered.filter(todo => {
+      const hasAI = todo.aiMetadata && Object.keys(todo.aiMetadata).length > 0;
+      return hasAI === filters.hasAIMetadata;
+    });
+  }
+  
+  // Yaş filtresi (gün olarak)
+  if (filters.olderThan !== undefined) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - filters.olderThan);
+    filtered = filtered.filter(todo => new Date(todo.createdAt) < cutoffDate);
+  }
+  
+  // Metin araması
+  if (filters.searchText) {
+    const searchLower = filters.searchText.toLowerCase();
+    filtered = filtered.filter(todo => 
+      todo.text.toLowerCase().includes(searchLower) ||
+      (todo.aiMetadata?.category || '').toLowerCase().includes(searchLower)
+    );
+  }
+  
+  // Limit
+  if (filters.limit && filters.limit > 0) {
+    filtered = filtered.slice(0, filters.limit);
+  }
+  
+  return filtered;
+};
+
+const applyFiltersToNotes = (notes: Note[], filters: ArchiveFilters): Note[] => {
+  let filtered = [...notes];
+  
+  // Tarih aralığı filtresi
+  if (filters.dateRange) {
+    filtered = filtered.filter(note => {
+      const createdDate = new Date(note.createdAt);
+      return createdDate >= filters.dateRange!.start && createdDate <= filters.dateRange!.end;
+    });
+  }
+  
+  // Yaş filtresi
+  if (filters.olderThan !== undefined) {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - filters.olderThan);
+    filtered = filtered.filter(note => new Date(note.createdAt) < cutoffDate);
+  }
+  
+  // Metin araması
+  if (filters.searchText) {
+    const searchLower = filters.searchText.toLowerCase();
+    filtered = filtered.filter(note => note.text.toLowerCase().includes(searchLower));
+  }
+  
+  // Limit
+  if (filters.limit && filters.limit > 0) {
+    filtered = filtered.slice(0, filters.limit);
+  }
+  
+  return filtered;
+};
+
+// ==================== AUTO-ARCHIVE OPERATIONS ====================
+
+const autoArchiveCompletedTasks = async (currentTodos: Todo[], userId?: string): Promise<number> => {
+  const currentUserId = userId || getCurrentUserId();
+  console.log(`[Archive] Auto-archiving completed tasks for user ${currentUserId}`);
+  
+  if (!canUseSupabase(currentUserId)) {
+    console.warn('[Archive] Cannot auto-archive in guest mode');
+    return 0;
+  }
+
+  try {
+    // Find completed tasks that are not yet archived
+    const completedTodos = currentTodos.filter(t => t.completed && !t.isArchived);
+    
+    if (completedTodos.length === 0) {
+      console.log('[Archive] No completed tasks to auto-archive');
+      return 0;
+    }
+    
+    console.log(`[Archive] Auto-archiving ${completedTodos.length} completed tasks`);
+    
+    // Archive the completed tasks
+    await archiveUpsertTodos(currentUserId, completedTodos);
+    
+    // Mark tasks as archived to prevent re-archiving
+    // This is a client-side flag, you might want to add an archived flag to your DB schema
+    completedTodos.forEach(todo => {
+      todo.isArchived = true;
+    });
+    
+    console.log(`[Archive] ✅ Successfully auto-archived ${completedTodos.length} completed tasks`);
+    return completedTodos.length;
+  } catch (error: any) {
+    console.error('[Archive] ❌ Failed to auto-archive completed tasks:', error);
+    return 0;
+  }
+};
+
 // ==================== ARCHIVE OPERATIONS ====================
 
-const archiveItems = async (todos: Todo[], notes: Note[], userId?: string): Promise<void> => {
+const archiveItems = async (todos: Todo[], notes: Note[], userId?: string, options?: BatchArchiveOptions): Promise<void> => {
   const currentUserId = userId || getCurrentUserId();
   console.log(`[Archive] Starting archive for user ${currentUserId}: ${todos.length} todos, ${notes.length} notes`);
 
@@ -48,11 +211,39 @@ const archiveItems = async (todos: Todo[], notes: Note[], userId?: string): Prom
   }
 
   try {
-    await Promise.all([
-      archiveUpsertTodos(currentUserId, todos),
-      archiveUpsertNotes(currentUserId, notes),
-    ]);
-    console.log(`[Archive] ✅ Successfully archived ${todos.length} todos and ${notes.length} notes for user ${currentUserId}`);
+    // Filtreleri uygula
+    let filteredTodos = todos;
+    let filteredNotes = notes;
+    
+    if (options?.filters) {
+      filteredTodos = applyFiltersToTodos(todos, options.filters);
+      filteredNotes = applyFiltersToNotes(notes, options.filters);
+    }
+    
+    // Batch işlem kullan
+    const batchSize = options?.batchSize || 100;
+    
+    if (filteredTodos.length > batchSize || filteredNotes.length > batchSize) {
+      console.log(`[Archive] Using batch processing (batch size: ${batchSize})`);
+      
+      await Promise.all([
+        batchArchiveTodos(currentUserId, filteredTodos, batchSize),
+        batchArchiveNotes(currentUserId, filteredNotes, batchSize),
+      ]);
+      
+      // Progress callback
+      if (options?.progressCallback) {
+        options.progressCallback(filteredTodos.length + filteredNotes.length, todos.length + notes.length);
+      }
+    } else {
+      // Normal arşivleme (küçük veri setleri için)
+      await Promise.all([
+        archiveUpsertTodos(currentUserId, filteredTodos),
+        archiveUpsertNotes(currentUserId, filteredNotes),
+      ]);
+    }
+    
+    console.log(`[Archive] ✅ Successfully archived ${filteredTodos.length} todos and ${filteredNotes.length} notes for user ${currentUserId}`);
   } catch (error: any) {
     console.error('[Archive] ❌ Failed to archive items:', error);
     throw new Error(`Arşivleme başarısız: ${error?.message || 'Bilinmeyen hata'}`);
@@ -459,7 +650,7 @@ const getCategoryStats = async (currentTodos: Todo[], userId?: string): Promise<
   const categoryMap = new Map<string, { todos: Todo[]; completed: Todo[] }>();
   
   allTodos.forEach(todo => {
-    const category = todo.aiMetadata?.category || 'Kategorizsiz';
+    const category = 'Kategorizsiz'; // aiMetadata artık kullanılmıyor
     
     if (!categoryMap.has(category)) {
       categoryMap.set(category, { todos: [], completed: [] });
@@ -567,7 +758,7 @@ const getTimeAnalysis = async (currentTodos: Todo[], userId?: string): Promise<T
         completionTimes.push({ todo, time: timeDiff });
         
         // Category average
-        const category = todo.aiMetadata?.category || 'Kategorizsiz';
+        const category = 'Kategorizsiz'; // aiMetadata artık kullanılmıyor
         if (!categoryTimes.has(category)) {
           categoryTimes.set(category, []);
         }
@@ -737,6 +928,70 @@ const getPeriodicReport = async (period: 'week' | 'month', currentTodos: Todo[],
   };
 };
 
+// ==================== UNARCHIVE OPERATIONS ====================
+
+const unarchiveTodos = async (todoIds: string[], userId?: string): Promise<void> => {
+  const currentUserId = userId || getCurrentUserId();
+  console.log(`[Unarchive] Starting unarchive for ${todoIds.length} todos`);
+  
+  if (!canUseSupabase(currentUserId)) {
+    throw new Error('⚠️ Arşivden geri yükleme için giriş yapmanız gerekiyor.');
+  }
+  
+  try {
+    await unarchiveTodosSupabase(currentUserId, todoIds);
+    console.log(`[Unarchive] ✅ Successfully unarchived ${todoIds.length} todos`);
+  } catch (error: any) {
+    console.error('[Unarchive] ❌ Failed to unarchive todos:', error);
+    throw new Error(`Arşivden geri yükleme başarısız: ${error?.message || 'Bilinmeyen hata'}`);
+  }
+};
+
+const unarchiveNotes = async (noteIds: string[], userId?: string): Promise<void> => {
+  const currentUserId = userId || getCurrentUserId();
+  console.log(`[Unarchive] Starting unarchive for ${noteIds.length} notes`);
+  
+  if (!canUseSupabase(currentUserId)) {
+    throw new Error('⚠️ Arşivden geri yükleme için giriş yapmanız gerekiyor.');
+  }
+  
+  try {
+    await unarchiveNotesSupabase(currentUserId, noteIds);
+    console.log(`[Unarchive] ✅ Successfully unarchived ${noteIds.length} notes`);
+  } catch (error: any) {
+    console.error('[Unarchive] ❌ Failed to unarchive notes:', error);
+    throw new Error(`Arşivden geri yükleme başarısız: ${error?.message || 'Bilinmeyen hata'}`);
+  }
+};
+
+const getFilteredArchive = async (
+  filters: ArchiveFilters, 
+  userId?: string
+): Promise<{ todos: Todo[], notes: Note[] }> => {
+  const currentUserId = userId || getCurrentUserId();
+  console.log('[Archive] Fetching filtered archive items...');
+  
+  if (!canUseSupabase(currentUserId)) {
+    console.warn('[Archive] Cannot fetch filtered archive in guest mode');
+    return { todos: [], notes: [] };
+  }
+  
+  try {
+    // Önce tüm arşivi al
+    const allItems = await getAllArchivedItems(currentUserId);
+    
+    // Filtreleri uygula
+    const filteredTodos = applyFiltersToTodos(allItems.todos, filters);
+    const filteredNotes = applyFiltersToNotes(allItems.notes, filters);
+    
+    console.log(`[Archive] ✅ Filtered results: ${filteredTodos.length} todos, ${filteredNotes.length} notes`);
+    return { todos: filteredTodos, notes: filteredNotes };
+  } catch (error: any) {
+    console.error('[Archive] ❌ Failed to get filtered archive:', error);
+    return { todos: [], notes: [] };
+  }
+};
+
 // ==================== EXPORT ====================
 
 const resetArchiveDatabase = async (): Promise<boolean> => {
@@ -746,21 +1001,33 @@ const resetArchiveDatabase = async (): Promise<boolean> => {
 };
 
 export const archiveService = {
+  // Archive operations
   archiveItems,
   getArchivedItemsForDate,
   getAllArchivedItems,
   searchArchive,
-  getDashboardStats,
+  getFilteredArchive,
+  autoArchiveCompletedTasks,
+  
+  // Unarchive operations
+  unarchiveTodos,
+  unarchiveNotes,
+  
+  // Delete operations
   removeNotes,
   removeTodos,
   deleteArchivedItems,
   clearOldArchives,
+  
+  // Stats & Analytics
+  getDashboardStats,
   checkDatabaseHealth,
-  exportArchive,
-  importArchive,
-  resetArchiveDatabase,
-  // Advanced analytics
   getCategoryStats,
   getTimeAnalysis,
   getPeriodicReport,
+  
+  // Import/Export
+  exportArchive,
+  importArchive,
+  resetArchiveDatabase,
 };

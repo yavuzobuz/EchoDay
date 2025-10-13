@@ -1,9 +1,11 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSettingsStorage } from './hooks/useSettingsStorage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AdminAuthProvider, useAdminAuth } from './contexts/AdminAuthContext';
 import { I18nProvider } from './contexts/I18nContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Welcome from './pages/Welcome';
 import Main from './Main';
 import Profile from './pages/Profile';
@@ -12,6 +14,17 @@ import Register from './pages/Register';
 import Messages from './pages/Messages';
 import Email from './pages/Email';
 import GmailCallback from './components/auth/GmailCallback';
+import Pricing from './pages/Pricing';
+
+// Admin pages
+import AdminLogin from './pages/admin/AdminLogin';
+import AdminDashboardRealtime from './pages/admin/AdminDashboardRealtime';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminAnalytics from './pages/admin/AdminAnalytics';
+import AdminSettings from './pages/admin/AdminSettings';
+import AdminContent from './pages/admin/AdminContent';
+import AdminEmails from './pages/admin/AdminEmails';
+import AdminNotifications from './pages/admin/AdminNotifications';
 
 export type AccentColor = 'blue' | 'green' | 'red';
 
@@ -31,6 +44,53 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
+  return <>{children}</>;
+}
+
+// Admin Protected Route Component
+function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading: authLoading } = useAuth();
+  const { isAdmin, loading: adminLoading } = useAdminAuth();
+
+  console.log('[AdminProtectedRoute] authLoading:', authLoading, 'adminLoading:', adminLoading);
+  console.log('[AdminProtectedRoute] user:', user?.id);
+  console.log('[AdminProtectedRoute] isAdmin:', isAdmin);
+
+  if (authLoading || adminLoading) {
+    console.log('[AdminProtectedRoute] Loading...');
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    console.log('[AdminProtectedRoute] No user, redirecting to login');
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  if (!isAdmin) {
+    console.log('[AdminProtectedRoute] User is not admin, access denied');
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="max-w-md p-8 bg-red-900/20 border border-red-500 rounded-xl">
+          <h2 className="text-2xl font-bold text-white mb-4">Erişim Reddedildi</h2>
+          <p className="text-red-300 mb-6">
+            Bu alana erişim yetkiniz yok. Sadece admin kullanıcıları erişebilir.
+          </p>
+          <button
+            onClick={() => window.location.href = '/'}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            Ana Sayfaya Dön
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('[AdminProtectedRoute] Access granted! Rendering children...');
   return <>{children}</>;
 }
 
@@ -177,20 +237,89 @@ function AppContent() {
           path="/auth/gmail/callback"
           element={<GmailCallback />}
         />
+        <Route
+          path="/pricing"
+          element={<Pricing />}
+        />
+        
+        {/* Admin Routes */}
+        <Route path="/admin/login" element={<AdminLogin />} />
+        <Route
+          path="/admin/dashboard"
+          element={
+            <AdminProtectedRoute>
+              <AdminDashboardRealtime />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <AdminProtectedRoute>
+              <AdminUsers />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/analytics"
+          element={
+            <AdminProtectedRoute>
+              <AdminAnalytics />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <AdminProtectedRoute>
+              <AdminSettings />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/content"
+          element={
+            <AdminProtectedRoute>
+              <AdminContent />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/emails"
+          element={
+            <AdminProtectedRoute>
+              <AdminEmails />
+            </AdminProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/notifications"
+          element={
+            <AdminProtectedRoute>
+              <AdminNotifications />
+            </AdminProtectedRoute>
+          }
+        />
       </Routes>
     </div>
   );
 }
 
 const App: React.FC = () => {
+  const isElectron = typeof (window as any).electronAPI !== 'undefined' || typeof (window as any).isElectron !== 'undefined';
+  const Router: React.ComponentType<React.PropsWithChildren<{}>> = isElectron ? (HashRouter as any) : (BrowserRouter as any);
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <I18nProvider>
-          <AppContent />
-        </I18nProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <Router>
+        <AuthProvider>
+          <AdminAuthProvider>
+            <I18nProvider>
+              <AppContent />
+            </I18nProvider>
+          </AdminAuthProvider>
+        </AuthProvider>
+      </Router>
+    </ErrorBoundary>
   );
 };
 

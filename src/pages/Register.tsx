@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 
 export default function Register() {
   const [email, setEmail] = useState('');
@@ -11,6 +12,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { signUp } = useAuth();
+  const { t } = useI18n();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -18,12 +20,12 @@ export default function Register() {
     setSuccess(false);
 
     if (password !== confirmPassword) {
-      setError('Şifreler eşleşmiyor');
+      setError(t('register.error.mismatch','Şifreler eşleşmiyor'));
       return;
     }
 
     if (password.length < 6) {
-      setError('Şifre en az 6 karakter olmalıdır');
+      setError(t('register.error.short','Şifre en az 6 karakter olmalıdır'));
       return;
     }
 
@@ -35,9 +37,9 @@ export default function Register() {
       console.error('Register error:', signUpError);
       // Daha anlaşılır hata mesajları
       if (signUpError.message.includes('already registered')) {
-        setError('Bu e-posta adresi zaten kayıtlı. Giriş sayfasına gidin.');
+        setError(t('register.error.exists','Bu e-posta adresi zaten kayıtlı. Giriş sayfasına gidin.'));
       } else {
-        setError(signUpError.message || 'Kayıt oluşturulumadı');
+        setError(signUpError.message || t('register.error.generic','Kayıt oluşturulumadı'));
       }
       setLoading(false);
     } else {
@@ -55,10 +57,10 @@ export default function Register() {
       <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Hesap Oluştur
+            {t('register.title','Hesap Oluştur')}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Ücretsiz hesabınızı oluşturun
+            {t('register.subtitle','Ücretsiz hesabınızı oluşturun')}
           </p>
         </div>
 
@@ -70,16 +72,16 @@ export default function Register() {
 
         {success && (
           <div className="mb-4 p-3 bg-green-100 dark:bg-green-900/30 border border-green-400 dark:border-green-700 text-green-700 dark:text-green-300 rounded-lg text-sm">
-            <p className="font-semibold mb-1">✅ Kayıt başarılı!</p>
-            <p className="text-xs">E-posta doğrulaması gerekiyorsa lütfen e-posta kutunuzu kontrol edin.</p>
-            <p className="text-xs mt-1">Giriş sayfasına yönlendiriliyorsunuz...</p>
+            <p className="font-semibold mb-1">{t('register.success.title','✅ Kayıt başarılı!')}</p>
+            <p className="text-xs">{t('register.success.emailCheck','E-posta doğrulaması gerekiyorsa lütfen e-posta kutunuzu kontrol edin.')}</p>
+            <p className="text-xs mt-1">{t('register.success.redirect','Giriş sayfasına yönlendiriliyorsunuz...')}</p>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              E-posta
+              {t('login.email','E-posta')}
             </label>
             <input
               id="email"
@@ -94,7 +96,7 @@ export default function Register() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Şifre
+              {t('register.password','Şifre')}
             </label>
             <input
               id="password"
@@ -109,7 +111,7 @@ export default function Register() {
 
           <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Şifre Tekrar
+              {t('register.passwordConfirm','Şifre Tekrar')}
             </label>
             <input
               id="confirmPassword"
@@ -127,15 +129,15 @@ export default function Register() {
             disabled={loading || success}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Kayıt oluşturuluyor...' : 'Kayıt Ol'}
+            {loading ? t('register.loading','Kayıt oluşturuluyor...') : t('register.submit','Kayıt Ol')}
           </button>
         </form>
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Zaten hesabınız var mı?{' '}
+            {t('register.haveAccount','Zaten hesabınız var mı?')}
             <Link to="/login" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium">
-              Giriş Yap
+              {t('register.login','Giriş Yap')}
             </Link>
           </p>
         </div>

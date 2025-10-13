@@ -3,6 +3,7 @@ import { Todo, Priority, ReminderConfig, GeoReminder } from '../types';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import ReminderSetupModal from './ReminderSetupModal';
 import GeoReminderModal from './GeoReminderModal';
+import { useI18n } from '../contexts/I18nContext';
 
 interface TodoItemProps {
   todo: Todo;
@@ -43,11 +44,14 @@ const RouteStep: React.FC<{ line: string }> = ({ line }) => {
 
 const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDirections, onEdit, onShare, onUpdateReminders, onUpdateGeoReminder }) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { t, lang } = useI18n();
+  const locale = lang === 'tr' ? 'tr-TR' : 'en-US';
   const [isTextExpanded, setIsTextExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(todo.text);
   const [showReminderBadge, setShowReminderBadge] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+  const [reminderLoading, setReminderLoading] = useState(false);
   const [isGeoModalOpen, setIsGeoModalOpen] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const { isSpeaking, speak, cancel, hasSupport } = useTextToSpeech();
@@ -157,43 +161,89 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                   onChange={() => onToggle(todo.id)}
                   className="h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)] bg-gray-100 dark:bg-gray-900"
                   disabled={isEditing}
-                  aria-label="Görevi tamamla"
+                  aria-label={t('todoItem.aria.complete', 'Görevi tamamla')}
                 />
               </div>
               {!isEditing && (
                 <div className="flex items-center gap-1.5">
                   {onUpdateReminders && (
-                    <button onClick={() => setIsReminderModalOpen(true)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" aria-label="Hatırlatma ayarla">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                      </svg>
+                    <button 
+                      onClick={() => {
+                        console.log('🔔 Reminder button clicked for task:', todo.id);
+                        setReminderLoading(true);
+                        setTimeout(() => {
+                          setIsReminderModalOpen(true);
+                          setReminderLoading(false);
+                        }, 100);
+                      }}
+                      disabled={reminderLoading}
+                      className={`p-1 rounded-full transition-colors ${
+                        reminderLoading 
+                          ? 'text-gray-300 bg-gray-100 cursor-wait' 
+                          : 'text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50'
+                      }`} 
+                      aria-label={reminderLoading ? 'Yükleniyor...' : t('todoItem.aria.setReminder','Hatırlatma ayarla')}
+                    >
+                      {reminderLoading ? (
+                        <svg className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                        </svg>
+                      )}
                     </button>
                   )}
                   {onUpdateGeoReminder && (
-                    <button onClick={() => setIsGeoModalOpen(true)} className="p-1 rounded-full text-gray-400 hover:text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/50" aria-label="Konum hatırlatıcısı">
+                    <button onClick={() => setIsGeoModalOpen(true)} className="p-1 rounded-full text-gray-400 hover:text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/50" aria-label={t('todoItem.aria.geoReminder','Konum hatırlatıcısı')}>
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 19l-4.95-5.05a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
                       </svg>
                     </button>
                   )}
                   {hasAIMetadata && (
-                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Detayları gör">
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label={t('todoItem.aria.viewDetails','Detayları gör')}>
                       <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 sm:h-5 sm:w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                     </button>
                   )}
-                  <button onClick={() => onShare(todo)} className="p-1 rounded-full text-gray-400 hover:text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50" aria-label="Görevi paylaş">
+                  <button onClick={() => onShare(todo)} className="p-1 rounded-full text-gray-400 hover:text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50" aria-label={t('todoItem.aria.share','Görevi paylaş')}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
                     </svg>
                   </button>
-                  <button onClick={() => setIsEditing(true)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" aria-label="Görevi düzenle">
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🖊️ Desktop edit button clicked for task:', todo.id);
+                      setIsEditing(true);
+                    }}
+                    className="p-2 min-h-[44px] min-w-[44px] rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-transform touch-manipulation" 
+                    aria-label={t('todoItem.aria.edit','Görevi düzenle')}
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
                       <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
                     </svg>
                   </button>
-                  <button onClick={() => onDelete(todo.id)} className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" aria-label="Görevi sil">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🗑️ Desktop delete button clicked for task:', todo.id);
+                      if (confirm('Bu görevi silmek istediğinizden emin misiniz?')) {
+                        onDelete(todo.id);
+                      }
+                    }}
+                    className="p-2 min-h-[44px] min-w-[44px] rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 transition-transform touch-manipulation" 
+                    aria-label={t('todoItem.aria.delete','Görevi sil')}
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                    </svg>
                   </button>
                 </div>
               )}
@@ -209,8 +259,28 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                   className="w-full p-1 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
                 />
                 <div className="flex gap-2">
-                    <button onClick={handleSave} className="px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700">Kaydet</button>
-                    <button onClick={handleCancel} className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">İptal</button>
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleSave();
+                      }}
+                      className="px-4 py-3 text-base bg-green-600 text-white rounded-md hover:bg-green-700 min-h-[44px] touch-manipulation" 
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                    >
+                      {t('common.save','Kaydet')}
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleCancel();
+                      }}
+                      className="px-4 py-3 text-base bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 min-h-[44px] touch-manipulation" 
+                      style={{ WebkitTapHighlightColor: 'transparent' }}
+                    >
+                      {t('common.cancel','İptal')}
+                    </button>
                 </div>
               </div>
             ) : (
@@ -224,35 +294,81 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                       onChange={() => onToggle(todo.id)}
                       className="h-4 w-4 flex-shrink-0 rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)] bg-gray-100 dark:bg-gray-900"
                       disabled={isEditing}
-                      aria-label="Görevi tamamla"
+                      aria-label={t('todoItem.aria.complete','Görevi tamamla')}
                     />
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 touch-manipulation">
                   {onUpdateReminders && (
-                    <button onClick={() => setIsReminderModalOpen(true)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" aria-label="Hatırlatma ayarla">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                      </svg>
+                    <button 
+                      onClick={() => {
+                        console.log('🔔 Mobile reminder button clicked for task:', todo.id);
+                        setReminderLoading(true);
+                        setTimeout(() => {
+                          setIsReminderModalOpen(true);
+                          setReminderLoading(false);
+                        }, 100);
+                      }}
+                      disabled={reminderLoading}
+                      className={`p-2 min-h-[44px] min-w-[44px] rounded-full transition-colors ${
+                        reminderLoading 
+                          ? 'text-gray-300 bg-gray-100 cursor-wait' 
+                          : 'text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 active:scale-95'
+                      }`} 
+                      aria-label={reminderLoading ? 'Yükleniyor...' : 'Hatırlatma ayarla'}
+                    >
+                      {reminderLoading ? (
+                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                        </svg>
+                      )}
                     </button>
                   )}
                   {hasAIMetadata && (
-                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Detayları gör">
+                    <button onClick={() => setIsExpanded(!isExpanded)} className="p-2 min-h-[44px] min-w-[44px] rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-transform" aria-label="Detayları gör">
                       <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                     </button>
                   )}
-                  <button onClick={() => onShare(todo)} className="p-1 rounded-full text-gray-400 hover:text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50" aria-label="Görevi paylaş">
+                  <button onClick={() => onShare(todo)} className="p-2 min-h-[44px] min-w-[44px] rounded-full text-gray-400 hover:text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50 active:scale-95 transition-transform" aria-label="Görevi paylaş">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
                     </svg>
                   </button>
-                  <button onClick={() => setIsEditing(true)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" aria-label="Görevi düzenle">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🖊️ Edit button clicked for task:', todo.id);
+                      setIsEditing(true);
+                    }}
+                    className="p-3 min-h-[48px] min-w-[48px] rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 active:scale-95 transition-transform touch-manipulation" 
+                    aria-label="Görevi düzenle"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
                       <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
                     </svg>
                   </button>
-                  <button onClick={() => onDelete(todo.id)} className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50" aria-label="Görevi sil">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" /></svg>
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('🗑️ Delete button clicked for task:', todo.id);
+                      if (confirm('Bu görevi silmek istediğinizden emin misiniz?')) {
+                        onDelete(todo.id);
+                      }
+                    }}
+                    className="p-3 min-h-[48px] min-w-[48px] rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 active:scale-95 transition-transform touch-manipulation" 
+                    aria-label="Görevi sil"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 012 0v6a1 1 0 11-2 0V8z" clipRule="evenodd" />
+                    </svg>
                   </button>
                   </div>
                 </div>
@@ -264,12 +380,12 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsTextExpanded(prev => !prev); } }}
                       role="button"
                       tabIndex={0}
-                      title={isTextExpanded ? 'Daha az göster' : 'Tamamını göster'}
+                      title={isTextExpanded ? t('todoItem.text.less','Daha az göster') : t('todoItem.text.more','Tamamını göster')}
                     >
                       {displayedText}
                     </p>
                     {isConflict && !todo.completed && (
-                        <div className="flex-shrink-0 mt-0.5" title="Zamanlama Çakışması">
+                        <div className="flex-shrink-0 mt-0.5" title={t('todoItem.conflict','Zamanlama Çakışması')}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                             </svg>
@@ -282,16 +398,16 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                     onClick={() => setIsTextExpanded(prev => !prev)}
                     className="mt-1 text-xs text-[var(--accent-color-600)] hover:underline"
                   >
-                    {isTextExpanded ? 'Daha az göster' : 'Devamını gör'}
+                    {isTextExpanded ? t('todoItem.text.less','Daha az göster') : t('todoItem.text.continue','Devamını gör')}
                   </button>
                 )}
                 {todo.datetime && (
                   <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    <span className="font-semibold hidden sm:inline">Zaman:</span> {new Date(todo.datetime).toLocaleString('tr-TR', { 
-                      hour: '2-digit', 
-                      minute: '2-digit', 
-                      year: 'numeric', 
-                      month: 'short', 
+                    <span className="font-semibold hidden sm:inline">{t('todoItem.time','Zaman:')}</span> {new Date(todo.datetime).toLocaleString(locale, {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      year: 'numeric',
+                      month: 'short',
                       day: 'numeric',
                       timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                       hour12: false
@@ -304,13 +420,13 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
                       </svg>
-                      {activeRemindersCount} hatırlatma aktif
+                      {activeRemindersCount} {t('todoItem.reminders.active','hatırlatma aktif')}
                     </span>
                     <button
                       onClick={() => setShowReminderBadge(!showReminderBadge)}
                       className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
                     >
-                      {showReminderBadge ? 'Gizle' : 'Göster'}
+                      {showReminderBadge ? t('common.hide','Gizle') : t('common.show','Göster')}
                     </button>
                   </div>
                 )}
@@ -323,7 +439,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                         </svg>
                         <span>{formatReminderDisplay(reminder)}</span>
                         {reminder.snoozedCount && reminder.snoozedCount > 0 && (
-                          <span className="text-orange-500">(⚠️ {reminder.snoozedCount}x ertelendi)</span>
+                          <span className="text-orange-500">(⚠️ {reminder.snoozedCount}x {t('todoItem.reminders.snoozed','ertelendi')})</span>
                         )}
                       </div>
                     ))}
@@ -339,16 +455,19 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
           <p><strong className="font-semibold text-gray-800 dark:text-gray-200">Kategori:</strong> {todo.aiMetadata?.category || 'Belirtilmemiş'}</p>
           <p><strong className="font-semibold text-gray-800 dark:text-gray-200">Tahmini Süre:</strong> {todo.aiMetadata?.estimatedDuration ? `${todo.aiMetadata.estimatedDuration} dakika` : 'Belirtilmemiş'}</p>
+          {todo.aiMetadata?.destination && (
+            <p><strong className="font-semibold text-gray-800 dark:text-gray-200">📍 Konum:</strong> {todo.aiMetadata.destination}</p>
+          )}
           {todo.aiMetadata?.routingInfo && (
              <div>
                 <div className="flex justify-between items-center mb-3">
-                  <strong className="font-semibold text-gray-800 dark:text-gray-200">Yol Tarifi:</strong>
+                  <strong className="font-semibold text-gray-800 dark:text-gray-200">{t('todoItem.detail.directions','Yol Tarifi:')}</strong>
                    {hasSupport && (
                     <button
                       onClick={handleSpeakDirections}
                       className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                      aria-label={isSpeaking ? "Okumayı durdur" : "Yol tarifini sesli oku"}
-                      title={isSpeaking ? "Okumayı durdur" : "Yol tarifini sesli oku"}
+                      aria-label={isSpeaking ? t('todoItem.tts.stop','Okumayı durdur') : t('todoItem.tts.readDirections','Yol tarifini sesli oku')}
+                      title={isSpeaking ? t('todoItem.tts.stop','Okumayı durdur') : t('todoItem.tts.readDirections','Yol tarifini sesli oku')}
                     >
                       {isSpeaking ? (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
@@ -372,12 +491,12 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[var(--accent-color-600)] rounded-md hover:bg-[var(--accent-color-700)] transition-colors"
-                      title={`Harita: ${todo.aiMetadata.destination}`}
+                      title={`${t('todoItem.map','Harita')}: ${todo.aiMetadata.destination}`}
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v12a1 1 0 00.293.707l6 6a1 1 0 001.414 0l6-6A1 1 0 0018 16V4a1 1 0 00-.293-.707l-6-6a1 1 0 00-1.414 0l-6 6z" clipRule="evenodd" />
                       </svg>
-                      Haritada Görüntüle
+                      {t('todoItem.viewOnMap','Haritada Görüntüle')}
                     </a>
                   </div>
                 )}
@@ -386,7 +505,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
           {todo.aiMetadata?.requiresRouting && !todo.aiMetadata?.routingInfo && (
             <button onClick={() => onGetDirections(todo)} className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-[var(--accent-color-600)] rounded-md hover:bg-[var(--accent-color-700)]">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v12a1 1 0 00.293.707l6 6a1 1 0 001.414 0l6-6A1 1 0 0018 16V4a1 1 0 00-.293-.707l-6-6a1 1 0 00-1.414 0l-6 6z" clipRule="evenodd" /></svg>
-              Yol Tarifi Al
+              {t('todoItem.getDirections','Yol Tarifi Al')}
             </button>
           )}
         </div>
@@ -399,7 +518,12 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
           onClose={() => setIsReminderModalOpen(false)}
           taskDateTime={todo.datetime}
           existingReminders={todo.reminders || []}
-          onSave={(reminders) => onUpdateReminders(todo.id, reminders)}
+          onSave={(reminders) => {
+            console.log('📋 TodoItem: Saving reminders for task:', todo.id);
+            console.log('📋 TodoItem: New reminders data:', reminders);
+            console.log('📋 TodoItem: Previous reminders:', todo.reminders);
+            onUpdateReminders(todo.id, reminders);
+          }}
         />
       )}
       {/* GeoReminder Modal */}

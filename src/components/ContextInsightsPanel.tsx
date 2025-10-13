@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserContext } from '../types';
 import { contextMemoryService } from '../services/contextMemoryService';
+import { useI18n } from '../contexts/I18nContext';
 
 interface ContextInsightsPanelProps {
   userContext: UserContext;
@@ -9,6 +10,7 @@ interface ContextInsightsPanelProps {
 }
 
 const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext, onClose, inline = false }) => {
+  const { t, lang } = useI18n();
   const [insights, setInsights] = useState<string[]>([]);
   
   useEffect(() => {
@@ -18,6 +20,20 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
   
   const { completionStats, workingHours, patterns, preferences } = userContext;
   
+  // Weekday names array for translation
+  const getWeekdayName = (dayIndex: number) => {
+    const weekdayKeys = [
+      'weekday.sunday',
+      'weekday.monday',
+      'weekday.tuesday',
+      'weekday.wednesday',
+      'weekday.thursday',
+      'weekday.friday',
+      'weekday.saturday'
+    ];
+    return t(weekdayKeys[dayIndex]);
+  };
+  
   if (inline) {
     // Inline (embedded) variant without modal overlay
     return (
@@ -25,8 +41,8 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
         <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-4">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-lg sm:text-xl font-bold">📊 Bağlamsal İçgörüler</h2>
-              <p className="text-xs sm:text-sm opacity-90 mt-1">AI destekli alışkanlık analizi</p>
+              <h2 className="text-lg sm:text-xl font-bold">📊 {t('insights.title')}</h2>
+              <p className="text-xs sm:text-sm opacity-90 mt-1">{t('insights.subtitle')}</p>
             </div>
           </div>
         </div>
@@ -37,19 +53,19 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 dark:bg-opacity-30 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center">
               <span className="text-2xl mr-2">✅</span>
-              Tamamlama İstatistikleri
+              {t('insights.completionStats')}
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Toplam Görev</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t('insights.totalTasks')}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{completionStats.totalTasksCreated}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Tamamlanan</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t('insights.completed')}</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">{completionStats.totalTasksCompleted}</p>
               </div>
               <div className="col-span-2">
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Tamamlama Oranı</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{t('insights.completionRate')}</p>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                   <div 
                     className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
@@ -67,18 +83,18 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 dark:bg-opacity-30 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center">
               <span className="text-2xl mr-2">⏰</span>
-              Çalışma Saatleri
+              {t('insights.workingHours')}
             </h3>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-300">Hafta İçi:</span>
+                <span className="text-gray-600 dark:text-gray-300">{t('insights.weekdays')}</span>
                 <span className="font-semibold text-gray-900 dark:text-white">
                   {workingHours.weekdayStart} - {workingHours.weekdayEnd}
                 </span>
               </div>
               {workingHours.mostProductiveHours.length > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">En Üretken Saatler:</span>
+                  <span className="text-gray-600 dark:text-gray-300">{t('insights.mostProductiveHours')}</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
                     {workingHours.mostProductiveHours.slice(0, 3).map(h => `${h}:00`).join(', ')}
                   </span>
@@ -92,7 +108,7 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
             <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900 dark:bg-opacity-30 rounded-lg p-4">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center">
                 <span className="text-2xl mr-2">🔁</span>
-                Tespit Edilen Rutinler ({patterns.length})
+                {t('insights.patterns')} ({patterns.length})
               </h3>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {patterns.slice(0, 5).map((pattern, idx) => (
@@ -101,7 +117,7 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
                       <div className="flex-1">
                         <p className="font-medium text-gray-900 dark:text-white">{pattern.pattern}</p>
                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                          {pattern.dayOfWeek !== undefined && ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'][pattern.dayOfWeek]}
+                          {pattern.dayOfWeek !== undefined && getWeekdayName(pattern.dayOfWeek)}
                           {pattern.timeOfDay && ` • ${pattern.timeOfDay}`}
                         </p>
                       </div>
@@ -125,12 +141,12 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
           <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900 dark:to-yellow-900 dark:bg-opacity-30 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center">
               <span className="text-2xl mr-2">⭐</span>
-              Tercihleriniz
+              {t('insights.preferences')}
             </h3>
             <div className="space-y-2">
               {preferences.favoriteCategories.length > 0 && (
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Favori Kategoriler:</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">{t('insights.favoriteCategories')}</p>
                   <div className="flex flex-wrap gap-2">
                     {preferences.favoriteCategories.map((cat, idx) => (
                       <span 
@@ -144,9 +160,9 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
                 </div>
               )}
               <div className="flex justify-between items-center pt-2">
-                <span className="text-gray-600 dark:text-gray-300">Ortalama Günlük Görev:</span>
+                <span className="text-gray-600 dark:text-gray-300">{t('insights.avgTasksPerDay')}</span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {preferences.averageTasksPerDay.toFixed(1)} görev/gün
+                  {preferences.averageTasksPerDay.toFixed(1)} {t('insights.tasksPerDay')}
                 </span>
               </div>
             </div>
@@ -157,7 +173,7 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
             <div className="bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-900 dark:to-teal-900 dark:bg-opacity-30 rounded-lg p-4">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center">
                 <span className="text-2xl mr-2">💡</span>
-                AI Önerileri
+                {t('insights.aiSuggestions')}
               </h3>
               <div className="space-y-2">
                 {insights.map((insight, idx) => (
@@ -172,7 +188,7 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
           
           <div className="pt-2">
             <p className="text-xs text-right text-gray-500 dark:text-gray-400">
-              Son güncelleme: {new Date(userContext.lastUpdated).toLocaleString('tr-TR')}
+              {t('insights.lastUpdated')} {new Date(userContext.lastUpdated).toLocaleString(lang === 'en' ? 'en-US' : 'tr-TR')}
             </p>
           </div>
         </div>
@@ -187,8 +203,8 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
         <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 rounded-t-xl">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold">📊 Bağlamsal İçgörüler</h2>
-              <p className="text-sm opacity-90 mt-1">AI destekli alışkanlık analizi</p>
+              <h2 className="text-2xl font-bold">📊 {t('insights.title')}</h2>
+              <p className="text-sm opacity-90 mt-1">{t('insights.subtitle')}</p>
             </div>
             {onClose && (
               <button
@@ -210,19 +226,19 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
           <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 dark:bg-opacity-30 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center">
               <span className="text-2xl mr-2">✅</span>
-              Tamamlama İstatistikleri
+              {t('insights.completionStats')}
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Toplam Görev</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t('insights.totalTasks')}</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">{completionStats.totalTasksCreated}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Tamamlanan</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">{t('insights.completed')}</p>
                 <p className="text-2xl font-bold text-green-600 dark:text-green-400">{completionStats.totalTasksCompleted}</p>
               </div>
               <div className="col-span-2">
-                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">Tamamlama Oranı</p>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{t('insights.completionRate')}</p>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
                   <div 
                     className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
@@ -240,18 +256,18 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 dark:bg-opacity-30 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center">
               <span className="text-2xl mr-2">⏰</span>
-              Çalışma Saatleri
+              {t('insights.workingHours')}
             </h3>
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-300">Hafta İçi:</span>
+                <span className="text-gray-600 dark:text-gray-300">{t('insights.weekdays')}</span>
                 <span className="font-semibold text-gray-900 dark:text-white">
                   {workingHours.weekdayStart} - {workingHours.weekdayEnd}
                 </span>
               </div>
               {workingHours.mostProductiveHours.length > 0 && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-300">En Üretken Saatler:</span>
+                  <span className="text-gray-600 dark:text-gray-300">{t('insights.mostProductiveHours')}</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
                     {workingHours.mostProductiveHours.slice(0, 3).map(h => `${h}:00`).join(', ')}
                   </span>
@@ -265,7 +281,7 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
             <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900 dark:to-pink-900 dark:bg-opacity-30 rounded-lg p-4">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center">
                 <span className="text-2xl mr-2">🔁</span>
-                Tespit Edilen Rutinler ({patterns.length})
+                {t('insights.patterns')} ({patterns.length})
               </h3>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {patterns.slice(0, 5).map((pattern, idx) => (
@@ -274,7 +290,7 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
                       <div className="flex-1">
                         <p className="font-medium text-gray-900 dark:text-white">{pattern.pattern}</p>
                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                          {pattern.dayOfWeek !== undefined && ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'][pattern.dayOfWeek]}
+                          {pattern.dayOfWeek !== undefined && getWeekdayName(pattern.dayOfWeek)}
                           {pattern.timeOfDay && ` • ${pattern.timeOfDay}`}
                         </p>
                       </div>
@@ -298,12 +314,12 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
           <div className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900 dark:to-yellow-900 dark:bg-opacity-30 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center">
               <span className="text-2xl mr-2">⭐</span>
-              Tercihleriniz
+              {t('insights.preferences')}
             </h3>
             <div className="space-y-2">
               {preferences.favoriteCategories.length > 0 && (
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">Favori Kategoriler:</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-1">{t('insights.favoriteCategories')}</p>
                   <div className="flex flex-wrap gap-2">
                     {preferences.favoriteCategories.map((cat, idx) => (
                       <span 
@@ -317,9 +333,9 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
                 </div>
               )}
               <div className="flex justify-between items-center pt-2">
-                <span className="text-gray-600 dark:text-gray-300">Ortalama Günlük Görev:</span>
+                <span className="text-gray-600 dark:text-gray-300">{t('insights.avgTasksPerDay')}</span>
                 <span className="font-semibold text-gray-900 dark:text-white">
-                  {preferences.averageTasksPerDay.toFixed(1)} görev/gün
+                  {preferences.averageTasksPerDay.toFixed(1)} {t('insights.tasksPerDay')}
                 </span>
               </div>
             </div>
@@ -330,7 +346,7 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
             <div className="bg-gradient-to-br from-cyan-50 to-teal-50 dark:from-cyan-900 dark:to-teal-900 dark:bg-opacity-30 rounded-lg p-4">
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-3 flex items-center">
                 <span className="text-2xl mr-2">💡</span>
-                AI Önerileri
+                {t('insights.aiSuggestions')}
               </h3>
               <div className="space-y-2">
                 {insights.map((insight, idx) => (
@@ -348,7 +364,7 @@ const ContextInsightsPanel: React.FC<ContextInsightsPanelProps> = ({ userContext
         {/* Footer */}
         <div className="sticky bottom-0 bg-gray-50 dark:bg-gray-900 p-4 rounded-b-xl border-t border-gray-200 dark:border-gray-700">
           <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-            Son güncelleme: {new Date(userContext.lastUpdated).toLocaleString('tr-TR')}
+            {t('insights.lastUpdated')} {new Date(userContext.lastUpdated).toLocaleString(lang === 'en' ? 'en-US' : 'tr-TR')}
           </p>
         </div>
       </div>

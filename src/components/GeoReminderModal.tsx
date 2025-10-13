@@ -4,6 +4,7 @@ import { getCurrentCoords } from '../services/locationService';
 import { LocationHistoryService } from '../services/locationHistoryService';
 import { useAuth } from '../contexts/AuthContext';
 import type { Todo, GeoReminder, SavedLocation } from '../types';
+import { useI18n } from '../contexts/I18nContext';
 
 interface GeoReminderModalProps {
   isOpen: boolean;
@@ -14,6 +15,7 @@ interface GeoReminderModalProps {
 
 const GeoReminderModal: React.FC<GeoReminderModalProps> = ({ isOpen, onClose, todo, onSave }) => {
   const { user } = useAuth();
+  const { t } = useI18n();
   const userId = user?.id || 'guest';
   
   const [enabled, setEnabled] = useState<boolean>(!!todo.locationReminder?.enabled);
@@ -130,7 +132,7 @@ const GeoReminderModal: React.FC<GeoReminderModalProps> = ({ isOpen, onClose, to
   const popularLocations = LocationHistoryService.getPopularLocations(userId, 5);
 
   return (
-    <MobileModal isOpen={isOpen} onClose={onClose} title="Konum Hatırlatıcısı" fullScreen={false}>
+    <MobileModal isOpen={isOpen} onClose={onClose} title={t('geoModal.title','Konum Hatırlatıcısı')} fullScreen={false}>
       <div className="space-y-4">
         <label className="flex items-center gap-2">
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
@@ -352,10 +354,10 @@ const GeoReminderModal: React.FC<GeoReminderModalProps> = ({ isOpen, onClose, to
 
       <ModalActions className="mt-6">
         <button onClick={onClose} className="flex-1 px-4 py-3 md:py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-500 active:scale-95 transition-all duration-150 min-h-[48px] md:min-h-[44px]">
-          İptal
+          {t('common.cancel','İptal')}
         </button>
         <button onClick={handleSave} className="flex-1 px-4 py-3 md:py-2 bg-[var(--accent-color-600)] text-white rounded-lg font-medium hover:bg-[var(--accent-color-700)] active:scale-95 transition-all duration-150 min-h-[48px] md:min-h-[44px]">
-          Kaydet
+          {t('common.save','Kaydet')}
         </button>
       </ModalActions>
     </MobileModal>

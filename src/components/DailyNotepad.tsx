@@ -6,6 +6,7 @@ import { archiveService } from '../services/archiveService';
 import { Clipboard } from '@capacitor/clipboard';
 import { useAuth } from '../contexts/AuthContext';
 import { PencilSquareIcon, HeartIcon, TagIcon, ShareIcon, TrashIcon, BookmarkIcon, SparklesIcon } from '@heroicons/react/24/outline';
+import { useI18n } from '../contexts/I18nContext';
 
 interface DailyNotepadProps {
   notes: Note[];
@@ -21,6 +22,7 @@ interface DailyNotepadProps {
 }
 
 const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiModal, onAnalyzeImage, onShareNote, setNotification, onAnalyzePdf, onExtractTextFromImage, onDeleteNotesRemote, onSelectionModeChange }) => {
+  const { t, lang } = useI18n();
   // Get user ID for archive
   const { user } = useAuth();
   const userId = user?.id || 'guest';
@@ -75,7 +77,41 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
 
   
   const { isListening, startListening, stopListening, hasSupport } = useSpeechRecognition((finalTranscript) => {
-    handleAddNote(finalTranscript)
+    // Check for voice commands to auto-save note
+    const transcript = finalTranscript.toLowerCase();
+    const commands = {
+      tr: ['tamam', 'bitti', 'kaydet', 'not ekle', 'ekle', 'tamam kaydet', 'not olarak kaydet'],
+      en: ['okay', 'done', 'save', 'add note', 'save note', 'okay save', 'that\'s it']
+    };
+    
+    const currentCommands = commands[lang as 'tr' | 'en'] || commands.en;
+    const hasCommand = currentCommands.some(cmd => {
+      const words = transcript.split(' ');
+      const lastWords = words.slice(-cmd.split(' ').length).join(' ');
+      return lastWords === cmd || transcript.endsWith(cmd);
+    });
+    
+    if (hasCommand) {
+      // Remove the command from the transcript
+      let noteText = finalTranscript;
+      for (const cmd of currentCommands) {
+        const regex = new RegExp(`\\b${cmd.replace(/'/g, "\\'").replace(/\s+/g, '\\s+')}\\s*$`, 'gi');
+        noteText = noteText.replace(regex, '').trim();
+      }
+      
+      if (noteText.trim() || newNoteImageDataUrl) {
+        handleAddNote(noteText);
+        if (setNotification) {
+          setNotification({ 
+            message: lang === 'tr' ? 'Not sesli komutla kaydedildi!' : 'Note saved with voice command!', 
+            type: 'success' 
+          });
+        }
+      }
+    } else {
+      // No command detected, just set the text for manual save
+      setNewNoteText(finalTranscript);
+    }
   });
 
 
@@ -529,23 +565,23 @@ setNewNoteImageDataUrl(reader.result as string);
               <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
               <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd" />
           </svg>
-          <span className="hidden sm:inline">Günlük Not Defterim</span>
-          <span className="sm:hidden">Notlarım</span>
+          <span className="hidden sm:inline">{t('notepad.title','My Daily Notepad')}</span>
+          <span className="sm:hidden">{t('notepad.titleShort','Notes')}</span>
         </h3>
         <div className="flex items-center gap-1">
           <button
             onClick={() => { const next = !selectionMode; setSelectionMode(next); onSelectionModeChange?.(next); if (!selectionMode) setSelectedNoteIds([]); }}
             className={selectionButtonClass}
-            title="Seçim Modu"
+            title={t('notepad.selectionMode','Selection Mode')}
           >
-            <span className="hidden sm:inline">{selectionMode ? 'Seçimi Kapat' : 'Seçim Modu'}</span>
-            <span className="sm:hidden">{selectionMode ? 'Kapat' : 'Seç'}</span>
+            <span className="hidden sm:inline">{selectionMode ? t('notepad.closeSelection','Close Selection') : t('notepad.selectionMode','Selection Mode')}</span>
+            <span className="sm:hidden">{selectionMode ? t('common.close','Close') : t('notepad.select','Select')}</span>
           </button>
           <button
             onClick={onOpenAiModal}
             className="p-2 rounded-full bg-white/50 dark:bg-gray-700 text-[var(--accent-color-500)] hover:bg-white dark:hover:bg-gray-600 transition-all transform hover:scale-110 shadow-sm"
-            aria-label="Notları AI ile işle"
-            title="Notları AI ile işle"
+            aria-label={t('notepad.aiProcess','Process notes with AI')}
+            title={t('notepad.aiProcess','Process notes with AI')}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -557,15 +593,15 @@ setNewNoteImageDataUrl(reader.result as string);
       {/* Selection toolbar (when selection mode) */}
       {selectionMode && (
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs sm:text-sm p-2 bg-white/60 dark:bg-gray-800/60 rounded border border-gray-200 dark:border-gray-700">
-          <span className="font-semibold">Seçili: {selectedNoteIds.length}</span>
+          <span className="font-semibold">{t('notepad.selected','Selected')}: {selectedNoteIds.length}</span>
           <div className="flex gap-2">
-            <button onClick={() => selectAllVisible(visibleNotes)} className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700">Tümünü Seç</button>
-            <button onClick={clearSelection} className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700">Temizle</button>
+<button onClick={() => selectAllVisible(visibleNotes)} className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700">{t('common.selectAll','Select All')}</button>
+<button onClick={clearSelection} className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700">{t('common.clear','Clear')}</button>
           </div>
           <div className="flex gap-2 ml-auto">
-            <button onClick={() => handleBulkShare(visibleNotes)} className="px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">Paylaş</button>
-            <button onClick={() => handleBulkArchive(visibleNotes)} className="px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700">Arşivle</button>
-            <button onClick={() => handleBulkDelete(visibleNotes)} className="px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">Sil</button>
+<button onClick={() => handleBulkShare(visibleNotes)} className="px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700">{t('common.share','Share')}</button>
+<button onClick={() => handleBulkArchive(visibleNotes)} className="px-2 py-1 rounded bg-amber-600 text-white hover:bg-amber-700">{t('common.archive','Archive')}</button>
+<button onClick={() => handleBulkDelete(visibleNotes)} className="px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700">{t('common.delete','Delete')}</button>
           </div>
         </div>
       )}
@@ -573,16 +609,16 @@ setNewNoteImageDataUrl(reader.result as string);
       {/* Toolbar: Sort & Filter */}
       <div className="mb-2 grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 text-xs sm:text-sm">
         <div className="flex items-center gap-2 col-span-2 sm:col-auto">
-          <label className="hidden sm:block text-gray-600 dark:text-gray-300">Sırala:</label>
+          <label className="hidden sm:block text-gray-600 dark:text-gray-300">{t('notepad.sort','Sort')}:</label>
           <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="w-full sm:w-auto px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800">
-            <option value="newest">Tarih: Yeni → Eski</option>
-            <option value="oldest">Tarih: Eski → Yeni</option>
+            <option value="newest">{t('notepad.sortNewest','Date: Newest → Oldest')}</option>
+            <option value="oldest">{t('notepad.sortOldest','Date: Oldest → Newest')}</option>
           </select>
         </div>
         <div className="flex items-center gap-2 col-span-2 sm:col-auto">
-          <label className="hidden sm:block text-gray-600 dark:text-gray-300">Etiket:</label>
+          <label className="hidden sm:block text-gray-600 dark:text-gray-300">{t('notepad.tag','Tag')}:</label>
           <select value={filterTag} onChange={(e) => setFilterTag(e.target.value)} className="w-full sm:w-auto px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800">
-            <option value="">Tümü</option>
+            <option value="">{t('notepad.allTags','All')}</option>
             {allTags.map(tag => (
               <option key={tag} value={tag}>{tag}</option>
             ))}
@@ -597,8 +633,8 @@ setNewNoteImageDataUrl(reader.result as string);
                 <path d="M12 20h9"/>
                 <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
              </svg>
-             <p className="mt-4 font-semibold text-lg text-gray-600 dark:text-gray-400">Not defteriniz şimdilik boş</p>
-             <p className="text-sm">Aklınızdan geçenleri, fikirlerinizi veya anılarınızı buraya ekleyin.</p>
+             <p className="mt-4 font-semibold text-lg text-gray-600 dark:text-gray-400">{t('notepad.emptyTitle','Your notepad is empty for now')}</p>
+             <p className="text-sm">{t('notepad.emptyMessage','Add your thoughts, ideas, or memories here.')}</p>
            </div>
         )}
         {visibleNotes.map(note => (
@@ -611,38 +647,38 @@ setNewNoteImageDataUrl(reader.result as string);
                 )}
                 <div className="hidden sm:flex absolute top-1 right-1 sm:top-2 sm:right-2 z-20 gap-1 sm:gap-1.5 transition-opacity opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
                     {/* Pin - hidden on mobile */}
-                    <button onClick={() => handleTogglePin(note.id)} className={`hidden sm:flex p-1.5 rounded-full ${note.pinned ? 'bg-yellow-200 text-yellow-800 dark:bg-yellow-600/40 dark:text-yellow-200' : 'bg-black/10 text-gray-600 dark:bg-white/10 dark:text-gray-300'} hover:bg-yellow-300`} title="Sabitle">
+                    <button onClick={() => handleTogglePin(note.id)} className={`hidden sm:flex p-1.5 rounded-full ${note.pinned ? 'bg-yellow-200 text-yellow-800 dark:bg-yellow-600/40 dark:text-yellow-200' : 'bg-black/10 text-gray-600 dark:bg-white/10 dark:text-gray-300'} hover:bg-yellow-300`} title={t('notepad.pin','Pin')}>
                         <BookmarkIcon className="h-4 w-4" />
                     </button>
                     {/* Favorite - hidden on mobile */}
-                    <button onClick={() => handleToggleFavorite(note.id)} className={`hidden sm:flex p-1.5 rounded-full ${note.favorite ? 'bg-pink-200 text-pink-800 dark:bg-pink-600/40 dark:text-pink-200' : 'bg-black/10 text-gray-600 dark:bg-white/10 dark:text-gray-300'} hover:bg-pink-300`} title="Favori">
+                    <button onClick={() => handleToggleFavorite(note.id)} className={`hidden sm:flex p-1.5 rounded-full ${note.favorite ? 'bg-pink-200 text-pink-800 dark:bg-pink-600/40 dark:text-pink-200' : 'bg-black/10 text-gray-600 dark:bg-white/10 dark:text-gray-300'} hover:bg-pink-300`} title={t('notepad.favorite','Favorite')}>
                         <HeartIcon className="h-4 w-4" />
                     </button>
                     {/* Edit */}
-                    <button onClick={() => handleStartEdit(note)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-blue-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-blue-500" title="Düzenle">
+                    <button onClick={() => handleStartEdit(note)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-blue-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-blue-500" title={t('notepad.edit','Edit')}>
                         <PencilSquareIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
                     {/* Share */}
-                    <button onClick={() => onShareNote(note)} className="p-1 rounded-full text-gray-400 hover:text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-green-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-green-500" title="Paylaş">
+                    <button onClick={() => onShareNote(note)} className="p-1 rounded-full text-gray-400 hover:text-green-500 hover:bg-green-100 dark:hover:bg-green-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-green-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-green-500" title={t('common.share','Share')}>
                         <ShareIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
                     {/* Archive (single) */}
-                    <button onClick={(e) => { e.stopPropagation(); handleArchiveSingle(note); }} className="p-1 rounded-full text-gray-400 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-amber-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-amber-500" title="Arşivle">
+                    <button onClick={(e) => { e.stopPropagation(); handleArchiveSingle(note); }} className="p-1 rounded-full text-gray-400 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-amber-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-amber-500" title={t('common.archive','Archive')}>
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                     </button>
                     {/* Delete */}
-                    <button onClick={() => handleDeleteNote(note.id)} className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-red-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-red-500" title="Sil">
+                    <button onClick={() => handleDeleteNote(note.id)} className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-100 dark:hover:bg-red-900/50 sm:p-1.5 sm:bg-black/10 sm:text-gray-600 sm:hover:bg-red-500 sm:hover:text-white sm:dark:bg-white/10 sm:dark:text-gray-300 sm:dark:hover:bg-red-500" title={t('common.delete','Delete')}>
                         <TrashIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
                 </div>
                 {note.imageUrl && (
                     <div className="relative">
-                        <img src={note.imageUrl} alt="Not görseli" className="w-full h-24 sm:h-32 object-cover"/>
+                        <img src={note.imageUrl} alt={t('notepad.noteImage','Note image')} className="w-full h-24 sm:h-32 object-cover"/>
 <button 
                           onClick={() => onAnalyzeImage(note.id)}
                           className="absolute bottom-1 right-1 sm:bottom-2 sm:right-2 z-10 p-1 sm:p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100"
-                          aria-label="Resimdeki metni çıkar"
-                          title="Resimdeki metni çıkar"
+                          aria-label={t('notepad.extractText','Extract text from image')}
+                          title={t('notepad.extractText','Extract text from image')}
                         >
                           <SparklesIcon className="h-3 w-3 sm:h-4 sm:w-4" />
                         </button>
@@ -653,49 +689,49 @@ setNewNoteImageDataUrl(reader.result as string);
                   <div className="sm:hidden mb-2 flex items-center justify-end gap-2">
                     {/* Pin (mobile) */}
                     <div className="relative group">
-<button onClick={() => handleTogglePin(note.id)} className={`p-1 rounded-full ${note.pinned ? 'text-yellow-600' : 'text-gray-400'} hover:text-yellow-600 hover:bg-white/10 dark:hover:bg-white/10`} aria-label="Sabitle">
+<button onClick={() => handleTogglePin(note.id)} className={`p-1 rounded-full ${note.pinned ? 'text-yellow-600' : 'text-gray-400'} hover:text-yellow-600 hover:bg-white/10 dark:hover:bg-white/10`} aria-label={t('notepad.pin','Pin')}>
                         <BookmarkIcon className="h-4 w-4" />
                       </button>
-<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">Sabitle</span>
+<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">{t('notepad.pin','Pin')}</span>
                     </div>
                     {/* Favorite (mobile) */}
                     <div className="relative group">
-<button onClick={() => handleToggleFavorite(note.id)} className={`p-1 rounded-full ${note.favorite ? 'text-pink-600' : 'text-gray-400'} hover:text-pink-600 hover:bg-white/10 dark:hover:bg-white/10`} aria-label="Favori">
+<button onClick={() => handleToggleFavorite(note.id)} className={`p-1 rounded-full ${note.favorite ? 'text-pink-600' : 'text-gray-400'} hover:text-pink-600 hover:bg-white/10 dark:hover:bg-white/10`} aria-label={t('notepad.favorite','Favorite')}>
                         <HeartIcon className="h-4 w-4" />
                       </button>
-<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">Favori</span>
+<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">{t('notepad.favorite','Favorite')}</span>
                     </div>
                     {/* Add tag (mobile) */}
                     <div className="relative group">
-<button onClick={() => handleAddTag(note.id)} className="p-1 rounded-full text-gray-400 hover:text-purple-500 hover:bg-white/10 dark:hover:bg-white/10" aria-label="Etiket Ekle">
+<button onClick={() => handleAddTag(note.id)} className="p-1 rounded-full text-gray-400 hover:text-purple-500 hover:bg-white/10 dark:hover:bg-white/10" aria-label={t('notepad.addTag','Add Tag')}>
 <TagIcon className="h-4 w-4" />
                       </button>
-<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">+ Etiket</span>
+<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">{t('notepad.addTag','Add Tag')}</span>
                     </div>
                     <div className="relative group">
-<button onClick={() => handleStartEdit(note)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-white/10 dark:hover:bg-white/10" aria-label="Düzenle" >
+<button onClick={() => handleStartEdit(note)} className="p-1 rounded-full text-gray-400 hover:text-blue-500 hover:bg-white/10 dark:hover:bg-white/10" aria-label={t('notepad.edit','Edit')} >
                         <PencilSquareIcon className="h-4 w-4" />
                       </button>
-<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">Düzenle</span>
+<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">{t('notepad.edit','Edit')}</span>
                     </div>
                     <div className="relative group">
-<button onClick={() => onShareNote(note)} className="p-1 rounded-full text-gray-400 hover:text-green-500 hover:bg-white/10 dark:hover:bg-white/10" aria-label="Paylaş" >
+<button onClick={() => onShareNote(note)} className="p-1 rounded-full text-gray-400 hover:text-green-500 hover:bg-white/10 dark:hover:bg-white/10" aria-label={t('common.share','Share')} >
                         <ShareIcon className="h-4 w-4" />
                       </button>
-<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">Paylaş</span>
+<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">{t('common.share','Share')}</span>
                     </div>
                     <div className="relative group">
-<button onClick={() => handleDeleteNote(note.id)} className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-white/10 dark:hover:bg-white/10" aria-label="Sil" >
+<button onClick={() => handleDeleteNote(note.id)} className="p-1 rounded-full text-gray-400 hover:text-red-500 hover:bg-white/10 dark:hover:bg-white/10" aria-label={t('common.delete','Delete')} >
                         <TrashIcon className="h-4 w-4" />
                       </button>
-<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">Sil</span>
+<span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">{t('common.delete','Delete')}</span>
                     </div>
                     {/* Archive (mobile single) */}
                     <div className="relative group">
-                      <button onClick={() => handleArchiveSingle(note)} className="p-1 rounded-full text-gray-400 hover:text-amber-600 hover:bg-white/10 dark:hover:bg-white/10" aria-label="Arşivle" >
+                      <button onClick={() => handleArchiveSingle(note)} className="p-1 rounded-full text-gray-400 hover:text-amber-600 hover:bg-white/10 dark:hover:bg-white/10" aria-label={t('common.archive','Archive')} >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
                       </button>
-                      <span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">Arşivle</span>
+                      <span className="hidden sm:absolute sm:-top-6 sm:right-0 sm:px-1.5 sm:py-0.5 sm:rounded sm:bg-black/70 sm:text-white sm:text-[10px] sm:whitespace-nowrap sm:group-hover:inline-block pointer-events-none select-none">{t('common.archive','Archive')}</span>
                     </div>
                   </div>
                   {/* Tags Row + Inline Tag Editor (only when not editing the note text) */}
@@ -706,21 +742,21 @@ setNewNoteImageDataUrl(reader.result as string);
                           {(note.tags || []).map((tag, idx) => (
                             <span key={tag} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-white/70 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600 ${idx > 1 ? 'hidden sm:inline-flex' : ''}`}>
                               {tag}
-                              <button onClick={() => handleRemoveTag(note.id, tag)} className="ml-1 text-gray-400 hover:text-red-500" title="Etiketi kaldır">×</button>
+                              <button onClick={() => handleRemoveTag(note.id, tag)} className="ml-1 text-gray-400 hover:text-red-500" title={t('notepad.removeTag','Remove tag')}>×</button>
                             </span>
                           ))}
                           {((note.tags || []).length > 2) && (
                             <span className="inline-flex sm:hidden items-center px-2 py-0.5 rounded-full text-[11px] bg-white/60 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600">+{(note.tags || []).length - 2}</span>
                           )}
                           <button onClick={() => handleAddTag(note.id)} className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600">
-                            + Etiket
+                            {t('notepad.addTag','Add Tag')}
                           </button>
                         </div>
                         {tagEditorFor === note.id ? (
                           <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="etiket1, etiket2" className="flex-1 min-w-[8rem] px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs" />
-                            <button onClick={() => handleSubmitTags(note.id)} className="px-2 py-1 rounded bg-[var(--accent-color-600)] text-white text-[11px]">Ekle</button>
-                            <button onClick={() => { setTagEditorFor(null); setTagInput(''); }} className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-[11px]">İptal</button>
+                            <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder={t('notepad.tagPlaceholder','tag1, tag2')} className="flex-1 min-w-[8rem] px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs" />
+                            <button onClick={() => handleSubmitTags(note.id)} className="px-2 py-1 rounded bg-[var(--accent-color-600)] text-white text-[11px]">{t('common.add','Add')}</button>
+                            <button onClick={() => { setTagEditorFor(null); setTagInput(''); }} className="px-2 py-1 rounded bg-gray-200 dark:bg-gray-700 text-[11px]">{t('common.cancel','Cancel')}</button>
                           </div>
                         ) : null}
                       </div>
@@ -743,8 +779,8 @@ setNewNoteImageDataUrl(reader.result as string);
                         rows={3}
                       />
                       <div className="flex gap-2 mt-2">
-                         <button onClick={handleSaveEdit} className="px-2 sm:px-3 py-1 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700">Kaydet</button>
-                         <button onClick={handleCancelEdit} className="px-2 sm:px-3 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">İptal</button>
+                         <button onClick={handleSaveEdit} className="px-2 sm:px-3 py-1 text-xs font-semibold bg-green-600 text-white rounded-md hover:bg-green-700">{t('common.save','Save')}</button>
+                         <button onClick={handleCancelEdit} className="px-2 sm:px-3 py-1 text-xs bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">{t('common.cancel','Cancel')}</button>
                       </div>
                     </div>
                   ) : (
@@ -764,7 +800,7 @@ setNewNoteImageDataUrl(reader.result as string);
         <div className="bg-white/60 dark:bg-gray-800/60 border border-gray-300 dark:border-gray-700/60 rounded-lg focus-within:ring-2 focus-within:ring-[var(--accent-color-500)] transition-all relative">
          {(newNoteImagePreview || newNoteImageDataUrl) && (
              <div className="relative p-2">
-                <img src={newNoteImagePreview || newNoteImageDataUrl || ''} alt="Yeni not önizlemesi" className="max-h-28 w-auto rounded-md"/>
+                <img src={newNoteImagePreview || newNoteImageDataUrl || ''} alt={t('notepad.newNotePreview','New note preview')} className="max-h-28 w-auto rounded-md"/>
                  <button type="button" onClick={() => { if (newNoteImagePreview) URL.revokeObjectURL(newNoteImagePreview); setNewNoteImagePreview(null); setNewNoteImageDataUrl(null); if(fileInputRef.current) fileInputRef.current.value = ''; }} className="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1 m-1 shadow-md">
                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                  </button>
@@ -774,20 +810,20 @@ setNewNoteImageDataUrl(reader.result as string);
           value={newNoteText}
           onChange={(e) => setNewNoteText(e.target.value)}
           onPaste={handlePaste}
-          placeholder="Yeni not ekle veya resim yapıştır..."
+          placeholder={t('notepad.newNotePlaceholder','Add a new note or paste an image...')}
           className="w-full p-3 sm:p-4 pb-12 bg-transparent focus:outline-none resize-none text-base sm:text-sm text-gray-700 dark:text-gray-300 placeholder:text-gray-500 dark:placeholder:text-gray-400 min-h-[100px] sm:min-h-[120px]"
           rows={4}
         />
         {/* İkonlar textarea içinde */}
         <div className="absolute bottom-2 left-2 flex gap-1">
             <input type="file" accept="image/*" onChange={handleImageChange} ref={fileInputRef} className="hidden"/>
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 transition-colors" aria-label="Resim Ekle" title="Resim Ekle">
+            <button type="button" onClick={() => fileInputRef.current?.click()} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 transition-colors" aria-label={t('notepad.addImage','Add Image')} title={t('notepad.addImage','Add Image')}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" /></svg>
             </button>
             {onAnalyzePdf && (
               <>
                 <input type="file" accept="application/pdf" onChange={handlePdfChange} ref={pdfInputRef} className="hidden"/>
-                <button type="button" onClick={() => pdfInputRef.current?.click()} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 transition-colors" aria-label="PDF Ekle" title="PDF Yükle ve Analiz Et">
+                <button type="button" onClick={() => pdfInputRef.current?.click()} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400 transition-colors" aria-label={t('notepad.addPdf','Add PDF')} title={t('notepad.pdfAnalyze','Upload and Analyze PDF')}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                     </svg>
@@ -795,7 +831,7 @@ setNewNoteImageDataUrl(reader.result as string);
               </>
             )}
              {hasSupport && (
-                <button type="button" onClick={isListening ? stopListening : startListening} className={`p-1.5 rounded-full transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400'}`} aria-label={isListening ? 'Dinlemeyi Durdur' : 'Sesli Not Ekle'} title={isListening ? 'Dinlemeyi Durdur' : 'Sesli Not Ekle'}>
+                <button type="button" onClick={isListening ? stopListening : startListening} className={`p-1.5 rounded-full transition-all ${isListening ? 'bg-red-500/20 text-red-500 animate-pulse' : 'hover:bg-gray-200 dark:hover:bg-gray-700/50 text-gray-500 dark:text-gray-400'}`} aria-label={isListening ? t('notepad.stopListening','Stop Listening') : t('notepad.voiceNote','Add Voice Note')} title={isListening ? t('notepad.stopListening','Stop Listening') : t('notepad.voiceNote','Add Voice Note')}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                 </button>
             )}
@@ -803,15 +839,15 @@ setNewNoteImageDataUrl(reader.result as string);
         </div>
         <div className="flex justify-end items-center mt-2">
             <button type="submit" className="px-4 py-1.5 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 text-sm font-semibold shadow-sm hover:shadow-md transition-all" disabled={!newNoteText.trim() && !newNoteImageDataUrl}>
-                Ekle
+{t('common.add','Add')}
             </button>
         </div>
       </form>
       {/* Undo snackbar */}
       {undoState && (
         <div className="fixed bottom-4 right-4 z-40 bg-gray-900 text-white rounded-lg shadow-lg px-4 py-3 flex items-center gap-3">
-          <span>{undoState.type === 'delete' ? 'Notlar silindi.' : 'Notlar arşivlendi.'}</span>
-          <button onClick={handleUndo} className="px-2 py-1 bg-white/20 hover:bg-white/30 rounded">Geri al</button>
+          <span>{undoState.type === 'delete' ? t('notepad.notesDeleted','Notes deleted.') : t('notepad.notesArchived','Notes archived.')}</span>
+<button onClick={handleUndo} className="px-2 py-1 bg-white/20 hover:bg-white/30 rounded">{t('common.undo','Undo')}</button>
         </div>
       )}
     </div>

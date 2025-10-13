@@ -1,4 +1,5 @@
 import React from 'react';
+import { useI18n } from '../contexts/I18nContext';
 
 interface ActionBarProps {
   onSimpleVoiceCommand: () => void;
@@ -8,6 +9,7 @@ interface ActionBarProps {
 }
 
 const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat, onImageTask, isListening }) => {
+  const { t } = useI18n();
   // Mobil için minimum 44x44px touch area (Apple HIG standardı)
   const buttonBaseStyle = "flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl sm:rounded-lg transition-all duration-300 active:scale-95 sm:hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-900 h-full min-h-[100px] sm:min-h-[120px] touch-manipulation";
 
@@ -30,8 +32,8 @@ const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat,
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
             </svg>
           </div>
-          <p className="mt-1.5 sm:mt-2 md:mt-3 font-semibold text-xs sm:text-base md:text-lg text-gray-800 dark:text-white">Sesle Görev</p>
-          <p className="text-[9px] sm:text-xs md:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block leading-tight">Sadece konuşun, biz not alalım.</p>
+          <p className="mt-1.5 sm:mt-2 md:mt-3 font-semibold text-xs sm:text-base md:text-lg text-gray-800 dark:text-white">{t('action.voiceTask.title', 'Sesle Görev')}</p>
+          <p className="text-[9px] sm:text-xs md:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block leading-tight">{t('action.voiceTask.subtitle', 'Sadece konuşun, biz not alalım.')}</p>
         </button>
 
         {/* AI Chat Button */}
@@ -86,8 +88,8 @@ const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat,
               </g>
             </svg>
           </div>
-          <p className="mt-1.5 sm:mt-2 md:mt-3 font-semibold text-xs sm:text-base md:text-lg text-gray-800 dark:text-white">AI Sohbet</p>
-          <p className="text-[9px] sm:text-xs md:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block leading-tight">Asistanla sohbet edin.</p>
+          <p className="mt-1.5 sm:mt-2 md:mt-3 font-semibold text-xs sm:text-base md:text-lg text-gray-800 dark:text-white">{t('action.aiChat.title', 'AI Sohbet')}</p>
+          <p className="text-[9px] sm:text-xs md:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block leading-tight">{t('action.aiChat.subtitle', 'Asistanla sohbet edin.')}</p>
         </button>
 
         {/* New Image Task Button */}
@@ -101,8 +103,8 @@ const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat,
               <path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 012.25-2.25h16.5A2.25 2.25 0 0122.5 6v12a2.25 2.25 0 01-2.25 2.25H3.75A2.25 2.25 0 011.5 18V6zM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0021 18v-1.94l-2.69-2.689a1.5 1.5 0 00-2.12 0l-.88.879.97.97a.75.75 0 11-1.06 1.06l-5.16-5.159a1.5 1.5 0 00-2.12 0L3 16.061zm10.125-7.81a1.125 1.125 0 112.25 0 1.125 1.125 0 01-2.25 0z" clipRule="evenodd" />
             </svg>
           </div>
-          <p className="mt-1.5 sm:mt-2 md:mt-3 font-semibold text-xs sm:text-base md:text-lg text-gray-800 dark:text-white">Resimle</p>
-          <p className="text-[9px] sm:text-xs md:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block leading-tight">Resimden akıllı görev yaratın.</p>
+          <p className="mt-1.5 sm:mt-2 md:mt-3 font-semibold text-xs sm:text-base md:text-lg text-gray-800 dark:text-white">{t('action.imageTask.title', 'Resimle')}</p>
+          <p className="text-[9px] sm:text-xs md:text-sm text-center text-gray-500 dark:text-gray-400 hidden sm:block leading-tight">{t('action.imageTask.subtitle', 'Resimden akıllı görev yaratın.')}</p>
         </button>
 
       </div>

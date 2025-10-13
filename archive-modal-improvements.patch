@@ -1,0 +1,296 @@
+// Add these new functions after line 250 in ArchiveModal.tsx
+
+  // Unarchive functions
+  const handleUnarchive = async () => {
+    if (selectedUnarchiveTodoIds.length === 0 && selectedUnarchiveNoteIds.length === 0) {
+      setNotification({ 
+        message: t('archive.messages.noItemsSelected', 'No items selected for unarchive.'), 
+        type: 'error' 
+      });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    
+    const message = t('archive.messages.confirmUnarchive', 
+      `${selectedUnarchiveTodoIds.length} tasks and ${selectedUnarchiveNoteIds.length} notes will be restored. Continue?`
+    ).replace('{tasks}', String(selectedUnarchiveTodoIds.length))
+     .replace('{notes}', String(selectedUnarchiveNoteIds.length));
+    
+    if (!window.confirm(message)) return;
+    
+    try {
+      setIsLoading(true);
+      
+      if (selectedUnarchiveTodoIds.length > 0) {
+        await archiveService.unarchiveTodos(selectedUnarchiveTodoIds, userId);
+      }
+      
+      if (selectedUnarchiveNoteIds.length > 0) {
+        await archiveService.unarchiveNotes(selectedUnarchiveNoteIds, userId);
+      }
+      
+      setNotification({ 
+        message: t('archive.messages.unarchiveSuccess', 'Items successfully restored!'), 
+        type: 'success' 
+      });
+      
+      // Reset selections
+      setSelectedUnarchiveTodoIds([]);
+      setSelectedUnarchiveNoteIds([]);
+      setUnarchiveMode(false);
+      
+      // Refresh current view
+      if (searchMode === 'date') {
+        await fetchByDate(selectedDate);
+      } else if (searchMode === 'all') {
+        await fetchAllArchived();
+      }
+    } catch (error: any) {
+      setNotification({ 
+        message: error.message || t('archive.messages.unarchiveFailed', 'Restore failed.'), 
+        type: 'error' 
+      });
+    } finally {
+      setIsLoading(false);
+      setTimeout(() => setNotification(null), 3000);
+    }
+  };
+  
+  // Filter functions
+  const handleApplyFilters = async () => {
+    setIsLoading(true);
+    try {
+      const data = await archiveService.getFilteredArchive(filters, userId);
+      setResults(data);
+      setShowFilters(false);
+    } catch (error) {
+      setNotification({ 
+        message: t('archive.messages.filterFailed', 'Filter failed.'), 
+        type: 'error' 
+      });
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const toggleUnarchiveMode = () => {
+    setUnarchiveMode(!unarchiveMode);
+    if (!unarchiveMode) {
+      // Entering unarchive mode, clear delete selections
+      setDeleteMode(false);
+      setSelectedTodoIds([]);
+      setSelectedNoteIds([]);
+    } else {
+      // Exiting unarchive mode, clear unarchive selections
+      setSelectedUnarchiveTodoIds([]);
+      setSelectedUnarchiveNoteIds([]);
+    }
+  };
+
+// Add this filter UI component after line 600 (after the search form)
+
+        {/* Filter and Mode Buttons */}
+        <div className="flex gap-2 mt-2">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+              showFilters 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            🎯 {t('archive.filters', 'Filters')}
+          </button>
+          
+          <button
+            onClick={toggleUnarchiveMode}
+            className={`px-3 py-1.5 rounded-md font-medium text-xs transition-colors ${
+              unarchiveMode 
+                ? 'bg-green-600 text-white' 
+                : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+            }`}
+          >
+            ↩️ {t('archive.unarchiveMode', 'Restore Mode')}
+          </button>
+        </div>
+        
+        {/* Filter Panel */}
+        {showFilters && (
+          <div className="mt-3 p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Categories Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('archive.filter.categories', 'Categories')}
+                </label>
+                <input
+                  type="text"
+                  placeholder={t('archive.filter.categoriesPlaceholder', 'e.g. Work, Personal')}
+                  value={filters.categories?.join(', ') || ''}
+                  onChange={(e) => setFilters({
+                    ...filters,
+                    categories: e.target.value ? e.target.value.split(',').map(c => c.trim()) : undefined
+                  })}
+                  className="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+              
+              {/* Priority Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('archive.filter.priority', 'Priority')}
+                </label>
+                <select
+                  multiple
+                  value={filters.priorities || []}
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.selectedOptions, option => option.value);
+                    setFilters({ ...filters, priorities: selected.length > 0 ? selected : undefined });
+                  }}
+                  className="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                >
+                  <option value="high">{t('priority.high', 'High')}</option>
+                  <option value="medium">{t('priority.medium', 'Medium')}</option>
+                  <option value="low">{t('priority.low', 'Low')}</option>
+                </select>
+              </div>
+              
+              {/* Date Range Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('archive.filter.dateFrom', 'From Date')}
+                </label>
+                <input
+                  type="date"
+                  value={filters.dateRange?.start ? filters.dateRange.start.toISOString().split('T')[0] : ''}
+                  onChange={(e) => setFilters({
+                    ...filters,
+                    dateRange: {
+                      ...filters.dateRange,
+                      start: e.target.value ? new Date(e.target.value) : new Date(),
+                      end: filters.dateRange?.end || new Date()
+                    }
+                  })}
+                  className="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('archive.filter.dateTo', 'To Date')}
+                </label>
+                <input
+                  type="date"
+                  value={filters.dateRange?.end ? filters.dateRange.end.toISOString().split('T')[0] : ''}
+                  onChange={(e) => setFilters({
+                    ...filters,
+                    dateRange: {
+                      start: filters.dateRange?.start || new Date(),
+                      end: e.target.value ? new Date(e.target.value) : new Date()
+                    }
+                  })}
+                  className="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+              
+              {/* Other Filters */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  {t('archive.filter.olderThan', 'Older Than (days)')}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={filters.olderThan || ''}
+                  onChange={(e) => setFilters({
+                    ...filters,
+                    olderThan: e.target.value ? parseInt(e.target.value) : undefined
+                  })}
+                  className="w-full p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+              
+              <div className="flex items-end">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={filters.completed === true}
+                    onChange={(e) => setFilters({
+                      ...filters,
+                      completed: e.target.checked ? true : undefined
+                    })}
+                    className="rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)]"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {t('archive.filter.completedOnly', 'Completed Only')}
+                  </span>
+                </label>
+              </div>
+            </div>
+            
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={handleApplyFilters}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
+              >
+                {t('archive.filter.apply', 'Apply Filters')}
+              </button>
+              <button
+                onClick={() => {
+                  setFilters({});
+                  setShowFilters(false);
+                }}
+                className="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-gray-600 text-sm font-medium"
+              >
+                {t('archive.filter.clear', 'Clear')}
+              </button>
+            </div>
+          </div>
+        )}
+
+// Update todo item rendering to support unarchive mode (around line 650)
+// Replace the checkbox rendering with:
+
+            {(deleteMode || unarchiveMode) && (
+              <input
+                type="checkbox"
+                checked={
+                  unarchiveMode 
+                    ? selectedUnarchiveTodoIds.includes(todo.id)
+                    : selectedTodoIds.includes(todo.id)
+                }
+                onChange={(e) => {
+                  if (unarchiveMode) {
+                    setSelectedUnarchiveTodoIds(
+                      e.target.checked
+                        ? [...selectedUnarchiveTodoIds, todo.id]
+                        : selectedUnarchiveTodoIds.filter(id => id !== todo.id)
+                    );
+                  } else {
+                    setSelectedTodoIds(
+                      e.target.checked
+                        ? [...selectedTodoIds, todo.id]
+                        : selectedTodoIds.filter(id => id !== todo.id)
+                    );
+                  }
+                }}
+                className="mr-2"
+              />
+            )}
+
+// Similarly update note item rendering
+
+// Add unarchive button to the action buttons section (around line 750)
+
+        {unarchiveMode && (selectedUnarchiveTodoIds.length > 0 || selectedUnarchiveNoteIds.length > 0) && (
+          <button
+            onClick={handleUnarchive}
+            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium text-sm flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M7.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            {t('archive.unarchive', 'Restore')} ({selectedUnarchiveTodoIds.length + selectedUnarchiveNoteIds.length})
+          </button>
+        )}

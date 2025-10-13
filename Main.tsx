@@ -28,6 +28,7 @@ import { Todo, Priority, ChatMessage, Note, DailyBriefing, AIMetadata, AnalyzedT
 import { AccentColor } from './App';
 import { useGeoReminders } from './hooks/useGeoReminders';
 import { initGeofence, addOrUpdateGeofence, removeGeofence } from './services/geofenceService';
+import { useI18n } from './src/contexts/I18nContext';
 
 interface MainProps {
   theme: 'light' | 'dark';
@@ -41,16 +42,21 @@ interface MainProps {
 }
 
 type ViewMode = 'list' | 'timeline';
+type FilterMode = 'all' | 'active' | 'completed';
+type TimeFilter = 'all' | 'today' | 'thisWeek' | 'thisMonth';
 
 const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColor, apiKey, assistantName, userId, onNavigateToProfile }) => {
+    const { t } = useI18n();
     const [todos, setTodos] = useLocalStorage<Todo[]>('todos', []);
     const [notes, setNotes] = useLocalStorage<Note[]>('notes', []);
     const [chatHistory, setChatHistory] = useLocalStorage<ChatMessage[]>('chatHistory', []);
 
     // Component State
     const [viewMode, setViewMode] = useState<ViewMode>('list');
+    const [filterMode, setFilterMode] = useState<FilterMode>('all');
+    const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
     const [isLoading, setIsLoading] = useState(false);
-    const [loadingMessage, setLoadingMessage] = useState('AI Düşünüyor...');
+    const [loadingMessage, setLoadingMessage] = useState(t('loading.aiThinking', 'AI Düşünüyor...'));
     const [aiMessage, setAiMessage] = useState<string | null>(null);
     const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const [reminders, setReminders] = useState<string[]>([]);
@@ -69,7 +75,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
     const checkApiKey = useCallback(() => {
         if (!apiKey) {
-            setNotification({ message: 'Lütfen profil sayfasından Gemini API anahtarınızı girin.', type: 'error' });
+            setNotification({ message: t('error.noApiKey', 'Lütfen profil sayfasından Gemini API anahtarınızı girin.'), type: 'error' });
             return false;
         }
         return true;
@@ -120,7 +126,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const handleAddTask = useCallback(async (description: string, imageBase64?: string, imageMimeType?: string, extra?: { locationReminder?: GeoReminder }) => {
         if (!checkApiKey()) return;
         setIsLoading(true);
-        setLoadingMessage('Göreviniz analiz ediliyor...');
+        setLoadingMessage(t('loading.analyzingTask', 'Göreviniz analiz ediliyor...'));
 
         try {
             // FIX: Use the specific AnalyzedTaskData type for the AI result.
@@ -151,11 +157,11 @@ const newTodo: Todo = {
                         lng: extra.locationReminder.lng,
                         radius: extra.locationReminder.radius,
                         transition: extra.locationReminder.trigger,
-                        title: 'Konum Yakınında Görev',
+                        title: t('notification.locationTask', 'Konum Yakınında Görev'),
                         text: newTodo.text,
                     });
                 }
-                setNotification({ message: 'Yeni görev eklendi!', type: 'success' });
+                setNotification({ message: t('success.taskAdded', 'Yeni görev eklendi!'), type: 'success' });
             } else {
                 throw new Error("AI analysis returned null.");
             }
@@ -171,7 +177,7 @@ const newTodo: Todo = {
                 locationReminder: extra?.locationReminder || null,
             };
             setTodos(prev => [newTodo, ...prev]);
-            setNotification({ message: 'Görev eklendi (AI analizi başarısız).', type: 'error' });
+            setNotification({ message: t('error.taskAddedWithoutAI', 'Görev eklendi (AI analizi başarısız).'), type: 'error' });
         } finally {
             setIsLoading(false);
         }
@@ -214,7 +220,7 @@ const newTodo: Todo = {
         if (!checkApiKey()) return;
 
         setIsLoading(true);
-        setLoadingMessage('Yol tarifi alınıyor...');
+        setLoadingMessage(t('loading.gettingDirections', 'Yol tarifi alınıyor...'));
         const directions = await geminiService.getDirections(apiKey, origin, todoForDirections.aiMetadata.destination);
         setIsLoading(false);
 
@@ -228,7 +234,7 @@ const newTodo: Todo = {
                 }
             } : t));
         } else {
-            setNotification({ message: 'Yol tarifi alınamadı.', type: 'error' });
+            setNotification({ message: t('error.directionsNotFound', 'Yol tarifi alınamadı.'), type: 'error' });
         }
         setTodoForDirections(null);
     };
@@ -240,7 +246,7 @@ const newTodo: Todo = {
           setChatHistory([
             {
               role: 'model',
-              text: `Merhaba, ben ${assistantName}. Size nasıl yardımcı olabilirim? Görev ekleyebilir, gününüzü özetleyebilir veya sorularınızı yanıtlayabilirim.`
+              text: t('chat.greeting', `Merhaba, ben {{assistantName}}. Size nasıl yardımcı olabilirim? Görev ekleyebilir, gününüzü özetleyebilir veya sorularınızı yanıtlayabilirim.`).replace('{{assistantName}}', assistantName)
             },
           ]);
         }
@@ -257,7 +263,7 @@ const newTodo: Todo = {
 
         if (intentResult?.intent === 'add_task' && intentResult.description) {
             await handleAddTask(intentResult.description);
-            const modelMessage: ChatMessage = { role: 'model', text: `Elbette, "${intentResult.description}" görevi listeye eklendi.` };
+            const modelMessage: ChatMessage = { role: 'model', text: t('chat.taskAdded', `Elbette, "{{description}}" görevi listeye eklendi.`).replace('{{description}}', intentResult.description) };
             setChatHistory(prev => [...prev, modelMessage]);
             setIsLoading(false);
             return;
@@ -270,7 +276,7 @@ const newTodo: Todo = {
                 createdAt: new Date().toISOString(),
             };
             setNotes(prev => [newNote, ...prev]);
-            const modelMessage: ChatMessage = { role: 'model', text: `Anlaşıldı, "${intentResult.description}" notlarınıza eklendi.` };
+            const modelMessage: ChatMessage = { role: 'model', text: t('chat.noteAdded', `Anlaşıldı, "{{description}}" notlarınıza eklendi.`).replace('{{description}}', intentResult.description) };
             setChatHistory(prev => [...prev, modelMessage]);
             setIsLoading(false);
             return;
@@ -278,7 +284,7 @@ const newTodo: Todo = {
 
         if (intentResult?.intent === 'get_summary') {
             await handleGetDailyBriefing();
-            const modelMessage: ChatMessage = { role: 'model', text: `Tabii, günün özeti hazırlanıyor...` };
+            const modelMessage: ChatMessage = { role: 'model', text: t('chat.preparingSummary', `Tabii, günün özeti hazırlanıyor...`) };
             setChatHistory(prev => [...prev, modelMessage]);
             setIsLoading(false);
             setIsChatOpen(false); // Close chat to show the summary modal
@@ -291,7 +297,7 @@ const newTodo: Todo = {
             const modelMessage: ChatMessage = { role: 'model', text: response.text };
             setChatHistory(prev => [...prev, modelMessage]);
         } else {
-            const errorMessage: ChatMessage = { role: 'model', text: 'Üzgünüm, bir hata oluştu. API anahtarınızı kontrol edip tekrar deneyin.' };
+            const errorMessage: ChatMessage = { role: 'model', text: t('chat.error', 'Üzgünüm, bir hata oluştu. API anahtarınızı kontrol edip tekrar deneyin.') };
             setChatHistory(prev => [...prev, errorMessage]);
         }
         setIsLoading(false);
@@ -303,11 +309,11 @@ const newTodo: Todo = {
         if (!checkApiKey()) return;
         setIsNotepadAiModalOpen(false);
         setIsLoading(true);
-        setLoadingMessage('Notlarınız işleniyor...');
+        setLoadingMessage(t('loading.processingNotes', 'Notlarınız işleniyor...'));
         
         const result = await geminiService.processNotesWithPrompt(apiKey, selectedNotes, prompt);
         
-        setAiMessage(result || 'Sonuç alınamadı.');
+        setAiMessage(result || t('error.noResult', 'Sonuç alınamadı.'));
         setIsLoading(false);
     };
 
@@ -317,16 +323,16 @@ const newTodo: Todo = {
         if (!note || !note.imageUrl) return;
 
         setIsLoading(true);
-        setLoadingMessage('Resimdeki metin çıkarılıyor...');
+        setLoadingMessage(t('loading.extractingText', 'Resimdeki metin çıkarılıyor...'));
         const extractedText = await geminiService.extractTextFromImage(apiKey, note);
         setIsLoading(false);
         
         if (extractedText) {
-            const updatedText = note.text ? `${note.text}\n\n--- AI Analizi ---\n${extractedText}` : extractedText;
+            const updatedText = note.text ? `${note.text}\n\n--- ${t('note.aiAnalysis', 'AI Analizi')} ---\n${extractedText}` : extractedText;
             setNotes(notes.map(n => n.id === noteId ? { ...n, text: updatedText } : n));
-            setNotification({ message: 'Resimden metin çıkarıldı.', type: 'success' });
+            setNotification({ message: t('success.textExtracted', 'Resimden metin çıkarıldı.'), type: 'success' });
         } else {
-            setNotification({ message: 'Resimden metin çıkarılamadı.', type: 'error' });
+            setNotification({ message: t('error.textExtractionFailed', 'Resimden metin çıkarılamadı.'), type: 'error' });
         }
     };
     
@@ -341,7 +347,7 @@ const newTodo: Todo = {
             setDailyBriefing(briefing);
             setIsSuggestionsModalOpen(true);
         } else {
-            setNotification({ message: 'Günlük özet alınamadı.', type: 'error' });
+            setNotification({ message: t('error.dailySummaryFailed', 'Günlük özet alınamadı.'), type: 'error' });
         }
     };
 
@@ -362,7 +368,7 @@ const newTodo: Todo = {
                         setTodos(todos.filter(t => !t.completed));
                         setNotes([]);
                         setLastArchiveDate(todayStr);
-                        setNotification({ message: 'Tamamlanan görevler ve notlar arşivlendi.', type: 'success' });
+                        setNotification({ message: t('success.itemsArchived', 'Tamamlanan görevler ve notlar arşivlendi.'), type: 'success' });
                     });
                 } else {
                      setLastArchiveDate(todayStr);
@@ -410,13 +416,44 @@ const newTodo: Todo = {
                 lng: reminder.lng,
                 radius: reminder.radius,
                 transition: reminder.trigger,
-                title: 'Konum Yakınında Görev',
-                text: (todos.find(x => x.id === id)?.text) || 'Görev',
+                title: t('notification.locationTask', 'Konum Yakınında Görev'),
+                text: (todos.find(x => x.id === id)?.text) || t('unit.task', 'Görev'),
             });
         } else {
             removeGeofence(id);
         }
     }, [setTodos, todos]);
+
+    // Filter todos based on current filters
+    const filteredTodos = todos.filter(todo => {
+        // Filter by completion status
+        if (filterMode === 'active' && todo.completed) return false;
+        if (filterMode === 'completed' && !todo.completed) return false;
+        
+        // Filter by time
+        if (timeFilter !== 'all' && todo.datetime) {
+            const todoDate = new Date(todo.datetime);
+            const now = new Date();
+            
+            if (timeFilter === 'today') {
+                return todoDate.toDateString() === now.toDateString();
+            } else if (timeFilter === 'thisWeek') {
+                const startOfWeek = new Date(now);
+                startOfWeek.setDate(now.getDate() - now.getDay());
+                startOfWeek.setHours(0, 0, 0, 0);
+                const endOfWeek = new Date(startOfWeek);
+                endOfWeek.setDate(startOfWeek.getDate() + 6);
+                endOfWeek.setHours(23, 59, 59, 999);
+                return todoDate >= startOfWeek && todoDate <= endOfWeek;
+            } else if (timeFilter === 'thisMonth') {
+                return todoDate.getMonth() === now.getMonth() && todoDate.getFullYear() === now.getFullYear();
+            }
+        } else if (timeFilter !== 'all' && !todo.datetime) {
+            return false; // Exclude todos without datetime when time filter is active
+        }
+        
+        return true;
+    });
 
     return (
         <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -424,7 +461,7 @@ const newTodo: Todo = {
             {notification && <NotificationPopup message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
             {reminders.map(id => {
                  const todo = todos.find(t => t.id === id);
-                 return todo ? <ReminderPopup key={id} message={`Yaklaşan Görev: ${todo.text}`} onClose={() => setReminders(r => r.filter(rid => rid !== id))} /> : null;
+                 return todo ? <ReminderPopup key={id} message={`${t('reminder.upcomingTask', 'Yaklaşan Görev')}: ${todo.text}`} onClose={() => setReminders(r => r.filter(rid => rid !== id))} /> : null;
             })}
 
             <Header theme={theme} setTheme={setTheme} accentColor={accentColor} setAccentColor={setAccentColor} onNavigateToProfile={onNavigateToProfile} />
@@ -438,21 +475,171 @@ const newTodo: Todo = {
                 />
                 {aiMessage && <AiAssistantMessage message={aiMessage} onClose={() => setAiMessage(null)} />}
 
-                <div className="flex justify-between items-center mb-4">
-                    <div className="flex items-center gap-4">
-                        <h2 className="text-2xl font-bold">Görevlerim</h2>
-                        <button onClick={handleGetDailyBriefing} className="hidden sm:inline-flex items-center gap-2 text-sm text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] hover:underline">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                            Günün Özetini Al
-                        </button>
-                         <button onClick={() => setIsArchiveModalOpen(true)} className="hidden sm:inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[var(--accent-color-600)] dark:hover:text-[var(--accent-color-400)] hover:underline">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" /><path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" /></svg>
-                             Arşivi Görüntüle
-                        </button>
+                {/* Enhanced Header Section */}
+                <div className="bg-white/30 dark:bg-gray-800/30 backdrop-blur-2xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-600/40 mb-6 overflow-hidden">
+                    {/* Main Header */}
+                    <div className="p-6 pb-4">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-gradient-to-br from-[var(--accent-color-500)] to-[var(--accent-color-600)] rounded-lg shadow-md">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('title.myTasks', 'Görevlerim')}</h2>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                            {todos.filter(t => !t.completed).length} {t('main.stats.active', 'aktif')}, {todos.filter(t => t.completed).length} {t('main.stats.completed', 'tamamlanmış')} {t('unit.task', 'görev')}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Action Buttons */}
+                            <div className="flex items-center gap-2">
+                                <button 
+                                    onClick={handleGetDailyBriefing} 
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[var(--accent-color-500)]/80 to-[var(--accent-color-600)]/80 backdrop-blur-xl border border-white/20 text-white text-sm font-medium rounded-xl shadow-lg hover:shadow-xl hover:from-[var(--accent-color-400)]/90 hover:to-[var(--accent-color-500)]/90 transform hover:scale-105 transition-all duration-300 hover:border-white/30"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                    <span className="hidden sm:inline">{t('main.button.dailySummary', 'Günün Özeti')}</span>
+                                </button>
+                                
+                                <button 
+                                    onClick={() => setIsArchiveModalOpen(true)} 
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl border border-white/20 dark:border-gray-600/30 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl shadow-lg hover:shadow-xl hover:bg-white/20 dark:hover:bg-gray-700/40 hover:border-white/30 dark:hover:border-gray-500/40 transform hover:scale-105 transition-all duration-300"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z" />
+                                        <path fillRule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                    <span className="hidden sm:inline">{t('main.button.archive', 'Arşiv')}</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
-                    <div className="flex items-center p-1 bg-gray-200 dark:bg-gray-700 rounded-lg">
-                        <button onClick={() => setViewMode('list')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'list' ? 'bg-white dark:bg-gray-800 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Liste</button>
-                        <button onClick={() => setViewMode('timeline')} className={`px-3 py-1 text-sm font-semibold rounded-md transition-colors ${viewMode === 'timeline' ? 'bg-white dark:bg-gray-800 text-[var(--accent-color-600)] shadow' : 'text-gray-600 dark:text-gray-300'}`}>Zaman Çizelgesi</button>
+                    
+                    {/* Filter Tabs Section */}
+                    <div className="border-t border-white/20 dark:border-gray-600/30 bg-white/10 dark:bg-gray-800/20 backdrop-blur-lg">
+                        <div className="px-6 py-4">
+                            <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+                                {/* Status Filter Tabs */}
+                                <div className="flex items-center">
+                                    <div className="flex items-center bg-white/20 dark:bg-gray-800/40 backdrop-blur-lg rounded-xl p-1 shadow-lg border border-white/30 dark:border-gray-600/30">
+                                        <button 
+                                            onClick={() => setFilterMode('all')}
+                                            className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all duration-300 ${
+                                                filterMode === 'all' 
+                                                    ? 'bg-[var(--accent-color-500)]/80 backdrop-blur-sm text-white shadow-lg border border-white/20' 
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:backdrop-blur-sm hover:border hover:border-white/20 dark:hover:border-gray-600/20'
+                                            }`}
+                                        >
+                                            {t('main.filter.allTasks', 'Tüm Görevler')}
+                                        </button>
+                                        <button 
+                                            onClick={() => setFilterMode('active')}
+                                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
+                                                filterMode === 'active' 
+                                                    ? 'bg-[var(--accent-color-500)]/80 backdrop-blur-sm text-white shadow-lg border border-white/20' 
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:backdrop-blur-sm hover:border hover:border-white/20 dark:hover:border-gray-600/20'
+                                            }`}
+                                        >
+                                            {t('main.filter.active', 'Aktif')}
+                                        </button>
+                                        <button 
+                                            onClick={() => setFilterMode('completed')}
+                                            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-300 ${
+                                                filterMode === 'completed' 
+                                                    ? 'bg-[var(--accent-color-500)]/80 backdrop-blur-sm text-white shadow-lg border border-white/20' 
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:backdrop-blur-sm hover:border hover:border-white/20 dark:hover:border-gray-600/20'
+                                            }`}
+                                        >
+                                            {t('main.filter.completed', 'Tamamlanan')}
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {/* Time Filter and View Mode */}
+                                <div className="flex items-center gap-3">
+                                    {/* Time Filter */}
+                                    <div className="flex items-center bg-white/20 dark:bg-gray-800/40 backdrop-blur-lg rounded-xl p-1 shadow-lg border border-white/30 dark:border-gray-600/30">
+                                        <button 
+                                            onClick={() => setTimeFilter('all')}
+                                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-300 ${
+                                                timeFilter === 'all'
+                                                    ? 'bg-[var(--accent-color-300)]/60 dark:bg-[var(--accent-color-600)]/60 backdrop-blur-sm text-[var(--accent-color-800)] dark:text-[var(--accent-color-200)] shadow-lg border border-[var(--accent-color-400)]/30'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:backdrop-blur-sm hover:border hover:border-white/20 dark:hover:border-gray-600/20'
+                                            }`}
+                                        >
+                                            {t('main.timeFilter.all', 'Tümü')}
+                                        </button>
+                                        <button 
+                                            onClick={() => setTimeFilter('today')}
+                                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-300 ${
+                                                timeFilter === 'today'
+                                                    ? 'bg-[var(--accent-color-300)]/60 dark:bg-[var(--accent-color-600)]/60 backdrop-blur-sm text-[var(--accent-color-800)] dark:text-[var(--accent-color-200)] shadow-lg border border-[var(--accent-color-400)]/30'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:backdrop-blur-sm hover:border hover:border-white/20 dark:hover:border-gray-600/20'
+                                            }`}
+                                        >
+                                            {t('main.timeFilter.today', 'Bugün')}
+                                        </button>
+                                        <button 
+                                            onClick={() => setTimeFilter('thisWeek')}
+                                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-300 ${
+                                                timeFilter === 'thisWeek'
+                                                    ? 'bg-[var(--accent-color-300)]/60 dark:bg-[var(--accent-color-600)]/60 backdrop-blur-sm text-[var(--accent-color-800)] dark:text-[var(--accent-color-200)] shadow-lg border border-[var(--accent-color-400)]/30'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:backdrop-blur-sm hover:border hover:border-white/20 dark:hover:border-gray-600/20'
+                                            }`}
+                                        >
+                                            {t('main.timeFilter.thisWeek', 'Bu Hafta')}
+                                        </button>
+                                        <button 
+                                            onClick={() => setTimeFilter('thisMonth')}
+                                            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-300 ${
+                                                timeFilter === 'thisMonth'
+                                                    ? 'bg-[var(--accent-color-300)]/60 dark:bg-[var(--accent-color-600)]/60 backdrop-blur-sm text-[var(--accent-color-800)] dark:text-[var(--accent-color-200)] shadow-lg border border-[var(--accent-color-400)]/30'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:backdrop-blur-sm hover:border hover:border-white/20 dark:hover:border-gray-600/20'
+                                            }`}
+                                        >
+                                            {t('main.timeFilter.thisMonth', 'Bu Ay')}
+                                        </button>
+                                    </div>
+                                    
+                                    {/* View Mode Toggle */}
+                                    <div className="flex items-center bg-white/20 dark:bg-gray-800/40 backdrop-blur-lg rounded-xl p-1 shadow-lg border border-white/30 dark:border-gray-600/30">
+                                        <button 
+                                            onClick={() => setViewMode('list')} 
+                                            className={`p-2 rounded-lg transition-all duration-300 ${
+                                                viewMode === 'list' 
+                                                    ? 'bg-[var(--accent-color-500)]/80 backdrop-blur-sm text-white shadow-lg border border-white/20' 
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:backdrop-blur-sm hover:border hover:border-white/20 dark:hover:border-gray-600/20'
+                                            }`}
+                            title={t('view.list', 'Liste Görünümü')}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                            </svg>
+                                        </button>
+                                        <button 
+                                            onClick={() => setViewMode('timeline')} 
+                                            className={`p-2 rounded-lg transition-all duration-300 ${
+                                                viewMode === 'timeline' 
+                                                    ? 'bg-[var(--accent-color-500)]/80 backdrop-blur-sm text-white shadow-lg border border-white/20' 
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-gray-700/30 hover:backdrop-blur-sm hover:border hover:border-white/20 dark:hover:border-gray-600/20'
+                                            }`}
+                            title={t('view.timeline', 'Zaman Çizelgesi')}
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -460,16 +647,16 @@ const newTodo: Todo = {
                     <div className="lg:col-span-2">
                         {viewMode === 'list' ? (
                             <TodoList
-                                todos={todos}
+                                todos={filteredTodos}
                                 onToggle={handleToggleTodo}
                                 onDelete={handleDeleteTodo}
                                 onGetDirections={handleGetDirections}
                                 onEdit={handleEditTodo}
-                                onShare={(todo) => navigator.clipboard.writeText(`Görev: ${todo.text}${todo.datetime ? `\nTarih: ${new Date(todo.datetime).toLocaleString('tr-TR')}` : ''}`).then(() => setNotification({message: 'Görev panoya kopyalandı!', type: 'success'}))}
+                                onShare={(todo) => navigator.clipboard.writeText(`${t('unit.task', 'Görev')}: ${todo.text}${todo.datetime ? `\n${t('field.date', 'Tarih')}: ${new Date(todo.datetime).toLocaleString('tr-TR')}` : ''}`).then(() => setNotification({message: t('success.copiedToClipboard', 'Görev panoya kopyalandı!'), type: 'success'}))}
                                 onUpdateGeoReminder={handleUpdateGeoReminder}
                             />
                         ) : (
-                            <TimelineView todos={todos} />
+                            <TimelineView todos={filteredTodos} />
                         )}
                     </div>
                     <div className="lg:col-span-1">

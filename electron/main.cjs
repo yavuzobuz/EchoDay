@@ -193,6 +193,12 @@ function createWindow() {
   mainWindow.once('ready-to-show', () => {
     log('Window ready-to-show');
     mainWindow.show();
+    
+    // Auto-open DevTools in production for debugging
+    if (!isDev) {
+      log('[DevTools] Opening DevTools in production mode for debugging');
+      mainWindow.webContents.openDevTools();
+    }
   });
 
   // Handle window close

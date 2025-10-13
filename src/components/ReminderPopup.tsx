@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
+import { useI18n } from '../contexts/I18nContext';
 import { playReminderSound, ReminderSound } from '../utils/reminderSounds';
 
 interface ReminderPopupProps {
@@ -12,6 +13,7 @@ interface ReminderPopupProps {
 }
 
 const ReminderPopup: React.FC<ReminderPopupProps> = ({ message, onClose, onSnooze, priority = 'medium' }) => {
+  const { t } = useI18n();
   const tts = useTextToSpeech();
   const hasSpokenRef = useRef(false);
   const [showSnoozeOptions, setShowSnoozeOptions] = useState(false);
@@ -42,11 +44,11 @@ const ReminderPopup: React.FC<ReminderPopupProps> = ({ message, onClose, onSnooz
   }, [onClose, tts, message]);
 
   const snoozeOptions = [
-    { label: '5 dk', minutes: 5 },
-    { label: '10 dk', minutes: 10 },
-    { label: '30 dk', minutes: 30 },
-    { label: '1 saat', minutes: 60 },
-    { label: 'Yarın', minutes: 1440 }
+    { label: t('reminder.5min'), minutes: 5 },
+    { label: t('reminder.10min'), minutes: 10 },
+    { label: t('reminder.30min'), minutes: 30 },
+    { label: t('reminder.1hour'), minutes: 60 },
+    { label: t('reminder.tomorrow'), minutes: 1440 }
   ];
   
   const handleSnooze = (minutes: number) => {
@@ -93,7 +95,7 @@ const ReminderPopup: React.FC<ReminderPopupProps> = ({ message, onClose, onSnooz
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                 </svg>
-                Ertele
+                {t('reminder.snooze')}
               </button>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -110,7 +112,7 @@ const ReminderPopup: React.FC<ReminderPopupProps> = ({ message, onClose, onSnooz
                   onClick={() => setShowSnoozeOptions(false)}
                   className="px-3 py-1.5 bg-white/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 rounded-md hover:bg-white dark:hover:bg-gray-700 transition-colors text-xs"
                 >
-                  İptal
+                  {t('common.cancel')}
                 </button>
               </div>
             )}

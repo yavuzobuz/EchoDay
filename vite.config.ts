@@ -5,29 +5,44 @@ import { resolve } from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react(),
-    // Custom plugin to fix asset paths for Electron
+    react({
+      // Disable Fast Refresh on mobile for better compatibility
+      fastRefresh: process.env.MOBILE_BUILD !== 'true',
+      // JSX runtime for better compatibility
+      jsxRuntime: 'automatic'
+    }),
     {
-      name: 'fix-electron-paths',
+      name: 'electron-index-html-fix',
       enforce: 'post',
       transformIndexHtml(html) {
-        // Replace ./ with / in all src/href attributes for Electron compatibility
-        return html.replace(/(src|href)="\.\/([^"]+)"/g, '$1="/$2"');
-      }
-    }
+        // Remove any crossorigin attributes to avoid file:// CORS issues in Electron
+        return html.replace(/\s+crossorigin(=("[^"]*"|'[^']*'|[^\s>]+))?/g, '');
+      },
+    },
   ],
-  base: '', // Empty for Electron file:// protocol compatibility
+  base: './', // Relative paths for Electron file:// protocol
   server: {
     host: '0.0.0.0',
     port: 5173,
+    // Completely disable HMR and websockets for mobile
+    hmr: process.env.MOBILE_BUILD === 'true' ? false : {
+      port: 5174,
+      host: '0.0.0.0'
+    },
+    // Disable file watching for mobile to prevent any websocket connections
+    watch: process.env.MOBILE_BUILD === 'true' ? null : undefined,
+    // Enable HTTPS for mobile microphone access
+    https: process.env.MOBILE_BUILD === 'true',
     headers: {
       // Security headers for development
       'X-Frame-Options': 'DENY',
       'X-Content-Type-Options': 'nosniff',
       'X-XSS-Protection': '1; mode=block',
       'Referrer-Policy': 'strict-origin-when-cross-origin',
-      // CSP for development (less strict)
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* ws://localhost:* https://generativelanguage.googleapis.com https://*.googleapis.com https://fonts.googleapis.com https://*.supabase.co wss://*.supabase.co; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+      // CSP for development (less strict) - allow mobile WebSocket connections
+      'Content-Security-Policy': process.env.MOBILE_BUILD === 'true' 
+        ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' http://*:* ws://*:* wss://*:* https://generativelanguage.googleapis.com https://*.googleapis.com https://fonts.googleapis.com https://*.supabase.co; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        : "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* ws://localhost:* https://generativelanguage.googleapis.com https://*.googleapis.com https://fonts.googleapis.com https://*.supabase.co wss://*.supabase.co; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     }
   },
   build: {

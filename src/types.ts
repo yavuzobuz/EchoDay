@@ -27,6 +27,7 @@ export interface AnalyzedTaskData {
   estimatedDuration?: number;
   requiresRouting?: boolean;
   destination?: string | null;
+  location?: string | null; // Extracted location information (e.g. "Bostancı final okulları", "Kadıköy", "Memorial Hospital")
   isConflict?: boolean;
   // Extracted reminder information from user input
   reminderMinutesBefore?: number | null; // If user says "bir gün önce" = 1440, "1 saat önce" = 60
@@ -99,6 +100,7 @@ export interface Todo {
   completed: boolean;
   createdAt: string;
   isDeleted?: boolean; // Soft delete flag - geçici silme için
+  isArchived?: boolean; // Archive flag - arşivlendiğini takip etmek için
   aiMetadata?: AIMetadata;
   reminders?: ReminderConfig[];
   recurrence?: RecurrenceRule; // yinelenen görev

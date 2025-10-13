@@ -405,7 +405,7 @@ export async function archiveUpsertTodos(userId: string, todos: any[]) {
   try {
     const now = new Date().toISOString();
     const payload = todos.map((t) => {
-      const { id, text, priority, datetime, createdAt, completed, aiMetadata } = t;
+      const { id, text, priority, datetime, createdAt, completed } = t;
       return {
         id, // use original id
         user_id: userId,
@@ -413,7 +413,6 @@ export async function archiveUpsertTodos(userId: string, todos: any[]) {
         priority: priority || 'medium',
         datetime: datetime || null,
         completed: completed ?? false,
-        ai_metadata: aiMetadata || null,
         created_at: createdAt || now,
         archived_at: now,
       };
@@ -445,10 +444,11 @@ export async function archiveFetchByDate(userId: string, date: string) {
     const startISO = start.toISOString();
     const endISO = end.toISOString();
 
-    // Filter by created_at (when task was created) not archived_at (when it was archived)
+    // Filter by archived_at (when it was archived) - this is the primary filter for archive date
+    // Also include items created on the selected date as fallback
     const [tRes, nRes] = await Promise.all([
-      supabase.from('archived_todos').select('*').eq('user_id', userId).gte('created_at', startISO).lte('created_at', endISO),
-      supabase.from('archived_notes').select('*').eq('user_id', userId).gte('created_at', startISO).lte('created_at', endISO),
+      supabase.from('archived_todos').select('*').eq('user_id', userId).or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
+      supabase.from('archived_notes').select('*').eq('user_id', userId).or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
     ]);
     
     const todos = (tRes.data || []).map((row: any) => ({
@@ -457,7 +457,6 @@ export async function archiveFetchByDate(userId: string, date: string) {
       archivedAt: row.archived_at ?? row.archivedAt,
       userId: row.user_id ?? row.userId,
       completed: row.completed ?? false,
-      aiMetadata: row.ai_metadata ?? row.aiMetadata,
     }));
     const notes = (nRes.data || []).map((row: any) => ({
       ...row,
@@ -504,6 +503,229 @@ export async function archiveSearch(userId: string, query: string) {
   }
 }
 
+// ========== UNARCHIVE OPERATIONS ==========
+export async function unarchiveTodos(userId: string, todoIds: string[]) {
+  if (!supabase || todoIds.length === 0) return;
+  if (!isUuid(userId)) {
+    console.warn('[Unarchive] Geçersiz userId (guest modu?) - unarchiveTodos atlandı');
+    return;
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Unarchive] Oturum yok veya userId uyuşmuyor - unarchiveTodos atlandı');
+    return;
+  }
+  
+  try {
+    // 1. Arşivden verileri al
+    const { data: archivedTodos, error: fetchError } = await supabase
+      .from('archived_todos')
+      .select('*')
+      .eq('user_id', userId)
+      .in('id', todoIds);
+    
+    if (fetchError) throw fetchError;
+    if (!archivedTodos || archivedTodos.length === 0) {
+      console.warn('[Unarchive] Arşivde todo bulunamadı');
+      return;
+    }
+    
+    // 2. Aktif todos tablosuna geri ekle
+    const now = new Date().toISOString();
+    const todosToRestore = archivedTodos.map((todo: any) => ({
+      id: todo.id,
+      user_id: userId,
+      text: todo.text,
+      priority: todo.priority,
+      datetime: todo.datetime,
+      completed: false, // Geri getirilen görevler tamamlanmamış olarak işaretlenir
+      created_at: todo.created_at,
+      updated_at: now,
+      is_deleted: false
+    }));
+    
+    const { error: upsertError } = await supabase
+      .from('todos')
+      .upsert(todosToRestore);
+    
+    if (upsertError) throw upsertError;
+    
+    // 3. Arşivden sil
+    const { error: deleteError } = await supabase
+      .from('archived_todos')
+      .delete()
+      .eq('user_id', userId)
+      .in('id', todoIds);
+    
+    if (deleteError) {
+      console.error('[Unarchive] Arşivden silme başarısız, ancak geri yükleme tamamlandı:', deleteError);
+    }
+    
+    console.log(`[Unarchive] ✅ ${todoIds.length} todo başarıyla geri yüklendi`);
+  } catch (error: any) {
+    console.error('[Unarchive] ❌ Todo geri yükleme başarısız:', error);
+    throw error;
+  }
+}
+
+export async function unarchiveNotes(userId: string, noteIds: string[]) {
+  if (!supabase || noteIds.length === 0) return;
+  if (!isUuid(userId)) {
+    console.warn('[Unarchive] Geçersiz userId (guest modu?) - unarchiveNotes atlandı');
+    return;
+  }
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[Unarchive] Oturum yok veya userId uyuşmuyor - unarchiveNotes atlandı');
+    return;
+  }
+  
+  try {
+    // 1. Arşivden verileri al
+    const { data: archivedNotes, error: fetchError } = await supabase
+      .from('archived_notes')
+      .select('*')
+      .eq('user_id', userId)
+      .in('id', noteIds);
+    
+    if (fetchError) throw fetchError;
+    if (!archivedNotes || archivedNotes.length === 0) {
+      console.warn('[Unarchive] Arşivde not bulunamadı');
+      return;
+    }
+    
+    // 2. Aktif notes tablosuna geri ekle
+    const now = new Date().toISOString();
+    const notesToRestore = archivedNotes.map((note: any) => ({
+      id: note.id,
+      user_id: userId,
+      text: note.text,
+      image_url: note.image_url,
+      audio_url: note.audio_url,
+      created_at: note.created_at,
+      updated_at: now
+    }));
+    
+    const { error: upsertError } = await supabase
+      .from('notes')
+      .upsert(notesToRestore);
+    
+    if (upsertError) throw upsertError;
+    
+    // 3. Arşivden sil
+    const { error: deleteError } = await supabase
+      .from('archived_notes')
+      .delete()
+      .eq('user_id', userId)
+      .in('id', noteIds);
+    
+    if (deleteError) {
+      console.error('[Unarchive] Arşivden silme başarısız, ancak geri yükleme tamamlandı:', deleteError);
+    }
+    
+    console.log(`[Unarchive] ✅ ${noteIds.length} not başarıyla geri yüklendi`);
+  } catch (error: any) {
+    console.error('[Unarchive] ❌ Not geri yükleme başarısız:', error);
+    throw error;
+  }
+}
+
+// ========== BATCH OPERATIONS ==========
+export async function batchArchiveTodos(userId: string, todos: any[], batchSize = 100) {
+  if (!supabase || todos.length === 0) return;
+  if (!isUuid(userId)) {
+    console.warn('[BatchArchive] Geçersiz userId (guest modu?) - batchArchiveTodos atlandı');
+    return;
+  }
+  
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[BatchArchive] Oturum yok veya userId uyuşmuyor - batchArchiveTodos atlandı');
+    return;
+  }
+  
+  try {
+    const batches = [];
+    for (let i = 0; i < todos.length; i += batchSize) {
+      batches.push(todos.slice(i, i + batchSize));
+    }
+    
+    console.log(`[BatchArchive] ${todos.length} todo ${batches.length} batch'e bölündü (batch size: ${batchSize})`);
+    
+    let totalArchived = 0;
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      
+      try {
+        await archiveUpsertTodos(userId, batch);
+        totalArchived += batch.length;
+        console.log(`[BatchArchive] Batch ${i + 1}/${batches.length} tamamlandı (${batch.length} todo)`);
+        
+        // Rate limiting için kısa bekleme (Supabase rate limit'lerini aşmamak için)
+        if (i < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.error(`[BatchArchive] Batch ${i + 1} başarısız:`, error);
+        // Bir batch başarısız olsa bile diğerlerine devam et
+      }
+    }
+    
+    console.log(`[BatchArchive] ✅ Toplam ${totalArchived}/${todos.length} todo arşivlendi`);
+    return totalArchived;
+  } catch (error: any) {
+    console.error('[BatchArchive] ❌ Batch arşivleme başarısız:', error);
+    throw error;
+  }
+}
+
+export async function batchArchiveNotes(userId: string, notes: any[], batchSize = 100) {
+  if (!supabase || notes.length === 0) return;
+  if (!isUuid(userId)) {
+    console.warn('[BatchArchive] Geçersiz userId (guest modu?) - batchArchiveNotes atlandı');
+    return;
+  }
+  
+  const ok = await ensureSessionFor(userId);
+  if (!ok) {
+    console.warn('[BatchArchive] Oturum yok veya userId uyuşmuyor - batchArchiveNotes atlandı');
+    return;
+  }
+  
+  try {
+    const batches = [];
+    for (let i = 0; i < notes.length; i += batchSize) {
+      batches.push(notes.slice(i, i + batchSize));
+    }
+    
+    console.log(`[BatchArchive] ${notes.length} not ${batches.length} batch'e bölündü (batch size: ${batchSize})`);
+    
+    let totalArchived = 0;
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
+      
+      try {
+        await archiveUpsertNotes(userId, batch);
+        totalArchived += batch.length;
+        console.log(`[BatchArchive] Batch ${i + 1}/${batches.length} tamamlandı (${batch.length} not)`);
+        
+        // Rate limiting için kısa bekleme
+        if (i < batches.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.error(`[BatchArchive] Batch ${i + 1} başarısız:`, error);
+      }
+    }
+    
+    console.log(`[BatchArchive] ✅ Toplam ${totalArchived}/${notes.length} not arşivlendi`);
+    return totalArchived;
+  } catch (error: any) {
+    console.error('[BatchArchive] ❌ Batch arşivleme başarısız:', error);
+    throw error;
+  }
+}
+
 export async function fetchAll(userId: string) {
   if (!supabase) return { todos: [], notes: [] };
   if (!isUuid(userId)) {
@@ -525,7 +747,6 @@ export async function fetchAll(userId: string) {
     createdAt: row.created_at ?? row.createdAt,
     updatedAt: row.updated_at ?? row.updatedAt,
     userId: row.user_id ?? row.userId,
-    aiMetadata: row.ai_metadata ?? row.aiMetadata,
   }));
 
   const notes = (nRes.data || []).map((row: any) => ({

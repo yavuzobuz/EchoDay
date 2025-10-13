@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 import MailList from '../components/MailList';
 
 const EmailPage: React.FC = () => {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [apiKey, setApiKey] = useState('');
@@ -58,7 +60,7 @@ const EmailPage: React.FC = () => {
           <button 
             onClick={() => navigate('/app')} 
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title="Ana sayfaya dön"
+            title={t('common.backHome','Ana sayfaya dön')}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -70,7 +72,7 @@ const EmailPage: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
             </div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">E-posta</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('email.title','E-posta')}</h1>
           </div>
         </div>
       </div>

@@ -43,8 +43,8 @@ const DayAgendaModal: React.FC<DayAgendaModalProps> = ({ isOpen, onClose, date, 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-lg w-full max-h-[80vh] overflow-hidden">
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col min-h-0">
+        <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               📅 {formatDate(date)}
@@ -63,7 +63,7 @@ const DayAgendaModal: React.FC<DayAgendaModalProps> = ({ isOpen, onClose, date, 
           </p>
         </div>
         
-        <div className="p-4 overflow-y-auto max-h-96">
+        <div className="p-4 overflow-y-auto flex-1 min-h-0 mobile-scroll touch-pan-y">
           {dayTodos.length === 0 ? (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto mb-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">

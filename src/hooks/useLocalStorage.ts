@@ -5,18 +5,43 @@ function useLocalStorage<T,>(key: string, initialValue: T): [T, React.Dispatch<R
   const [storedValue, setStoredValue] = useState<T>(() => {
     try {
       const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      const parsed = item ? JSON.parse(item) : initialValue;
+      
+      // Debug for todos with reminders
+      if (key.includes('todos_') && Array.isArray(parsed)) {
+        const todosWithReminders = parsed.filter((todo: any) => todo.reminders && todo.reminders.length > 0);
+        if (todosWithReminders.length > 0) {
+          console.log(`[LocalStorage] Loaded ${todosWithReminders.length} todos with reminders from key: ${key}`);
+          todosWithReminders.forEach((todo: any) => {
+            console.log(`[LocalStorage] Loaded todo "${todo.text}" with ${todo.reminders.length} reminders:`, todo.reminders);
+          });
+        }
+      }
+      
+      return parsed;
     } catch (error) {
-      console.error(error);
+      console.error('[LocalStorage] Failed to load from localStorage:', error);
       return initialValue;
     }
   });
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(key, JSON.stringify(storedValue));
+      const serialized = JSON.stringify(storedValue);
+      window.localStorage.setItem(key, serialized);
+      
+      // Debug for todos with reminders
+      if (key.includes('todos_') && Array.isArray(storedValue)) {
+        const todosWithReminders = storedValue.filter((todo: any) => todo.reminders && todo.reminders.length > 0);
+        if (todosWithReminders.length > 0) {
+          console.log(`[LocalStorage] Saved ${todosWithReminders.length} todos with reminders to key: ${key}`);
+          todosWithReminders.forEach((todo: any) => {
+            console.log(`[LocalStorage] Todo "${todo.text}" has ${todo.reminders.length} reminders:`, todo.reminders);
+          });
+        }
+      }
     } catch (error) {
-      console.error(error);
+      console.error('[LocalStorage] Failed to save to localStorage:', error);
     }
   }, [key, storedValue]);
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import DOMPurify from 'dompurify';
 import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 import { Todo, Note, Priority, EmailSummary } from '../types';
 import { mailService } from '../services/mailService';
 import { EmailAccount, EmailMessage, EmailTemplate, EmailAttachmentFile } from '../types/mail';
@@ -34,6 +35,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [attachments, setAttachments] = useState<EmailAttachmentFile[]>([]);
   const { user } = useAuth();
+  const { t } = useI18n();
   const userId = user?.id || 'guest';
 
   const htmlToText = (html?: string): string => {
@@ -48,7 +50,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
     console.log('[MailList] Debug - API key from prop:', { hasKey: !!apiKey, type: typeof apiKey, length: apiKey?.length });
     
     if (!apiKey) {
-      setOpMsg('AI analizi için Gemini API key gerekli - Ayarlara gidin');
+      setOpMsg(t('mail.aiAnalysisKeyRequired'));
       setTimeout(() => setOpMsg(null), 3000);
       return;
     }
@@ -60,12 +62,12 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
         setEmailSummary(summary);
         console.log('[MailList] Email summary:', summary);
       } else {
-        setOpMsg('Email analizi başarısız oldu');
+        setOpMsg(t('mail.analysisFailed'));
         setTimeout(() => setOpMsg(null), 3000);
       }
     } catch (error) {
       console.error('Error analyzing email:', error);
-      setOpMsg('Email analizi sırasında hata oluştu');
+      setOpMsg(t('mail.analysisError'));
       setTimeout(() => setOpMsg(null), 3000);
     } finally {
       setIsAnalyzing(false);
@@ -95,11 +97,11 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       
       const updated = [...newTodos, ...existing];
       localStorage.setItem(todosKey, JSON.stringify(updated));
-      setOpMsg(`${newTodos.length} görev eklendi`);
+      setOpMsg(`${newTodos.length} ${t('mail.tasksAdded')}`);
       setTimeout(() => setOpMsg(null), 3000);
     } catch (e) {
       console.error('saveTasksFromSummary failed', e);
-      setOpMsg('Görevler eklenemedi');
+      setOpMsg(t('mail.tasksAddFailed'));
       setTimeout(() => setOpMsg(null), 3000);
     }
   };
@@ -120,11 +122,11 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       
       const updated = [...newNotes, ...existing];
       localStorage.setItem(notesKey, JSON.stringify(updated));
-      setOpMsg(`${newNotes.length} not eklendi`);
+      setOpMsg(`${newNotes.length} ${t('mail.notesAdded')}`);
       setTimeout(() => setOpMsg(null), 3000);
     } catch (e) {
       console.error('saveNotesFromSummary failed', e);
-      setOpMsg('Notlar eklenemedi');
+      setOpMsg(t('mail.notesAddFailed'));
       setTimeout(() => setOpMsg(null), 3000);
     }
   };
@@ -135,11 +137,11 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       const existing: Note[] = JSON.parse(localStorage.getItem(notesKey) || '[]');
       const plain = email.bodyHtml ? htmlToText(email.bodyHtml) : (email.body || email.bodyPreview || email.snippet || '');
       const lines = [
-        `Konu: ${email.subject || '(Konu yok)'}`,
-        `Gönderen: ${email.from.name || email.from.address} <${email.from.address}>`,
-        `Tarih: ${new Date(email.date).toLocaleString('tr-TR')}`,
+        `${t('mail.subject')} ${email.subject || t('mail.noSubject')}`,
+        `${t('mail.from')} ${email.from.name || email.from.address} <${email.from.address}>`,
+        `${t('mail.date')} ${new Date(email.date).toLocaleString('tr-TR')}`,
         '',
-        'Özet:',
+        t('mail.summaryLabel'),
         plain
       ];
       const newNote: Note = {
@@ -149,11 +151,11 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       };
       const updated = [newNote, ...existing];
       localStorage.setItem(notesKey, JSON.stringify(updated));
-      setOpMsg('E-posta notlara eklendi');
+      setOpMsg(t('mail.addedToNotes'));
       setTimeout(() => setOpMsg(null), 2500);
     } catch (e) {
       console.error('saveToNotes failed', e);
-      setOpMsg('Notlara eklenemedi');
+      setOpMsg(t('mail.addToNotesFailed'));
       setTimeout(() => setOpMsg(null), 2500);
     }
   };
@@ -173,7 +175,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       } catch {}
       const newTodo: Todo = {
         id: uuidv4(),
-        text: `E-posta: ${email.subject || '(Konu yok)'}`,
+        text: `${t('email.title')}: ${email.subject || t('mail.noSubject')}`,
         priority: Priority.Medium,
         datetime: parsedDatetime,
         completed: false,
@@ -182,11 +184,11 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       };
       const updated = [newTodo, ...existing];
       localStorage.setItem(todosKey, JSON.stringify(updated));
-      setOpMsg('E-postadan görev oluşturuldu');
+      setOpMsg(t('mail.taskCreated'));
       setTimeout(() => setOpMsg(null), 2500);
     } catch (e) {
       console.error('saveToTodos failed', e);
-      setOpMsg('Görev oluşturulamadı');
+      setOpMsg(t('mail.taskCreateFailed'));
       setTimeout(() => setOpMsg(null), 2500);
     }
   };
@@ -206,18 +208,18 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       });
 
       if (result.success) {
-        setOpMsg('✅ Yanıt gönderildi!');
+        setOpMsg(t('mail.replySent'));
         setShowReplyModal(false);
         setReplyText('');
         setReplyHtml('');
         setReplyAll(false);
         setAttachments([]);
       } else {
-        setOpMsg(`❌ Hata: ${result.error}`);
+        setOpMsg(`${t('mail.replyError')} ${result.error}`);
       }
     } catch (error) {
       console.error('Reply error:', error);
-      setOpMsg('❌ Yanıt gönderilemedi');
+      setOpMsg(t('mail.replyFailed'));
     } finally {
       setIsSending(false);
       setTimeout(() => setOpMsg(null), 3000);
@@ -257,7 +259,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
         setSelectedAccount(merged[0] as any);
       }
     } else {
-      setError(response.error || 'Hesaplar yüklenemedi');
+      setError(response.error || t('mail.accountsLoadFailed'));
     }
     
     setIsLoading(false);
@@ -273,14 +275,14 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       if (j.success) {
         setEmails(j.data);
       } else {
-        let errorMsg = j.error || 'E-postalar yüklenemedi';
+        let errorMsg = j.error || t('mail.emailsLoadFailed');
         // Better error messages for common issues
         if (errorMsg.includes('EAI_AGAIN') || errorMsg.includes('getaddrinfo')) {
-          errorMsg = 'IMAP sunucusuna bağlanılamıyor. İnternet bağlantınızı ve DNS ayarlarınızı kontrol edin.';
+          errorMsg = t('mail.imapConnectionError');
         } else if (errorMsg.includes('EAUTH') || errorMsg.includes('authentication')) {
-          errorMsg = 'Email şifreniz veya uygulama şifreniz hatalı. Lütfen ayarlarınızı kontrol edin.';
+          errorMsg = t('mail.authenticationError');
         } else if (errorMsg.includes('ETIMEDOUT') || errorMsg.includes('timeout')) {
-          errorMsg = 'IMAP sunucusu yanıt vermiyor. Lütfen daha sonra tekrar deneyin.';
+          errorMsg = t('mail.timeoutError');
         }
         setError(errorMsg);
       }
@@ -289,7 +291,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       if (response.success && response.data) {
         setEmails(response.data);
       } else {
-        setError(response.error || 'E-postalar yüklenemedi');
+        setError(response.error || t('mail.emailsLoadFailed'));
       }
     }
     
@@ -305,9 +307,9 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
     if (days === 0) {
       return date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
     } else if (days === 1) {
-      return 'Dün';
+      return t('mail.yesterday');
     } else if (days < 7) {
-      return `${days} gün önce`;
+      return `${days} ${t('mail.daysAgo')}`;
     } else {
       return date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
     }
@@ -342,16 +344,16 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
             </svg>
           </div>
           <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-            Mail Hesabı Bağlayın
+            {t('mail.connectAccount')}
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            E-postalarınızı görüntülemek için Gmail veya Outlook hesabınızı bağlayın.
+            {t('mail.connectDescription')}
           </p>
           <button
             onClick={onConnectClick}
             className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
           >
-            📧 Mail Hesabı Bağla
+            {t('mail.connectButton')}
           </button>
         </div>
       </div>
@@ -365,11 +367,11 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
         {/* Account Selector */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Gelen Kutusu</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">{t('mail.inbox')}</h2>
             <button
               onClick={onConnectClick}
               className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-              title="Yeni hesap ekle"
+              title={t('mail.addAccountTooltip')}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -426,7 +428,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
             </div>
           ) : emails.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-              <p className="text-gray-500 dark:text-gray-400">Henüz e-posta yok</p>
+              <p className="text-gray-500 dark:text-gray-400">{t('mail.noEmails')}</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -442,11 +444,11 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                         setSelectedEmail(prev => prev ? { ...prev, bodyHtml: detail.data.bodyHtml || prev.bodyHtml, attachments: (detail.data as any).attachments || prev.attachments } : prev);
                       } else {
                         console.error('Failed to fetch email detail:', detail.error);
-                        setError(detail.error || 'E-posta içeriği alınamadı');
+                        setError(detail.error || t('mail.emailContentFailed'));
                       }
                     } catch (e) { 
                       console.error('Exception fetching email detail:', e);
-                      setError('E-posta içeriği alınırken bir hata oluştu');
+                      setError(t('mail.emailContentError'));
                     }
                   }}
                   className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
@@ -462,7 +464,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                     </span>
                   </div>
                   <div className={`text-sm mb-1 truncate ${!email.isRead ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
-                    {email.subject || '(Konu yok)'}
+                    {email.subject || t('mail.noSubject')}
                   </div>
                   <div className="text-xs text-gray-500 dark:text-gray-500 truncate">
                     {email.snippet}
@@ -470,7 +472,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                   {email.hasAttachments && (
                     <div className="mt-2">
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-xs text-gray-700 dark:text-gray-300">
-                        📎 Ek var
+                        📎 {t('mail.hasAttachment')}
                       </span>
                     </div>
                   )}
@@ -488,7 +490,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
             {/* Email Header */}
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                {selectedEmail.subject || '(Konu yok)'}
+                {selectedEmail.subject || t('mail.noSubject')}
               </h1>
               <div className="flex items-center gap-4">
                 <div className="flex-1">
@@ -509,9 +511,9 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                       setReplyAll(false);
                     }}
                     className="px-3 py-1.5 text-xs rounded bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-900/60"
-                    title="Bu e-postayı yanıtla"
+                    title={t('mail.replyTooltip')}
                   >
-                    ↩️ Yanıtla
+                    {t('mail.reply')}
                   </button>
                   <button
                     onClick={() => {
@@ -519,31 +521,31 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                       setReplyAll(true);
                     }}
                     className="px-3 py-1.5 text-xs rounded bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-900/60"
-                    title="Tümünü yanıtla"
+                    title={t('mail.replyAllTooltip')}
                   >
-                    ↪️ Tümünü Yanıtla
+                    {t('mail.replyAll')}
                   </button>
                   <button
                     onClick={() => analyzeEmailWithAI(selectedEmail)}
                     disabled={isAnalyzing}
                     className="px-3 py-1.5 text-xs rounded bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-900/60 disabled:opacity-50"
-                    title="AI ile e-postayı analiz et"
+                    title={t('mail.aiAnalyzeTooltip')}
                   >
-                    {isAnalyzing ? '🔄 Analiz ediliyor...' : '🤖 AI Analiz'}
+                    {isAnalyzing ? t('mail.analyzing') : t('mail.aiAnalyze')}
                   </button>
                   <button
                     onClick={() => saveToNotes(selectedEmail)}
                     className="px-3 py-1.5 text-xs rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/60"
-                    title="Bu e-postayı notlara ekle"
+                    title={t('mail.addToNotesTooltip')}
                   >
-                    📝 Notlara Ekle
+                    {t('mail.addToNotes')}
                   </button>
                   <button
                     onClick={() => saveToTodos(selectedEmail)}
                     className="px-3 py-1.5 text-xs rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-900/60"
-                    title="Bu e-postadan görev oluştur"
+                    title={t('mail.createTaskTooltip')}
                   >
-                    ✅ Görev Oluştur
+                    {t('mail.createTask')}
                   </button>
                 </div>
               </div>
@@ -560,13 +562,13 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                 <div className="p-4 relative space-y-4">
                   <div className="flex items-center justify-between mb-3 sticky top-0 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 pb-2 z-30">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                      🤖 AI Analiz
+                      {t('mail.aiAnalysisTitle')}
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         emailSummary.urgency === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' :
                         emailSummary.urgency === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-200' :
                         'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200'
                       }`}>
-                        {emailSummary.urgency === 'high' ? 'Yüksek Aciliyet' : emailSummary.urgency === 'medium' ? 'Orta Aciliyet' : 'Düşük Aciliyet'}
+                        {emailSummary.urgency === 'high' ? t('mail.urgencyHigh') : emailSummary.urgency === 'medium' ? t('mail.urgencyMedium') : t('mail.urgencyLow')}
                       </span>
                     </h3>
                     <button
@@ -579,7 +581,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                   
                   {/* Summary */}
                   <div className="mb-4 p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                    <h4 className="font-medium text-gray-900 dark:text-white mb-1">Özet:</h4>
+                    <h4 className="font-medium text-gray-900 dark:text-white mb-1">{t('mail.summary')}</h4>
                     <p className="text-sm text-gray-700 dark:text-gray-300">{emailSummary.summary}</p>
                   </div>
                   
@@ -587,7 +589,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                     {/* Key Points */}
                     {emailSummary.keyPoints.length > 0 && (
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">Önemli Noktalar:</h4>
+                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">{t('mail.keyPoints')}</h4>
                         <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
                           {emailSummary.keyPoints.map((point, idx) => (
                             <li key={idx} className="flex items-start gap-2">
@@ -602,7 +604,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                     {/* Action Items */}
                     {emailSummary.actionItems.length > 0 && (
                       <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">Aksiyon Gereken:</h4>
+                        <h4 className="font-medium text-gray-900 dark:text-white mb-2">{t('mail.actionItems')}</h4>
                         <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
                           {emailSummary.actionItems.map((action, idx) => (
                             <li key={idx} className="flex items-start gap-2">
@@ -618,35 +620,35 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                   {/* Entities */}
                   {(emailSummary.entities.dates?.length || emailSummary.entities.people?.length || emailSummary.entities.organizations?.length || emailSummary.entities.locations?.length || emailSummary.entities.amounts?.length) && (
                     <div className="mt-4 p-3 bg-white dark:bg-gray-800 rounded-lg border">
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">Önemli Bilgiler:</h4>
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">{t('mail.importantInfo')}</h4>
                       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
                         {(emailSummary.entities.dates?.length ?? 0) > 0 && (
                           <div>
-                            <div className="font-medium text-blue-600 dark:text-blue-400">📅 Tarihler:</div>
+                            <div className="font-medium text-blue-600 dark:text-blue-400">{t('mail.dates')}</div>
                             {(emailSummary.entities.dates ?? []).map((date, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{date}</div>)}
                           </div>
                         )}
                         {(emailSummary.entities.people?.length ?? 0) > 0 && (
                           <div>
-                            <div className="font-medium text-green-600 dark:text-green-400">👥 Kişiler:</div>
+                            <div className="font-medium text-green-600 dark:text-green-400">{t('mail.people')}</div>
                             {(emailSummary.entities.people ?? []).map((person, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{person}</div>)}
                           </div>
                         )}
                         {(emailSummary.entities.organizations?.length ?? 0) > 0 && (
                           <div>
-                            <div className="font-medium text-purple-600 dark:text-purple-400">🏢 Kurumlar:</div>
+                            <div className="font-medium text-purple-600 dark:text-purple-400">{t('mail.organizations')}</div>
                             {(emailSummary.entities.organizations ?? []).map((org, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{org}</div>)}
                           </div>
                         )}
                         {(emailSummary.entities.locations?.length ?? 0) > 0 && (
                           <div>
-                            <div className="font-medium text-red-600 dark:text-red-400">📍 Konumlar:</div>
+                            <div className="font-medium text-red-600 dark:text-red-400">{t('mail.locations')}</div>
                             {(emailSummary.entities.locations ?? []).map((loc, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{loc}</div>)}
                           </div>
                         )}
                         {(emailSummary.entities.amounts?.length ?? 0) > 0 && (
                           <div>
-                            <div className="font-medium text-yellow-600 dark:text-yellow-400">💰 Tutarlar:</div>
+                            <div className="font-medium text-yellow-600 dark:text-yellow-400">{t('mail.amounts')}</div>
                             {(emailSummary.entities.amounts ?? []).map((amount, idx) => <div key={idx} className="text-gray-600 dark:text-gray-400">{amount}</div>)}
                           </div>
                         )}
@@ -657,12 +659,12 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                   {/* AI Suggestions with Individual Buttons */}
                   {(emailSummary.suggestedTasks?.length || emailSummary.suggestedNotes?.length) && (
                     <div className="mt-4 space-y-3">
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">🤖 AI Önerileri:</h4>
+                      <h4 className="font-medium text-gray-900 dark:text-white mb-2">{t('mail.aiSuggestions')}</h4>
                       
                       {/* Individual Task Suggestions */}
                       {emailSummary.suggestedTasks && emailSummary.suggestedTasks.length > 0 && (
                         <div className="space-y-2">
-                          <div className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Önerilen Görevler:</div>
+                          <div className="text-sm font-medium text-emerald-700 dark:text-emerald-300">{t('mail.suggestedTasks')}</div>
                           {emailSummary.suggestedTasks.map((task, index) => (
                             <div key={index} className="flex items-start justify-between gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
                               <div className="flex-1 min-w-0">
@@ -686,9 +688,9 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                                   saveTasksFromSummary([task]);
                                 }}
                                 className="px-2 py-1 text-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white font-medium flex-shrink-0 z-20 relative"
-                                title="Bu görevi ekle"
+                                title={t('mail.addTask')}
                               >
-                                ✅ Ekle
+                                {t('mail.addTask')}
                               </button>
                             </div>
                           ))}
@@ -698,7 +700,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                       {/* Individual Note Suggestions */}
                       {emailSummary.suggestedNotes && emailSummary.suggestedNotes.length > 0 && (
                         <div className="space-y-2">
-                          <div className="text-sm font-medium text-amber-700 dark:text-amber-300">Önerilen Notlar:</div>
+                          <div className="text-sm font-medium text-amber-700 dark:text-amber-300">{t('mail.suggestedNotes')}</div>
                           {emailSummary.suggestedNotes.map((note, index) => (
                             <div key={index} className="flex items-start justify-between gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
                               <div className="flex-1 min-w-0">
@@ -724,9 +726,9 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                                   saveNotesFromSummary([note]);
                                 }}
                                 className="px-2 py-1 text-xs rounded bg-amber-600 hover:bg-amber-700 text-white font-medium flex-shrink-0 z-20 relative"
-                                title="Bu notu ekle"
+                                title={t('mail.addNote')}
                               >
-                                📝 Ekle
+                                {t('mail.addNote')}
                               </button>
                             </div>
                           ))}
@@ -740,7 +742,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                             onClick={() => saveTasksFromSummary(emailSummary.suggestedTasks)}
                             className="px-3 py-1.5 text-xs rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 hover:bg-emerald-200 dark:hover:bg-emerald-900/60 relative z-20"
                           >
-                            ✅ Tüm Görevleri Ekle ({emailSummary.suggestedTasks.length})
+                            {t('mail.addAllTasks')} ({emailSummary.suggestedTasks.length})
                           </button>
                         )}
                         {emailSummary.suggestedNotes && emailSummary.suggestedNotes.length > 0 && (
@@ -748,7 +750,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                             onClick={() => saveNotesFromSummary(emailSummary.suggestedNotes)}
                             className="px-3 py-1.5 text-xs rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-200 dark:hover:bg-amber-900/60 relative z-20"
                           >
-                            📝 Tüm Notları Ekle ({emailSummary.suggestedNotes.length})
+                            {t('mail.addAllNotes')} ({emailSummary.suggestedNotes.length})
                           </button>
                         )}
                       </div>
@@ -777,7 +779,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
               <svg className="w-16 h-16 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              <p>Görüntülemek için bir e-posta seçin</p>
+              <p>{t('mail.selectEmail')}</p>
             </div>
           </div>
         )}
@@ -791,7 +793,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/20">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {replyAll ? '↪️ Tümünü Yanıtla' : '↩️ Yanıtla'}
+                  {replyAll ? t('mail.replyAllModalTitle') : t('mail.replyModalTitle')}
                 </h2>
                 <button
                   onClick={() => setShowReplyModal(false)}
@@ -809,14 +811,14 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
             <div className="px-6 py-4 space-y-3 flex-1 overflow-y-auto">
               {/* To/Cc Info */}
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                <div><strong>Kime:</strong> {selectedEmail.from.address}</div>
+                <div><strong>{t('mail.to')}</strong> {selectedEmail.from.address}</div>
                 {replyAll && selectedEmail.to.length > 0 && (
-                  <div><strong>Bilgi:</strong> {selectedEmail.to.map(t => t.address).join(', ')}</div>
+                  <div><strong>{t('mail.cc')}</strong> {selectedEmail.to.map(t => t.address).join(', ')}</div>
                 )}
                 {replyAll && selectedEmail.cc && selectedEmail.cc.length > 0 && (
-                  <div><strong>Bilgi (Cc):</strong> {selectedEmail.cc.map(c => c.address).join(', ')}</div>
+                  <div><strong>{t('mail.ccLabel')}</strong> {selectedEmail.cc.map(c => c.address).join(', ')}</div>
                 )}
-                <div><strong>Konu:</strong> {selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`}</div>
+                <div><strong>{t('mail.subject')}</strong> {selectedEmail.subject.startsWith('Re:') ? selectedEmail.subject : `Re: ${selectedEmail.subject}`}</div>
               </div>
 
               {/* Template Selection Button */}
@@ -826,14 +828,14 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                   className="px-3 py-1.5 text-xs rounded bg-purple-100 dark:bg-purple-900/40 text-purple-800 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-900/60"
                   disabled={isSending}
                 >
-                  📋 Şablon Seç
+                  {t('mail.selectTemplate')}
                 </button>
               </div>
 
               {/* Rich Text Editor */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Mesajınız:
+                  {t('mail.yourMessage')}
                 </label>
                 <RichTextEditor
                   value={replyHtml}
@@ -856,7 +858,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
               {/* Original Message Preview */}
               <details className="mt-4">
                 <summary className="text-sm text-gray-600 dark:text-gray-400 cursor-pointer hover:text-gray-800 dark:hover:text-gray-200">
-                  Orijinal mesajı göster
+                  {t('mail.showOriginal')}
                 </summary>
                 <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-sm text-gray-700 dark:text-gray-300 max-h-48 overflow-y-auto">
                   <div className="border-l-2 border-gray-300 dark:border-gray-600 pl-3">
@@ -874,7 +876,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
             <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
               <div className="text-xs text-gray-500 dark:text-gray-400">
                 {attachments.length > 0 && (
-                  <span>📎 {attachments.length} dosya eklendi</span>
+                  <span>📎 {attachments.length} {t('mail.filesAttached')}</span>
                 )}
               </div>
               <div className="flex gap-2">
@@ -883,7 +885,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                   disabled={isSending}
                   className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  İptal
+                  {t('mail.cancel')}
                 </button>
                 <button
                   onClick={handleReply}
@@ -893,11 +895,11 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                   {isSending ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Gönderiliyor...
+                      {t('mail.sending')}
                     </>
                   ) : (
                     <>
-                      📤 Gönder
+                      📤 {t('mail.send')}
                     </>
                   )}
                 </button>
@@ -920,3 +922,4 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
 };
 
 export default MailList;
+

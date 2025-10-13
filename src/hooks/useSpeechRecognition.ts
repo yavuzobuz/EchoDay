@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useI18n } from '../contexts/I18nContext';
 
 interface SpeechRecognition {
   new (): SpeechRecognition;
@@ -28,6 +29,7 @@ export const useSpeechRecognition = (
     onUserSpeaking?: (isSpeaking: boolean) => void;
   }
 ) => {
+  const { lang } = useI18n();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
@@ -67,7 +69,7 @@ export const useSpeechRecognition = (
 
     rec.continuous = continuous; 
     rec.interimResults = continuous; // Tie interim results to continuous mode for simplicity
-    rec.lang = 'tr-TR';
+    rec.lang = lang === 'tr' ? 'tr-TR' : 'en-US';
 
     rec.onresult = (event: any) => {
       const currentTranscript = Array.from(event.results)
@@ -112,7 +114,9 @@ export const useSpeechRecognition = (
       if (isRealTimeMode && hasNewContent) {
         // Check for immediate stop commands
         const lowerTranscript = currentTranscript.toLowerCase().trim();
-        const stopCommands = ['sus', 'dur', 'stop', 'kapat', 'sustun', 'yeter'];
+        const stopCommands = lang === 'tr' 
+          ? ['sus', 'dur', 'stop', 'kapat', 'sustun', 'yeter']
+          : ['stop', 'pause', 'enough', 'cancel', 'quit', 'done'];
         const hasStopCommand = stopCommands.some(cmd => lowerTranscript.endsWith(cmd));
         
         if (hasStopCommand) {
@@ -141,7 +145,9 @@ export const useSpeechRecognition = (
       if (useStopWords && !isRealTimeMode) {
         const lowerCaseTranscript = currentTranscript.toLowerCase().trim();
         
-        let stopWords = ['tamam', 'bitti', 'ok'];
+        let stopWords = lang === 'tr' 
+          ? ['tamam', 'bitti', 'ok', 'tamamdır', 'bitirdim']
+          : ['ok', 'done', 'finished', 'complete', 'that\'s it'];
         if (Array.isArray(stopWordsOption)) {
             stopWords = stopWordsOption;
         }
@@ -239,7 +245,7 @@ export const useSpeechRecognition = (
         recognitionRef.current.stop();
       }
     };
-  }, [options]);
+  }, [options, lang]);
 
   const startListening = useCallback(() => {
     if (recognitionRef.current && !isListening) {

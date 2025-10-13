@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useI18n } from '../contexts/I18nContext';
 
 interface SpeechSynthesisOptions {
   voice?: SpeechSynthesisVoice;
@@ -9,6 +10,7 @@ interface SpeechSynthesisOptions {
 }
 
 export const useSpeechSynthesis = (options?: SpeechSynthesisOptions) => {
+  const { lang } = useI18n();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
@@ -26,13 +28,16 @@ export const useSpeechSynthesis = (options?: SpeechSynthesisOptions) => {
 
   const hasSupport = 'speechSynthesis' in window;
 
-  // Load available voices
+  // Load available voices filtered by current language
   useEffect(() => {
     if (!hasSupport) return;
 
     const loadVoices = () => {
       const availableVoices = speechSynthesis.getVoices();
-      setVoices(availableVoices);
+      // Filter by current language preference
+      const langPrefix = lang === 'tr' ? 'tr' : 'en';
+      const filteredVoices = availableVoices.filter(v => v.lang.toLowerCase().startsWith(langPrefix));
+      setVoices(filteredVoices.length > 0 ? filteredVoices : availableVoices);
     };
 
     loadVoices();
@@ -41,7 +46,7 @@ export const useSpeechSynthesis = (options?: SpeechSynthesisOptions) => {
     return () => {
       speechSynthesis.onvoiceschanged = null;
     };
-  }, [hasSupport]);
+  }, [hasSupport, lang]);
 
   // Test autoplay capability and enable it
   const enableAutoplay = useCallback(async () => {
@@ -97,20 +102,21 @@ export const useSpeechSynthesis = (options?: SpeechSynthesisOptions) => {
     }
   }, [isAutoplayEnabled]);
 
-  // Get Turkish voice or fallback
-  const getTurkishVoice = useCallback(() => {
+  // Get best voice for current language or fallback
+  const getBestVoice = useCallback(() => {
     if (options?.voice) return options.voice;
     
-    // Try to find Turkish voice
-    const turkishVoice = voices.find(voice => 
-      voice.lang.includes('tr') || voice.lang.includes('TR')
+    // Try to find voice matching current language
+    const langPrefix = lang === 'tr' ? 'tr' : 'en';
+    const langVoice = voices.find(voice => 
+      voice.lang.toLowerCase().includes(langPrefix)
     );
     
-    if (turkishVoice) return turkishVoice;
+    if (langVoice) return langVoice;
     
     // Fallback to default voice
     return voices[0] || null;
-  }, [voices, options?.voice]);
+  }, [voices, options?.voice, lang]);
 
   // Split text into smaller chunks for better control
   const splitTextIntoChunks = useCallback((text: string, maxLength: number = 200): string[] => {
@@ -140,13 +146,14 @@ export const useSpeechSynthesis = (options?: SpeechSynthesisOptions) => {
     if (!hasSupport || !text.trim()) return;
 
     const utterance = new SpeechSynthesisUtterance(text);
-    const voice = getTurkishVoice();
+    const voice = getBestVoice();
     
     if (voice) utterance.voice = voice;
     utterance.rate = options?.rate || 1.0;
     utterance.pitch = options?.pitch || 1.0;
     utterance.volume = options?.volume || 1.0;
-    utterance.lang = options?.lang || 'tr-TR';
+    // Use language from context if not specified in options
+    utterance.lang = options?.lang || (lang === 'tr' ? 'tr-TR' : 'en-US');
 
     utterance.onstart = () => {
       setIsSpeaking(true);
@@ -195,7 +202,7 @@ export const useSpeechSynthesis = (options?: SpeechSynthesisOptions) => {
     utteranceRef.current = utterance;
     setCurrentUtterance(utterance);
     speechSynthesis.speak(utterance);
-  }, [hasSupport, getTurkishVoice, options]);
+  }, [hasSupport, getBestVoice, options, lang]);
 
   // Main speak function
   const speak = useCallback((text: string) => {
@@ -229,7 +236,7 @@ export const useSpeechSynthesis = (options?: SpeechSynthesisOptions) => {
       console.error('Speech error:', error);
       return false;
     }
-  }, [hasSupport, isSpeaking, splitTextIntoChunks, speakChunk]);
+  }, [hasSupport, isSpeaking, splitTextIntoChunks, speakChunk, lang]);
 
   // Stop speaking
   const stop = useCallback(() => {

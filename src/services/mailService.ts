@@ -416,12 +416,26 @@ class MailService {
   // ==================== Custom IMAP/POP over local bridge ====================
 
   private getBridgeUrl() {
-    return (import.meta.env.VITE_MAIL_BRIDGE_URL || 'http://localhost:5123').replace(/\/$/, '');
+    // Development'ta local mail server, Production'da Vercel API
+    if (import.meta.env.DEV || import.meta.env.MODE === 'development') {
+      // Local mail server kullan
+      return (import.meta.env.VITE_LOCAL_MAIL_SERVER || import.meta.env.VITE_MAIL_BRIDGE_URL || 'http://localhost:5123').replace(/\/$/, '');
+    }
+    
+    // Production'da (Vercel) API routes kullan
+    if (import.meta.env.VITE_MAIL_API_URL) {
+      return import.meta.env.VITE_MAIL_API_URL;
+    }
+    
+    // Default olarak /api/mail (Vercel)
+    return '/api/mail';
   }
 
   async testIMAP(config: { host: string; port?: number; secure?: boolean; user: string; pass: string; }): Promise<boolean> {
     try {
-      const r = await fetch(`${this.getBridgeUrl()}/imap/test`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
+      const bridgeUrl = this.getBridgeUrl();
+      const endpoint = bridgeUrl.includes('/api/mail') ? `${bridgeUrl}/imap-test` : `${bridgeUrl}/imap/test`;
+      const r = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(config) });
       const j = await r.json();
       return j.success;
     } catch { return false; }
@@ -435,7 +449,9 @@ class MailService {
     }
     
     try {
-      const r = await fetch(`${this.getBridgeUrl()}/imap/list`, { 
+      const bridgeUrl = this.getBridgeUrl();
+      const endpoint = bridgeUrl.includes('/api/mail') ? `${bridgeUrl}/imap-list` : `${bridgeUrl}/imap/list`;
+      const r = await fetch(endpoint, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ ...config, limit }) 
@@ -471,7 +487,9 @@ class MailService {
     }
     
     try {
-      const r = await fetch(`${this.getBridgeUrl()}/imap/message`, { 
+      const bridgeUrl = this.getBridgeUrl();
+      const endpoint = bridgeUrl.includes('/api/mail') ? `${bridgeUrl}/imap-message` : `${bridgeUrl}/imap/message`;
+      const r = await fetch(endpoint, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ ...config, uid }) 
@@ -1009,7 +1027,9 @@ class MailService {
         ? account.smtpSecure 
         : smtpPort === 465; // Port 465 = SSL, Port 587 = STARTTLS
 
-      const response = await fetch(`${this.getBridgeUrl()}/smtp/send`, {
+      const bridgeUrl = this.getBridgeUrl();
+      const endpoint = bridgeUrl.includes('/api/mail') ? `${bridgeUrl}/smtp-send` : `${bridgeUrl}/smtp/send`;
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

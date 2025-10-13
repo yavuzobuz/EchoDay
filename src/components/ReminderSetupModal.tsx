@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { ReminderConfig } from '../types';
 
 interface ReminderSetupModalProps {
@@ -41,11 +42,13 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
     }
     
     const newReminder: ReminderConfig = {
-      id: `reminder_${Date.now()}_${Math.random()}`,
+      id: uuidv4(),
       type: 'relative',
       minutesBefore: minutes,
       triggered: false
     };
+    
+    console.log('[ReminderSetup] Adding new relative reminder:', newReminder);
     
     setReminders([...reminders, newReminder]);
   };
@@ -57,11 +60,13 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
     }
     
     const newReminder: ReminderConfig = {
-      id: `reminder_${Date.now()}_${Math.random()}`,
+      id: uuidv4(),
       type: 'absolute',
       absoluteTime: customDateTime,
       triggered: false
     };
+    
+    console.log('[ReminderSetup] Adding new absolute reminder:', newReminder);
     
     setReminders([...reminders, newReminder]);
     setCustomDateTime('');
@@ -95,6 +100,8 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
   };
   
   const handleSave = () => {
+    console.log('[ReminderSetup] Saving reminders:', reminders);
+    console.log('[ReminderSetup] Total reminders to save:', reminders.length);
     onSave(reminders);
     onClose();
   };
@@ -102,18 +109,18 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow-xl max-w-md w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
             Hatırlatma Ayarları
           </h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
             Bu göreve birden fazla hatırlatma ekleyebilirsiniz
           </p>
         </div>
         
-        <div className="p-6 overflow-y-auto flex-1">
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
           {/* Existing Reminders */}
           {reminders.length > 0 && (
             <div className="mb-6">
@@ -178,12 +185,12 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
               <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Hızlı Ekleme
               </h3>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {presetOptions.map(preset => (
                   <button
                     key={preset.minutes}
                     onClick={() => addPresetReminder(preset.minutes)}
-                    className="p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-[var(--accent-color-50)] dark:hover:bg-[var(--accent-color-900)] hover:border-[var(--accent-color-500)] transition-colors text-gray-700 dark:text-gray-300"
+                    className="p-2 sm:p-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-[var(--accent-color-50)] dark:hover:bg-[var(--accent-color-900)] hover:border-[var(--accent-color-500)] transition-colors text-gray-700 dark:text-gray-300 text-center"
                   >
                     {preset.label}
                   </button>
@@ -197,7 +204,7 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
               Özel Tarih/Saat
             </h3>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="datetime-local"
                 value={customDateTime}
@@ -206,7 +213,7 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
               />
               <button
                 onClick={addCustomReminder}
-                className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-lg hover:bg-[var(--accent-color-700)] transition-colors text-sm font-medium"
+                className="w-full sm:w-auto px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-lg hover:bg-[var(--accent-color-700)] transition-colors text-sm font-medium"
               >
                 Ekle
               </button>
@@ -222,16 +229,16 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
           )}
         </div>
         
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+        <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="w-full sm:w-auto px-4 py-2 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm sm:text-base"
           >
             İptal
           </button>
           <button
             onClick={handleSave}
-            className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-lg hover:bg-[var(--accent-color-700)] transition-colors font-medium"
+            className="w-full sm:w-auto px-4 py-2 sm:py-2 bg-[var(--accent-color-600)] text-white rounded-lg hover:bg-[var(--accent-color-700)] transition-colors font-medium text-sm sm:text-base"
           >
             Kaydet
           </button>

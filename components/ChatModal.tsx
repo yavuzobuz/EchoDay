@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { ChatMessage } from '../types';
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
+import { useI18n } from '../src/contexts/I18nContext';
 
 interface ChatModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface ChatModalProps {
 }
 
 const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onSendMessage, isLoading, voiceModeEnabled = false }) => {
+  const { t } = useI18n();
   const [userInput, setUserInput] = useState('');
   const [isVoiceModeActive, setIsVoiceModeActive] = useState(voiceModeEnabled);
   const [lastAIMessageIndex, setLastAIMessageIndex] = useState(-1);
@@ -229,7 +231,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl h-[80vh] flex flex-col">
         <header className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center flex-shrink-0">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">AI Asistan Sohbeti</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t('modal.chat.title', 'AI Asistan Sohbeti')}</h2>
             {hasSupport && hasSpeechSynthesis && (
               <div className="flex items-center gap-2">
                 <button
@@ -242,19 +244,19 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                       ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
                       : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
                   }`}
-                  title="Sesli sohbet modu"
+                  title={t('modal.chat.voiceModeTooltip', 'Sesli sohbet modu')}
                 >
                   <div className="flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                     </svg>
-                    Sesli Mod
+                    {t('modal.chat.voiceMode', 'Sesli Mod')}
                   </div>
                 </button>
                 {isSpeaking && (
                   <div className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
                     <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                    <span>Konuşuyor...</span>
+                    <span>{t('modal.chat.speaking', 'Konuşuyor...')}</span>
                   </div>
                 )}
                 {wasInterrupted && !isSpeaking && (
@@ -262,20 +264,20 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>Kesildi</span>
+                    <span>{t('modal.chat.interrupted', 'Kesildi')}</span>
                   </div>
                 )}
                 {isVoiceModeActive && !isAutoplayEnabled && (
                   <button
                     onClick={() => {
                       // User interaction trigger - this enables autoplay
-                      speak('Ses sistemi aktif!');
+                      speak(t('modal.chat.audioSystemActive', 'Ses sistemi aktif!'));
                       setIsAutoplayEnabled(true);
                     }}
                     className="px-2 py-1 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 rounded text-xs font-medium hover:bg-orange-200 dark:hover:bg-orange-800 transition-colors"
-                    title="AI'ın otomatik konuşması için ses izni gerekiyor"
+                    title={t('modal.chat.audioPermissionTooltip', 'AI\'nin otomatik konuşması için ses izni gerekiyor')}
                   >
-                    🔊 Ses İzni Ver
+                    🔊 {t('modal.chat.giveAudioPermission', 'Ses İzni Ver')}
                   </button>
                 )}
               </div>
@@ -305,9 +307,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                       }
                     }}
                     className="mt-2 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 flex items-center gap-1"
-                    title="Bu mesajı sesli oku"
+                    title={t('modal.chat.readAloudTooltip', 'Bu mesajı sesli oku')}
                   >
-                    🔊 Sesli Oku
+                    🔊 {t('modal.chat.readAloud', 'Sesli Oku')}
                   </button>
                 )}
               </div>
@@ -336,7 +338,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
               type="text"
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
-              placeholder={isListening ? 'Dinleniyor...' : 'Mesajınızı yazın...'}
+              placeholder={isListening ? t('modal.chat.listening', 'Dinleniyor...') : t('modal.chat.placeholder', 'Mesajınızı yazın...')}
               className="flex-grow p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
               disabled={isLoading || isListening}
             />
@@ -352,7 +354,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                       : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
                 }`}
                 disabled={isLoading}
-                title={isVoiceModeActive ? 'Sesli mod aktif' : 'Mikrofon'}
+                title={isVoiceModeActive ? t('modal.chat.voiceModeActive', 'Sesli mod aktif') : t('modal.chat.microphone', 'Mikrofon')}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />

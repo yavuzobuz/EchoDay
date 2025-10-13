@@ -63,7 +63,7 @@ function isSameDay(a: Date, b: Date) {
 
 const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo, scale: scaleProp }) => {
   const { t } = useI18n();
-  const [scale, setScale] = useState<TimelineScale>('day');
+  const [scale] = useState<TimelineScale>('day');
   const [anchor, setAnchor] = useState<Date>(new Date());
   const activeScale: TimelineScale = (scaleProp as TimelineScale) || scale;
 

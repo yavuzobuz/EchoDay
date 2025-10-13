@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Clipboard } from '@capacitor/clipboard';
 import { Todo, Note } from '../types';
+import { useI18n } from '../contexts/I18nContext';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface ShareModalProps {
 const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) => {
   const [copied, setCopied] = useState(false);
   const [shareFormat, setShareFormat] = useState<'simple' | 'detailed' | 'markdown'>('simple');
+  const { t, lang } = useI18n();
+  const locale = lang === 'tr' ? 'tr-TR' : 'en-US';
 
   if (!isOpen || !item) return null;
 
@@ -24,39 +27,39 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) 
           return `📋 ${todo.text}`;
         
         case 'detailed':
-          let text = `📋 Görev: ${todo.text}\n`;
+          let text = `📋 ${t('share.todo.label.task', 'Görev')}: ${todo.text}\n`;
           if (todo.datetime) {
-            text += `⏰ Tarih: ${new Date(todo.datetime).toLocaleString('tr-TR')}\n`;
+            text += `⏰ ${t('share.todo.label.date', 'Tarih')}: ${new Date(todo.datetime).toLocaleString(locale)}\n`;
           }
           if (todo.aiMetadata?.category) {
-            text += `🏷️ Kategori: ${todo.aiMetadata.category}\n`;
+            text += `🏷️ ${t('share.todo.label.category', 'Kategori')}: ${todo.aiMetadata.category}\n`;
           }
           if (todo.aiMetadata?.estimatedDuration) {
-            text += `⌛ Süre: ${todo.aiMetadata.estimatedDuration} dakika\n`;
+            text += `⌛ ${t('share.todo.label.duration', 'Süre')}: ${todo.aiMetadata.estimatedDuration} ${t('unit.minute','dakika')}\n`;
           }
           if (todo.aiMetadata?.destination) {
-            text += `📍 Hedef: ${todo.aiMetadata.destination}\n`;
+            text += `📍 ${t('share.todo.label.destination', 'Hedef')}: ${todo.aiMetadata.destination}\n`;
           }
           return text;
         
         case 'markdown':
           let md = `## 📋 ${todo.text}\n\n`;
           if (todo.datetime) {
-            md += `**⏰ Tarih:** ${new Date(todo.datetime).toLocaleString('tr-TR')}\n\n`;
+            md += `**⏰ ${t('share.todo.label.date', 'Tarih')}:** ${new Date(todo.datetime).toLocaleString(locale)}\n\n`;
           }
           if (todo.aiMetadata?.category) {
-            md += `**🏷️ Kategori:** ${todo.aiMetadata.category}\n\n`;
+            md += `**🏷️ ${t('share.todo.label.category', 'Kategori')}:** ${todo.aiMetadata.category}\n\n`;
           }
           if (todo.aiMetadata?.estimatedDuration) {
-            md += `**⌛ Tahmini Süre:** ${todo.aiMetadata.estimatedDuration} dakika\n\n`;
+            md += `**⌛ ${t('share.todo.label.duration', 'Tahmini Süre')}:** ${todo.aiMetadata.estimatedDuration} ${t('unit.minute','dakika')}\n\n`;
           }
           if (todo.aiMetadata?.destination) {
-            md += `**📍 Hedef:** ${todo.aiMetadata.destination}\n\n`;
+            md += `**📍 ${t('share.todo.label.destination', 'Hedef')}:** ${todo.aiMetadata.destination}\n\n`;
           }
           if (todo.aiMetadata?.routingInfo) {
-            md += `### 🗺️ Yol Tarifi:\n${todo.aiMetadata.routingInfo}\n\n`;
+            md += `### 🗺️ ${t('share.todo.label.route', 'Yol Tarifi')}:\n${todo.aiMetadata.routingInfo}\n\n`;
           }
-          md += `---\n*EchoDay ile oluşturuldu*`;
+          md += `---\n*${t('share.footer.generatedBy', 'EchoDay ile oluşturuldu')}*`;
           return md;
         
         default:
@@ -67,24 +70,24 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) 
       
       switch (shareFormat) {
         case 'simple':
-          return `📝 ${note.text || '(Resimli Not)'}`;
+          return `📝 ${note.text || t('chat.note.imagePlaceholder', '(Resimli Not)')}`;
         
         case 'detailed':
-          let text = `📝 Not:\n${note.text || '(Resimli Not)'}\n`;
-          text += `📅 Oluşturulma: ${new Date(note.createdAt).toLocaleString('tr-TR')}\n`;
+          let text = `📝 ${t('share.note.title', 'Not')}:\n${note.text || t('chat.note.imagePlaceholder', '(Resimli Not)')}\n`;
+          text += `📅 ${t('share.note.createdAt', 'Oluşturulma')}: ${new Date(note.createdAt).toLocaleString(locale)}\n`;
           if (note.imageUrl) {
-            text += `🖼️ Resim içeriyor\n`;
+            text += `🖼️ ${t('share.note.containsImage', 'Resim içeriyor')}\n`;
           }
           return text;
         
         case 'markdown':
-          let md = `## 📝 Not\n\n`;
-          md += `${note.text || '*(Resimli Not)*'}\n\n`;
+          let md = `## 📝 ${t('share.note.title', 'Not')}\n\n`;
+          md += `${note.text || `*${t('chat.note.imagePlaceholder', '(Resimli Not)')}*`}\n\n`;
           if (note.imageUrl) {
-            md += `📷 *Bu not bir resim içermektedir*\n\n`;
+            md += `📷 *${t('share.note.containsImageMarkdown', 'Bu not bir resim içermektedir')}*\n\n`;
           }
-          md += `---\n*${new Date(note.createdAt).toLocaleString('tr-TR')} tarihinde oluşturuldu*\n`;
-          md += `*EchoDay ile kaydedildi*`;
+          md += `---\n*${new Date(note.createdAt).toLocaleString(locale)} ${t('share.note.createdAtSuffix', 'tarihinde oluşturuldu')}*\n`;
+          md += `*${t('share.footer.savedBy', 'EchoDay ile kaydedildi')}*`;
           return md;
         
         default:
@@ -111,7 +114,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: type === 'todo' ? 'EchoDay Görev' : 'EchoDay Not',
+          title: type === 'todo' ? t('share.todo.appTitle.todo','EchoDay Görev') : t('share.todo.appTitle.note','EchoDay Not'),
           text: text,
         });
         return; // Success, exit
@@ -147,7 +150,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) 
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[var(--accent-color-600)]" viewBox="0 0 20 20" fill="currentColor">
               <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
             </svg>
-            Paylaş
+            {t('share.title','Paylaş')}
           </h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -160,7 +163,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) 
         <div className="p-4 space-y-4 flex-1 overflow-y-auto">
           {/* Format Selection */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Paylaşım Formatı:</label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('share.format.label','Paylaşım Formatı:')}</label>
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => setShareFormat('simple')}
@@ -170,7 +173,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) 
                     : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
-                Basit
+                {t('share.format.simple','Basit')}
               </button>
               <button
                 onClick={() => setShareFormat('detailed')}
@@ -180,7 +183,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) 
                     : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
-                Detaylı
+                {t('share.format.detailed','Detaylı')}
               </button>
               <button
                 onClick={() => setShareFormat('markdown')}
@@ -190,14 +193,14 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) 
                     : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
                 }`}
               >
-                Markdown
+                {t('share.format.markdown','Markdown')}
               </button>
             </div>
           </div>
 
           {/* Preview */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Önizleme:</label>
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('share.preview','Önizleme:')}</label>
             <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-md border border-gray-200 dark:border-gray-700 min-h-[200px] max-h-[400px] overflow-y-auto">
               <pre className="whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200 font-mono">{shareText}</pre>
             </div>
@@ -220,14 +223,14 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) 
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
-                Panoya Kopyalandı!
+                {t('share.copied','Panoya Kopyalandı!')}
               </>
             ) : (
               <>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
                 </svg>
-                {hasWebShare ? 'Paylaş' : 'Panoya Kopyala'}
+                {hasWebShare ? t('share.share','Paylaş') : t('share.copyToClipboard','Panoya Kopyala')}
               </>
             )}
           </button>
@@ -242,7 +245,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, item, type }) 
                 <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
                 <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
               </svg>
-              Veya Panoya Kopyala
+              {t('share.copyToClipboardAlt','Veya Panoya Kopyala')}
             </button>
           )}
         </div>

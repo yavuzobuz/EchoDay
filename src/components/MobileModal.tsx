@@ -99,7 +99,7 @@ export const MobileModal: React.FC<MobileModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center md:justify-center">
+    <div className="fixed inset-0 z-[10000] flex items-end md:items-center md:justify-center">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"
@@ -195,7 +195,7 @@ export const ModalActions: React.FC<{
     sticky bottom-0 left-0 right-0 
     bg-white dark:bg-gray-800 
     border-t border-gray-200 dark:border-gray-700
-    px-4 md:px-6 py-3 md:py-4
+    px-4 md:px-6 py-3 md:py-4 pb-20 sm:pb-3
     flex gap-2 md:gap-3
     ${className}
   `}>

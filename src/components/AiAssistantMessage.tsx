@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
+import { useI18n } from '../contexts/I18nContext';
 import DOMPurify from 'dompurify';
 
 interface AiAssistantMessageProps {
@@ -8,10 +9,12 @@ interface AiAssistantMessageProps {
   title?: string;
 }
 
-const AiAssistantMessage: React.FC<AiAssistantMessageProps> = ({ message, onClose, title = "Akıllı Asistan" }) => {
+const AiAssistantMessage: React.FC<AiAssistantMessageProps> = ({ message, onClose, title }) => {
   if (!message) return null;
 
+  const { t } = useI18n();
   const { isSpeaking, speak, cancel, hasSupport } = useTextToSpeech();
+  const displayTitle = title || t('aiAssistant.title', 'Akıllı Asistan');
 
   const handleSpeakClick = () => {
     if (isSpeaking) {
@@ -41,13 +44,13 @@ const AiAssistantMessage: React.FC<AiAssistantMessageProps> = ({ message, onClos
         </div>
         <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center mb-1">
-              <p className="font-bold">{title}</p>
+              <p className="font-bold">{displayTitle}</p>
               {hasSupport && message && (
                 <button
                   onClick={handleSpeakClick}
                   className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                  aria-label={isSpeaking ? "Okumayı durdur" : "Sesli oku"}
-                  title={isSpeaking ? "Okumayı durdur" : "Sesli oku"}
+                  aria-label={isSpeaking ? t('aiAssistant.speakButton.stop', 'Okumayı durdur') : t('aiAssistant.speakButton.read', 'Sesli oku')}
+                  title={isSpeaking ? t('aiAssistant.speakButton.stop', 'Okumayı durdur') : t('aiAssistant.speakButton.read', 'Sesli oku')}
                 >
                   {isSpeaking ? (
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500 animate-pulse" viewBox="0 0 20 20" fill="currentColor">

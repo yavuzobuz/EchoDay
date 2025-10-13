@@ -24,6 +24,7 @@ const taskSchema = {
         estimatedDuration: { type: SchemaType.NUMBER, description: 'Görevi tamamlamak için tahmini süre (dakika cinsinden).', nullable: true },
         requiresRouting: { type: SchemaType.BOOLEAN, description: 'Görev belirli bir yere gitmeyi içeriyorsa ve yol tarifi gerektiriyorsa true.', nullable: true },
         destination: { type: SchemaType.STRING, description: 'Eğer requiresRouting true ise, hedef adres veya yer adı. Aksi takdirde null.', nullable: true },
+        location: { type: SchemaType.STRING, description: 'Görevde bahsedilen konum bilgisi varsa (okul, restoran, hastane, şirket adı, semt, adres vb.) buraya ekle. Örn: "Bostancı final okulları", "Kadıköy", "İstanbul", "ABC Hastanesi"', nullable: true },
         isConflict: { type: SchemaType.BOOLEAN, description: 'SADECE kullanıcı başka bir görevle zaman çakışmasından açıkça bahsederse true olarak ayarla. Aksi takdirde false.', nullable: true },
         reminderMinutesBefore: { type: SchemaType.NUMBER, description: 'Kullanıcı hatırlatma belirtmişse, görev zamanından KAÇ DAKİKA ÖNCE hatırlatma yapılacağı. Örnekler: "bir gün önce"=1440, "1 saat önce"=60, "30 dakika önce"=30, "bir hafta önce"=10080. Belirtilmemişse null.', nullable: true },
     },
@@ -189,25 +190,92 @@ function safelyParseJSON<T>(jsonString: string): T | null {
     }
 }
 
-// FIX: Update return type to AnalyzedTaskData for better type safety.
-const analyzeTask = async (apiKey: string, description: string): Promise<AnalyzedTaskData | null> => {
-    try {
-        const model = getAI(apiKey).getGenerativeModel({
-            model: modelName,
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: taskSchema as any,
-                temperature: 0.2,
-            },
-        });
-        
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
-        const now = new Date();
-        const nowISO = now.toISOString(); // UTC
-        const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
-        const offsetMinutes = -now.getTimezoneOffset();
-        const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
-        const prompt = `Aşağıdaki görev tanımını analiz et ve özelliklerini çıkar. Kullanıcı niyetini AKILLICA anla.
+// Dynamic prompt generation based on user language
+function getTaskAnalysisPrompt(lang: 'tr' | 'en', tz: string, nowLocal: string, nowISO: string, offsetHours: string, description: string): string {
+    if (lang === 'en') {
+        return `Analyze the following task description and extract its properties. Understand user intent intelligently.
+
+🔴 IMPORTANT - RESPONSE LANGUAGE:
+- ALL RESPONSES MUST BE IN ENGLISH
+- text field MUST be in ENGLISH
+- category field must be in ENGLISH (Work, Personal, Shopping, Health, Education etc.)
+- Task descriptions must be in ENGLISH
+- Do NOT use Turkish words
+
+IMPORTANT - USER INTENT UNDERSTANDING:
+- Words like "important", "urgent", "critical" set priority to HIGH, should NOT be added to text field
+- Words like "priority", "immediately", "must", "urgent" also set priority to HIGH
+- Such words should be REMOVED from text field and used only for semantic parsing
+- text field: Should be clean, meaningful task title (e.g., "Buy milk" not "Buy milk important!")
+- If user only says meta-words ("add new task"), write in text field: "[Task details missing - please specify what you want to do]"
+
+IMPORTANT - TIMEZONE INFO:
+- User's local timezone: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours})
+- User's CURRENT local date and time: ${nowLocal}
+- Current UTC time (for reference): ${nowISO}
+
+TIME CONVERSION RULES:
+1. If task has SPECIFIC date and time ("tomorrow at 3:00 PM", "Oct 28 at 2:30 PM"), interpret this time in USER'S LOCAL TIMEZONE (${tz})
+2. Convert local time to UTC: Subtract ${offsetHours} hours from local time
+3. Return result in ISO 8601 UTC format: YYYY-MM-DDTHH:mm:00.000Z
+4. Example: User says "tomorrow at 3:00 PM" and tomorrow is 2025-10-07:
+   - Local time: 2025-10-07T15:00:00 (${tz})
+   - Converted to UTC: 2025-10-07T12:00:00.000Z (15 - 3 = 12)
+5. CRITICAL: If no specific date/time mentioned ("next week", "in two weeks", "soon"), leave datetime field as null
+6. CRITICAL: NEVER write natural language text in datetime field ("in two weeks", etc.). Only use ISO format or null
+
+TEXT FIELD FORMATTING:
+- text field should be CLEAN and CONCISE - no meta keywords (important, urgent, etc.)
+- If task has specific date (e.g., meeting, bill payment), INCLUDE DATE in text field.
+- Example: "Attend Meeting" should be "Attend Meeting - Jan 15, 2025 at 2:30 PM"
+- Example: "Pay electricity bill" should be "Pay Electricity Bill - Due: Jan 20, 2025"
+- If category is "Meeting", "Payment", or "Bill", always include date in text.
+
+LOCATION EXTRACTION:
+- ALWAYS check for location information in the task
+- Examples of locations: school names, restaurant names, hospital names, company names, districts, cities, addresses
+- If location exists, fill the "location" field
+- Examples:
+  * "meeting at Starbucks" -> location: "Starbucks"
+  * "appointment at Memorial Hospital" -> location: "Memorial Hospital" 
+  * "event at Bostancı final schools" -> location: "Bostancı final schools"
+  * "dinner in Kadıköy" -> location: "Kadıköy"
+  * "conference at Hilton Hotel" -> location: "Hilton Hotel"
+- If location mentioned, also set requiresRouting: true and destination with the same location
+
+REMINDER EXTRACTION:
+- If user uses words like "add reminder", "remind me", "alert", fill reminderMinutesBefore field
+- Convert duration expressions to minutes:
+  * "one day before" / "1 day before" = 1440 minutes
+  * "two days before" / "2 days before" = 2880 minutes
+  * "one week before" / "1 week before" = 10080 minutes
+  * "one hour before" / "1 hour before" = 60 minutes
+  * "30 minutes before" = 30 minutes
+  * "half hour before" = 30 minutes
+  * "15 minutes before" = 15 minutes
+- If no reminder specified, reminderMinutesBefore = null
+- Remove reminder phrases from text field (text shouldn't contain "remind me" etc.)
+
+EXAMPLES:
+✓ GOOD: User says "add new task important!" -> text: "[Task details missing - please specify what you want to do]", priority: "high", category: null
+✓ GOOD: User says "go to doctor urgent" -> text: "Go to doctor", priority: "high", category: "Health"
+✓ GOOD: User says "buy milk" -> text: "Buy milk", priority: "medium", category: "Shopping"
+✓ GOOD: User says "tomorrow at 3:00 PM go to doctor, remind me one day before" -> text: "Go to doctor - 3:00 PM", datetime: "2025-...", reminderMinutesBefore: 1440, category: "Health"
+✓ GOOD: User says "meeting at Starbucks tomorrow 10am" -> text: "Meeting at Starbucks - 10:00 AM", location: "Starbucks", destination: "Starbucks", requiresRouting: true
+✓ GOOD: User says "appointment at Memorial Hospital" -> text: "Appointment at Memorial Hospital", location: "Memorial Hospital", destination: "Memorial Hospital", requiresRouting: true
+✗ BAD: "Buy milk important" -> Don't add "important" to text!
+✗ BAD: "Go to doctor remind me one day before" -> Don't add "remind me one day before" to text!
+
+Task: "${description}"`;
+    } else {
+        return `Aşağıdaki görev tanımını analiz et ve özelliklerini çıkar. Kullanıcı niyetini AKILLICA anla.
+
+🔴 ÖNEMLİ - YANIT DİLİ:
+- TÜM YANITLAR TÜRKÇE OLMALIDIR
+- text alanı MUTLAKA TÜRKÇE olmalı
+- category alanı TÜRKÇE olmalı (İş, Kişisel, Alışveriş, Sağlık, Eğitim vb.)
+- Görev açıklamaları TÜRKÇE olmalı
+- İngilizce kelimeler KULLANMA
 
 ÖNEMLİ - KULLANICI NİYETİNİ ANLAMA:
 - "önemli", "acil", "kritik" gibi kelimeler priority alanını HIGH yapar, text alanına EKLENMEZ
@@ -233,10 +301,22 @@ ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
 
 TEXT ALANI FORMATLAMA:
 - text alanı TEMİZ ve ÖZ olmalı - meta kelimeleri (önemli, acil, vb.) içermemeli
-- Eğer görevde belirli bir tarih varsa (örn: duruşma, fatura ödemesi vb.), text alanında TARİHİ de BELİRT.
-- Örnek: "Duruşmaya Katıl" yerine "Duruşmaya Katıl - 15 Ocak 2025 Saat 14:30"
+- Eğer görevde belirli bir tarih varsa (örn: toplantı, fatura ödemesi vb.), text alanında TARİHİ de BELİRT.
+- Örnek: "Toplantıya Katıl" yerine "Toplantıya Katıl - 15 Ocak 2025 Saat 14:30"
 - Örnek: "Elektrik faturası ödemesi" yerine "Elektrik faturası ödemesi - Son Ödeme: 20 Ocak 2025"
-- Kategori "Duruşma", "Mahkeme", "Ödeme" veya "Fatura" ise mutlaka tarihi text'e ekle.
+- Kategori "Toplantı", "Ödeme" veya "Fatura" ise mutlaka tarihi text'e ekle.
+
+KONUM ÇIKARMA:
+- HER ZAMAN görevdeki konum bilgilerini kontrol et
+- Konum örnekleri: okul isimleri, restoran isimleri, hastane isimleri, şirket isimleri, semt isimleri, şehirler, adresler
+- Konum varsa "location" alanını doldur
+- Örnekler:
+  * "Starbucks'ta toplantı" -> location: "Starbucks"
+  * "Memorial Hastanesi'nde randevu" -> location: "Memorial Hastanesi"
+  * "Bostancı final okullarında etkinlik" -> location: "Bostancı final okulları"
+  * "Kadıköy'de akşam yemeği" -> location: "Kadıköy"
+  * "Hilton Oteli'nde konferans" -> location: "Hilton Oteli"
+- Konum belirtilmişse, requiresRouting: true ve destination alanına da aynı konumu ekle
 
 HATIRLATMA ÇIKARMA:
 - Kullanıcı "hatırlatma ekle", "hatırlat", "uyar" gibi kelimeler kullanıyorsa, reminderMinutesBefore alanını doldur
@@ -252,14 +332,117 @@ HATIRLATMA ÇIKARMA:
 - Hatırlatma ifadelerini text alanından ÇIKAR (text'te "hatırlatma ekle" gibi ifadeler olmamalı)
 
 ÖRNEKLER:
-✓ İYİ: Kullanıcı "yeni görev ekle önemli!" derse -> text: "[Görev detayları eksik - lütfen ne yapmak istediğinizi belirtin]", priority: "high"
-✓ İYİ: Kullanıcı "doktora git acil" derse -> text: "Doktora git", priority: "high"
-✓ İYİ: Kullanıcı "süt al" derse -> text: "Süt al", priority: "medium"
-✓ İYİ: Kullanıcı "yarın saat 15:00 doktora git, bir gün önce hatırlat" derse -> text: "Doktora git", datetime: "2025-...", reminderMinutesBefore: 1440
+✓ İYİ: Kullanıcı "yeni görev ekle önemli!" derse -> text: "[Görev detayları eksik - lütfen ne yapmak istediğinizi belirtin]", priority: "high", category: null
+✓ İYİ: Kullanıcı "doktora git acil" derse -> text: "Doktora git", priority: "high", category: "Sağlık"
+✓ İYİ: Kullanıcı "süt al" derse -> text: "Süt al", priority: "medium", category: "Alışveriş"
+✓ İYİ: Kullanıcı "yarın saat 15:00 doktora git, bir gün önce hatırlat" derse -> text: "Doktora git - 15:00", datetime: "2025-...", reminderMinutesBefore: 1440, category: "Sağlık"
+✓ İYİ: Kullanıcı "Add new task category important tomorrow at 09:30 there will be a fight in Bostancı final schools" derse -> text: "Bostancı final okullarında dövüş - 09:30", priority: "high", category: "Önemli", location: "Bostancı final okulları", requiresRouting: true, destination: "Bostancı final okulları"
 ✗ KÖTÜ: "Süt al önemli" -> text'e "önemli" kelimesini ekleme!
 ✗ KÖTÜ: "Doktora git bir gün önce hatırlat" -> text'e "bir gün önce hatırlat" ekleme!
+✗ KÖTÜ: İngilizce kelimeler kullanmak -> "Add new task" yerine "Yeni görev ekle"
 
-Görev: "${description}"`
+Görev: "${description}"`;
+    }
+}
+
+// Helper function for image task analysis prompt
+function getImageTaskAnalysisPrompt(lang: 'tr' | 'en', tz: string, nowLocal: string, nowISO: string, offsetHours: string, userPrompt: string): string {
+    if (lang === 'en') {
+        return `Analyze the user's request based on the provided image. Extract task properties from the request and image content. Understand user intent intelligently.
+
+🔴 IMPORTANT - RESPONSE LANGUAGE:
+- ALL RESPONSES MUST BE IN ENGLISH
+- text field MUST be in ENGLISH
+- category field must be in ENGLISH (Work, Personal, Shopping, Health, Education etc.)
+- Task descriptions must be in ENGLISH
+- Do NOT use Turkish words
+
+IMPORTANT - USER INTENT UNDERSTANDING:
+- Words like "important", "urgent", "critical" set priority to HIGH, should NOT be added to text field
+- Such words should be REMOVED from text field and used only for semantic parsing
+- text field: Should be clean, meaningful task title
+- Image analysis: Extract relevant details from the image to enhance the task description
+
+IMPORTANT - TIMEZONE INFO:
+- User's local timezone: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours})
+- User's CURRENT local date and time: ${nowLocal}
+- Current UTC time (for reference): ${nowISO}
+
+TIME CONVERSION RULES:
+1. If task has SPECIFIC date and time, interpret this time in USER'S LOCAL TIMEZONE (${tz})
+2. Convert local time to UTC: Subtract ${offsetHours} hours from local time
+3. Return result in ISO 8601 UTC format: YYYY-MM-DDTHH:mm:00.000Z
+4. CRITICAL: If no specific date/time mentioned, leave datetime field as null
+
+IMAGE ANALYSIS:
+- Analyze the image content and incorporate relevant details into the task
+- If image contains text, dates, or specific information, use it to enhance the task description
+- If image shows a document, receipt, or note, extract key information
+
+User request: "${userPrompt}"
+
+Analyze the image and create a task based on the user's request and image content.`;
+    } else {
+        return `Sağlanan resme dayanarak kullanıcının isteğini analiz et. İstekten ve resim içeriğinden görev özelliklerini çıkar. Kullanıcı niyetini AKILLICA anla.
+
+🔴 ÖNEMLİ - YANIT DİLİ:
+- TÜM YANITLAR TÜRKÇE OLMALIDIR
+- text alanı MUTLAKA TÜRKÇE olmalı
+- category alanı TÜRKÇE olmalı (İş, Kişisel, Alışveriş, Sağlık, Eğitim vb.)
+- Görev açıklamaları TÜRKÇE olmalı
+- İngilizce kelimeler KULLANMA
+
+ÖNEMLİ - KULLANICI NİYETİNİ ANLAMA:
+- "önemli", "acil", "kritik" gibi kelimeler priority alanını HIGH yapar, text alanına EKLENMEZ
+- Bu tür kelimeler text alanından ÇIKARILMALI ve sadece anlamsal ayrıştırma için kullanılmalı
+- text alanı: Temiz, anlamlı görev başlığı olmalı
+- Resim analizi: Görev açıklamasını zenginleştirmek için resimden ilgili detayları çıkar
+
+ÖNEMLİ - SAAT DİLİMİ BİLGİSİ:
+- Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours})
+- Kullanıcının ŞU ANKİ yerel tarihi ve saati: ${nowLocal}
+- ŞU ANIN UTC zamanı (referans için): ${nowISO}
+
+ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
+1. Eğer görevde BELİRLİ bir tarih ve saat varsa, bu zamanı KULLANICININ YEREL SAAT DİLİMİNDE (${tz}) yorumla
+2. Yerel zamanı UTC'ye çevir: Yerel zamandan ${offsetHours} saat ÇIKARın
+3. Sonucu ISO 8601 UTC formatında döndür: YYYY-MM-DDTHH:mm:00.000Z
+4. KRİTİK: Eğer kesin tarih/saat belirtilmemişse, datetime alanını null olarak bırak
+
+RESİM ANALİZİ:
+- Resim içeriğini analiz et ve ilgili detayları göreve dahil et
+- Eğer resimde metin, tarihler veya belirli bilgiler varsa, görev açıklamasını zenginleştirmek için kullan
+- Eğer resim bir belge, fiş veya not gösteriyorsa, anahtar bilgileri çıkar
+
+Kullanıcı isteği: "${userPrompt}"
+
+Resmi analiz et ve kullanıcının isteği ile resim içeriğine dayanarak bir görev oluştur.`;
+    }
+}
+
+// FIX: Update return type to AnalyzedTaskData for better type safety.
+const analyzeTask = async (apiKey: string, description: string): Promise<AnalyzedTaskData | null> => {
+    try {
+        const model = getAI(apiKey).getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+                responseMimeType: "application/json",
+                responseSchema: taskSchema as any,
+                temperature: 0.2,
+            },
+        });
+        
+        const lang = getAppLang();
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
+        const now = new Date();
+        const nowISO = now.toISOString(); // UTC
+        const nowLocal = lang === 'en' 
+            ? now.toLocaleString('en-US', { hour12: false, timeZone: tz })
+            : now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
+        const offsetMinutes = -now.getTimezoneOffset();
+        const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
+        
+        const prompt = getTaskAnalysisPrompt(lang, tz, nowLocal, nowISO, offsetHours, description);
         
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -291,56 +474,16 @@ const analyzeImageForTask = async (apiKey: string, prompt: string, imageBase64: 
             },
         };
         
+        const lang = getAppLang();
         const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
         const now = new Date();
         const nowISO = now.toISOString(); // UTC
-        const nowLocal = now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
+        const nowLocal = lang === 'en' 
+            ? now.toLocaleString('en-US', { hour12: false, timeZone: tz })
+            : now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
         const offsetMinutes = -now.getTimezoneOffset();
         const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
-        const textPrompt = `Sağlanan resme dayanarak kullanıcının isteğini analiz et. İstekten ve resim içeriğinden görev özelliklerini çıkar. Kullanıcı niyetini AKILLICA anla.
-
-ÖNEMLİ - KULLANICI NİYETİNİ ANLAMA:
-- "önemli", "acil", "kritik" gibi kelimeler priority alanını HIGH yapar, text alanına EKLENMEZ
-- "öncelikli", "hemen", "mutlaka", "ivedi" gibi kelimeler de priority alanını HIGH yapar
-- Bu tür kelimeler text alanından ÇIKARILMALI ve sadece anlamsal ayrıştırma için kullanılmalı
-- text alanı: Temiz, anlamlı görev başlığı olmalı (ör: "Süt al" değil "Süt al önemli!")
-
-ÖNEMLİ - SAAT DİLİMİ BİLGİSİ:
-- Kullanıcının yerel saat dilimi: ${tz} (UTC${Number(offsetHours) >= 0 ? '+' : ''}${offsetHours})
-- Kullanıcının ŞU ANKİ yerel tarihi ve saati: ${nowLocal}
-- ŞU ANIN UTC zamanı (referans için): ${nowISO}
-
-ZAMAN DÖNÜŞTÜRMESİ KURALLARI:
-1. Eğer görevde BELİRLİ bir tarih ve saat varsa ("yarın saat 15:00", "28 Ekim saat 14:30"), bu zamanı KULLANICININ YEREL SAAT DİLİMİNDE (${tz}) yorumla
-2. Yerel zamanı UTC'ye çevir: Yerel zamandan ${offsetHours} saat ÇIKARın
-3. Sonucu ISO 8601 UTC formatında döndür: YYYY-MM-DDTHH:mm:00.000Z
-4. Örnek: Kullanıcı "yarın saat 15:00" derse ve yarın 2025-10-07 ise:
-   - Yerel zaman: 2025-10-07T15:00:00 (${tz})
-   - UTC'ye çevrilmiş: 2025-10-07T12:00:00.000Z (15 - 3 = 12)
-5. KRİTİK: Eğer kesin tarih/saat belirtilmemişse ("gelecek hafta", "iki hafta içinde", "yakında"), datetime alanını null olarak bırak
-6. KRİTİK: ASLA datetime alanına doğal dil metni yazma ("iki hafta içinde", "İki hafta içinde" gibi). Sadece ISO formatı veya null kullan
-
-TEXT ALANI FORMATLAMA:
-- text alanı TEMİZ ve ÖZ olmalı - meta kelimeleri (önemli, acil, vb.) içermemeli
-- Eğer görevde belirli bir tarih varsa (örn: duruşma, fatura ödemesi vb.), text alanında TARİHİ de BELİRT.
-- Örnek: "Duruşmaya Katıl" yerine "Duruşmaya Katıl - 15 Ocak 2025 Saat 14:30"
-- Örnek: "Elektrik faturası ödemesi" yerine "Elektrik faturası ödemesi - Son Ödeme: 20 Ocak 2025"
-- Kategori "Duruşma", "Mahkeme", "Ödeme" veya "Fatura" ise mutlaka tarihi text'e ekle.
-
-HATIRLATMA ÇIKARMA:
-- Kullanıcı "hatırlatma ekle", "hatırlat", "uyar" gibi kelimeler kullanıyorsa, reminderMinutesBefore alanını doldur
-- Süre ifadelerini dakikaya çevir:
-  * "bir gün önce" / "1 gün önce" = 1440 dakika
-  * "iki gün önce" / "2 gün önce" = 2880 dakika
-  * "bir hafta önce" / "1 hafta önce" = 10080 dakika
-  * "bir saat önce" / "1 saat önce" = 60 dakika
-  * "30 dakika önce" = 30 dakika
-  * "yarım saat önce" = 30 dakika
-  * "15 dakika önce" = 15 dakika
-- Hatırlatma belirtilmemişse reminderMinutesBefore = null
-- Hatırlatma ifadelerini text alanından ÇIKAR (text'te "hatırlatma ekle" gibi ifadeler olmamalı)
-
-Kullanıcı isteği: "${prompt}"`
+        const textPrompt = getImageTaskAnalysisPrompt(lang, tz, nowLocal, nowISO, offsetHours, prompt);
         
         const result = await model.generateContent([textPrompt, imagePart]);
         const response = await result.response;
@@ -374,9 +517,21 @@ const getDirections = async (apiKey: string, origin: string, destination: string
     }
 };
 
+const getAppLang = (): 'tr' | 'en' => {
+    try { const l = localStorage.getItem('appLang'); return (l === 'en' ? 'en' : 'tr'); } catch { return 'tr'; }
+};
+
 const startChat = async (apiKey: string, history: ChatMessage[], newMessage: string): Promise<{text: string} | null> => {
     try {
-        const model = getAI(apiKey).getGenerativeModel({ model: modelName });
+        const lang = getAppLang();
+        const systemInstruction = lang === 'en' 
+            ? 'You are a helpful AI assistant. Always respond in English. Be concise, friendly, and helpful. When helping with tasks, provide clear and actionable information.'
+            : 'Sen yardımcı bir AI asistanısın. Her zaman Türkçe yanıt ver. Kısa, samimi ve yardımcı ol. Görevlerde yardım ederken net ve uygulanabilir bilgiler sağla.';
+            
+        const model = getAI(apiKey).getGenerativeModel({ 
+            model: modelName,
+            systemInstruction: systemInstruction
+        });
         
         // Gemini API requires the first message to have role 'user', not 'model'
         // Filter out any initial model messages from the history
@@ -406,10 +561,11 @@ const startChat = async (apiKey: string, history: ChatMessage[], newMessage: str
 
 const getDailyBriefing = async (apiKey: string, todos: Todo[]): Promise<DailyBriefing | null> => {
     if (todos.length === 0) {
+        const lang = getAppLang();
         return {
-            summary: "Bugün için planlanmış bir göreviniz yok. Harika bir gün sizi bekliyor!",
+            summary: lang === 'en' ? 'You have no scheduled tasks for today. Have a great day!' : "Bugün için planlanmış bir göreviniz yok. Harika bir gün sizi bekliyor!",
             focus: [],
-            conflicts: "Herhangi bir çakışma bulunmuyor."
+            conflicts: lang === 'en' ? 'No conflicts detected.' : "Herhangi bir çakışma bulunmuyor."
         };
     }
     
@@ -423,8 +579,11 @@ const getDailyBriefing = async (apiKey: string, todos: Todo[]): Promise<DailyBri
             },
         });
         
-        const taskList = todos.map(t => `- ${t.text} (${t.datetime ? new Date(t.datetime).toLocaleTimeString('tr-TR') : 'zamanlanmamış'})`).join('\n');
-        const prompt = `Kullanıcının bugünkü (${new Date().toLocaleDateString('tr-TR')}) görevleri şunlardır:\n${taskList}\n\nLütfen bu görevlere dayanarak bir günlük brifing sağlayın. Çakışmaları analiz edin ve odak noktaları önerin.`;
+        const lang = getAppLang();
+        const taskList = todos.map(t => `- ${t.text} (${t.datetime ? new Date(t.datetime).toLocaleTimeString(lang === 'en' ? 'en-US' : 'tr-TR') : (lang === 'en' ? 'unscheduled' : 'zamanlanmamış')})`).join('\n');
+        const prompt = lang === 'en' 
+            ? `The user's tasks for today (${new Date().toLocaleDateString('en-US')}) are as follows:\n${taskList}\n\nPlease provide a daily briefing based on these tasks. Analyze conflicts and suggest focus points. Respond in English.`
+            : `Kullanıcının bugünkü (${new Date().toLocaleDateString('tr-TR')}) görevleri şunlardır:\n${taskList}\n\nLütfen bu görevlere dayanarak bir günlük brifing sağlayın. Çakışmaları analiz edin ve odak noktaları önerin.`;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -987,7 +1146,10 @@ const speechToText = async (apiKey: string, audioBase64: string, mimeType: strin
             },
         };
         
-        const prompt = "Bu ses kaydındaki Türkçe konuşmayı tam olarak metne dönüştür. Sadece söylenenleri yaz, başka birşey ekleme:";
+        const lang = getAppLang();
+        const prompt = lang === 'en' 
+            ? "Transcribe the English speech in this audio recording exactly to text. Only write what is spoken, don't add anything else:"
+            : "Bu ses kaydındaki Türkçe konuşmayı tam olarak metne dönüştür. Sadece söylenenleri yaz, başka birşey ekleme:";
         
         const result = await model.generateContent([prompt, audioPart]);
         const response = await result.response;
@@ -1134,7 +1296,6 @@ Bu PDF belgesini analiz et ve önemli bilgileri çıkar. SADECE JSON FORMATINDA 
 
 **GÖREV METNİ FORMATLAMA:**
 - Görev başlığında (title) MUTLAKA tarihi belirt
-- Duruşma: "Duruşmaya katıl - [Tarih] Saat [Saat]"
 - Fatura: "[Firma] faturası ödemesi - Son Ödeme: [Tarih]"
 - Randevu: "[Randevu türü] - [Tarih] Saat [Saat]"
 - Toplantı: "[Toplantı adı] - [Tarih] Saat [Saat]"
@@ -1150,28 +1311,28 @@ Bu PDF belgesini analiz et ve önemli bilgileri çıkar. SADECE JSON FORMATINDA 
 Example 1 - TURKISH PDF (use Turkish in ALL fields):
 {
   "summary": "Belgenin kısa özeti (1-2 cümle)",
-  "documentType": "court_document",
+  "documentType": "meeting_notes",
   "suggestedTasks": [
     {
-      "title": "Duruşmaya katıl - 15 Kasım 2024 Saat 10:00",
-      "description": "Ankara 5. Ağır Ceza Mahkemesi - Tanık dinlemesi",
+      "title": "Toplantıya katıl - 15 Kasım 2024 Saat 10:00",
+      "description": "Toplantı Odası A - Sunum ve planlama",
       "dueDate": "2024-11-15T07:00:00.000Z",
-      "category": "Hukuk",
+      "category": "İş",
       "priority": "high"
     }
   ],
   "suggestedNotes": [
     {
-      "title": "Duruşma Detayları",
-      "content": "Önceki duruşmada eksik belgeler talep edildi...",
-      "tags": ["hukuk", "duruşma"]
+      "title": "Toplantı Detayları",
+      "content": "Gündem: Q4 hedefleri, kaynak planlaması...",
+      "tags": ["iş", "toplantı"]
     }
   ],
   "entities": {
     "dates": ["2024-11-15 10:00"],
-    "people": ["Av. Mehmet Yılmaz"],
-    "organizations": ["Ankara 5. Ağır Ceza Mahkemesi"],
-    "locations": ["Ankara Adalet Sarayı"],
+    "people": ["Ahmet Yılmaz"],
+    "organizations": ["Ürün Ekibi"],
+    "locations": ["Toplantı Odası A"],
     "amounts": []
   }
 }
@@ -1207,8 +1368,8 @@ Example 2 - ENGLISH PDF (use English in ALL fields):
 
 **IMPORTANT RULES:**
 1. ‼️ LANGUAGE: Write title, description, content, summary in PDF's ORIGINAL language
-   - Turkish PDF → Turkish output ("Duruşmaya katıl", "Ankara Mahkemesi")
-   - English PDF → English output ("Attend hearing", "Court of Law")
+- Turkish PDF → Turkish output ("Toplantıya katıl", "Toplantı Odası A")
+- English PDF → English output ("Attend meeting", "Meeting Room")
    - DO NOT translate, DO NOT mix languages
 2. Priority: Urgent dates = high, Normal = medium, Optional = low
 3. Category: Based on document type (Legal/Hukuk, Finance/Finans, Work/İş, Personal/Kişisel)

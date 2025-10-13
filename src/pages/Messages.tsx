@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 import { ensureProfile, getOrCreateDirectConversationByEmail, listMessages, sendFileMessage, sendTextMessage, subscribeToMessages, downloadAttachment } from '../services/messagesService';
 import { listFriends, addFriendByEmail, removeFriend } from '../services/friendsService';
 import { NotificationService } from '../services/notificationService';
@@ -17,6 +18,7 @@ interface VoiceMessagePlayerProps {
 }
 
 const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({ attachmentPath, mine, onDownload }) => {
+  const { t } = useI18n();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -125,8 +127,8 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({ attachmentPath,
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        <span>Ses yüklenemedi</span>
-        <button onClick={onDownload} className="underline">İndir</button>
+        <span>{t('messages.audio.failed','Ses yüklenemedi')}</span>
+        <button onClick={onDownload} className="underline">{t('messages.download','İndir')}</button>
       </div>
     );
   }
@@ -142,7 +144,7 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({ attachmentPath,
             ? 'hover:bg-white/20' 
             : 'hover:bg-gray-200 dark:hover:bg-gray-700'
         }`}
-        title={isPlaying ? 'Duraklat' : 'Oynat'}
+        title={isPlaying ? t('messages.pause','Duraklat') : t('messages.play','Oynat')}
       >
         {isPlaying ? (
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -186,7 +188,7 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({ attachmentPath,
             ? 'hover:bg-white/20' 
             : 'hover:bg-gray-200 dark:hover:bg-gray-700'
         }`}
-        title="İndir"
+        title={t('messages.download','İndir')}
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -197,6 +199,7 @@ const VoiceMessagePlayer: React.FC<VoiceMessagePlayerProps> = ({ attachmentPath,
 };
 
 const MessagesPage: React.FC = () => {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toasts, removeToast, showMessage } = useToast();
@@ -608,8 +611,8 @@ const MessagesPage: React.FC = () => {
       const isVoiceMessage = m.type === 'file' && isAudioFile(m.attachment_path);
       
       nodes.push(
-        <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'} mb-2`}>
-          <div className={`max-w-[78%] rounded-2xl px-4 py-2 shadow-sm ${mine ? 'bg-[var(--accent-color-600)] text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100'}`}>
+        <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'} mb-2 px-1`}>
+          <div className={`max-w-[85%] sm:max-w-[78%] rounded-2xl px-3 sm:px-4 py-2 shadow-sm break-words overflow-hidden ${mine ? 'bg-[var(--accent-color-600)] text-white' : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100'}`}>
             {m.type === 'text' ? (
               <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
             ) : isVoiceMessage ? (
@@ -621,8 +624,8 @@ const MessagesPage: React.FC = () => {
             ) : (
               <div className="text-sm flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M8 4a3 3 0 00-3 3v6a3 3 0 103 3h4a3 3 0 000-6H8a1 1 0 010-2h4a3 3 0 100-6H8z" /></svg>
-                <span>{m.body || 'Dosya'}</span>
-                <button onClick={() => handleDownload(m.attachment_path)} className="underline text-xs">indir</button>
+                <span>{m.body || t('messages.file','Dosya')}</span>
+                <button onClick={() => handleDownload(m.attachment_path)} className="underline text-xs">{t('messages.downloadFile','indir')}</button>
               </div>
             )}
             <div className={`text-[10px] opacity-70 mt-1 ${mine ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'}`}>{dt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</div>
@@ -642,13 +645,13 @@ const MessagesPage: React.FC = () => {
           <button 
             onClick={() => navigate('/app')} 
             className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            title="Ana sayfaya dön"
+            title={t('messages.backHome','Ana sayfaya dön')}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
           </button>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">Mesajlar</h1>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('messages.title','Mesajlar')}</h1>
         </div>
         <div className="flex gap-2 items-center">
           {!notificationsEnabled ? (
@@ -658,7 +661,7 @@ const MessagesPage: React.FC = () => {
                 setNotificationsEnabled(enabled);
               }}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title="Mesaj bildirimlerini etkinleştir"
+              title={t('messages.enableNotifications','Mesaj bildirimlerini etkinleştir')}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
@@ -666,7 +669,7 @@ const MessagesPage: React.FC = () => {
             </button>
           ) : (
             <div className="flex gap-1 items-center">
-              <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20" title="Bildirimler etkin">
+              <div className="p-2 rounded-lg bg-green-50 dark:bg-green-900/20" title={t('messages.notificationsEnabled','Bildirimler etkin')}>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                 </svg>
@@ -683,11 +686,11 @@ const MessagesPage: React.FC = () => {
           {/* Search & Add Friend Header */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Sohbetler</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t('messages.chats','Sohbetler')}</h2>
               <button 
                 onClick={() => setShowAddFriend(!showAddFriend)}
                 className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                title="Arkadaş ekle"
+                title={t('messages.addFriend','Arkadaş ekle')}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -702,7 +705,7 @@ const MessagesPage: React.FC = () => {
                   type="email"
                   value={newFriendEmail}
                   onChange={(e) => setNewFriendEmail(e.target.value)}
-                  placeholder="E-posta adresi giriniz"
+                  placeholder={t('messages.emailPlaceholder','E-posta adresi giriniz')}
                   required
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-600)]/50"
                 />
@@ -713,14 +716,14 @@ const MessagesPage: React.FC = () => {
                     type="submit" 
                     className="flex-1 px-3 py-2 text-sm rounded-lg bg-[var(--accent-color-600)] text-white hover:bg-[var(--accent-color-700)] disabled:opacity-50"
                   >
-                    {addingFriend ? 'Ekleniyor...' : 'Ekle'}
+                    {addingFriend ? t('messages.adding','Ekleniyor...') : t('messages.add','Ekle')}
                   </button>
                   <button 
                     type="button"
                     onClick={() => { setShowAddFriend(false); setFriendError(null); setNewFriendEmail(''); }}
                     className="px-3 py-2 text-sm rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
                   >
-                    İptal
+                    {t('messages.cancel','İptal')}
                   </button>
                 </div>
               </form>
@@ -734,8 +737,8 @@ const MessagesPage: React.FC = () => {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Henüz arkadaş eklemediniz</p>
-                <p className="text-xs text-gray-400 dark:text-gray-500">Sohbet başlatmak için yukarıdan arkadaş ekleyin</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{t('messages.noFriends','Henüz arkadaş eklemediniz')}</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">{t('messages.noFriendsDesc','Sohbet başlatmak için yukarıdan arkadaş ekleyin')}</p>
               </div>
             ) : (
               friends.map((friend) => (
@@ -765,7 +768,7 @@ const MessagesPage: React.FC = () => {
                       handleRemoveFriend(friend.id);
                     }}
                     className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
-                    title="Arkadaşı sil"
+                    title={t('messages.removeFriend','Arkadaşı sil')}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -784,9 +787,9 @@ const MessagesPage: React.FC = () => {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-32 w-32 mx-auto text-gray-300 dark:text-gray-700 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
-              <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Mesajlarınız</h3>
+              <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">{t('messages.yourMessages','Mesajlarınız')}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
-                Arkadaşlarınızla sohbet etmek için soldan bir kişi seçin veya yeni arkadaş ekleyin
+                {t('messages.selectFriend','Arkadaşlarınızla sohbet etmek için soldan bir kişi seçin veya yeni arkadaş ekleyin')}
               </p>
             </div>
           </div>
@@ -814,20 +817,20 @@ const MessagesPage: React.FC = () => {
                     {other?.id && onlineUsers.has(other.id) ? (
                       <>
                         <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                        <span>Çevrimiçi</span>
+                        <span>{t('messages.online','Çevrimiçi')}</span>
                       </>
                     ) : (
                       <>
                         <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
                         <span>
                           {other?.last_seen 
-                            ? `Son görülme: ${new Date(other.last_seen).toLocaleString('tr-TR', { 
+                            ? `${t('messages.lastSeen','Son görülme:')} ${new Date(other.last_seen).toLocaleString('tr-TR', { 
                                 hour: '2-digit', 
                                 minute: '2-digit',
                                 day: '2-digit',
                                 month: 'short'
                               })}`
-                            : 'Çevrimdışı'
+                            : t('messages.offline','Çevrimdışı')
                           }
                         </span>
                       </>
@@ -835,14 +838,14 @@ const MessagesPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <button className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Arama">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title={t('messages.search','Arama')}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </button>
-                <button className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title="Daha fazla">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <button className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" title={t('messages.more','Daha fazla')}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
                   </svg>
                 </button>
@@ -853,8 +856,8 @@ const MessagesPage: React.FC = () => {
             <div 
               ref={messagesContainerRef}
               onScroll={handleScroll}
-              className="flex-1 overflow-y-auto p-6 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwMDAwMCIgb3BhY2l0eT0iMC4wMiIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZmZmZiIgb3BhY2l0eT0iMC4wMiIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')]" 
-              style={{ scrollBehavior: 'smooth' }}
+              className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwMDAwMCIgb3BhY2l0eT0iMC4wMiIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] dark:bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZmZmZiIgb3BhY2l0eT0iMC4wMiIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi/+PC9zdmc+')]" 
+              style={{ scrollBehavior: 'smooth', overflowAnchor: 'none' }}
             >
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
@@ -862,8 +865,8 @@ const MessagesPage: React.FC = () => {
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Henüz mesaj yok</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">İlk mesajı gönderin</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{t('messages.noMessages','Henüz mesaj yok')}</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('messages.firstMessage','İlk mesajı gönderin')}</p>
                   </div>
                 </div>
               ) : (
@@ -878,7 +881,7 @@ const MessagesPage: React.FC = () => {
                   type="button" 
                   onClick={() => fileInputRef.current?.click()} 
                   className="p-2.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" 
-                  title="Dosya ekle"
+                  title={t('messages.attachFile','Dosya ekle')}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -891,7 +894,7 @@ const MessagesPage: React.FC = () => {
                     type="text"
                     value={newText}
                     onChange={(e) => setNewText(e.target.value)}
-                    placeholder="Bir mesaj yazın"
+                    placeholder={t('messages.typeMessage','Bir mesaj yazın')}
                     className="w-full px-4 py-3 pr-12 rounded-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-600)]/50 text-sm"
                   />
                   <button 
@@ -908,7 +911,7 @@ const MessagesPage: React.FC = () => {
                   <button 
                     type="submit" 
                     className="p-3 rounded-full bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] transition-all shadow-lg hover:shadow-xl"
-                    title="Gönder"
+                    title={t('messages.sendMessage','Gönder')}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
@@ -923,7 +926,7 @@ const MessagesPage: React.FC = () => {
                     onTouchStart={startVoiceRecording}
                     onTouchEnd={stopVoiceRecording}
                     className="p-3 rounded-full bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] active:scale-95 transition-all shadow-lg hover:shadow-xl"
-                    title="Basılı tutarak sesli mesaj kaydet"
+                    title={t('messages.holdToRecord','Basılı tutarak sesli mesaj kaydet')}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
@@ -937,7 +940,7 @@ const MessagesPage: React.FC = () => {
                   type="button" 
                   onClick={cancelVoiceRecording}
                   className="p-2.5 rounded-full hover:bg-red-200 dark:hover:bg-red-800 transition-colors" 
-                  title="İptal"
+                  title={t('messages.cancelRecording','İptal')}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -963,7 +966,7 @@ const MessagesPage: React.FC = () => {
                   type="button" 
                   onClick={stopVoiceRecording}
                   className="p-3 rounded-full bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] transition-all shadow-lg hover:shadow-xl"
-                  title="Gönder"
+                  title={t('messages.sendMessage','Gönder')}
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />

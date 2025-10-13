@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useI18n } from '../contexts/I18nContext';
 
 interface VoiceModeConfig {
   enabledByDefault?: boolean;
@@ -9,6 +10,7 @@ interface VoiceModeConfig {
 }
 
 export const useVoiceMode = (config?: VoiceModeConfig) => {
+  const { lang } = useI18n();
   const [isVoiceModeSupported, setIsVoiceModeSupported] = useState(false);
   const [voiceModeError, setVoiceModeError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -138,11 +140,13 @@ export const useVoiceMode = (config?: VoiceModeConfig) => {
     }
 
     try {
-      // Test speech synthesis
-      const utterance = new SpeechSynthesisUtterance('Test mesajı');
+      // Test speech synthesis with language-appropriate message
+      const testMessage = lang === 'tr' ? 'Test mesajı' : 'Test message';
+      const utterance = new SpeechSynthesisUtterance(testMessage);
       utterance.volume = config?.speechVolume || 0.5;
       utterance.rate = config?.speechRate || 1.0;
       utterance.pitch = config?.speechPitch || 1.0;
+      utterance.lang = lang === 'tr' ? 'tr-TR' : 'en-US';
       
       return new Promise<boolean>((resolve, reject) => {
         utterance.onend = () => resolve(true);
@@ -159,25 +163,27 @@ export const useVoiceMode = (config?: VoiceModeConfig) => {
     } catch (error) {
       throw new Error(`Sesli mod testi başarısız: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
     }
-  }, [isVoiceModeSupported, config]);
+  }, [isVoiceModeSupported, config, lang]);
 
   // Get voice configuration
   const getOptimalVoiceConfig = useCallback(() => {
     if (!isVoiceModeSupported) return null;
 
     const voices = speechSynthesis.getVoices();
-    const turkishVoice = voices.find(voice => 
-      voice.lang.includes('tr') || voice.lang.includes('TR')
+    // Find voice matching current language
+    const langPrefix = lang === 'tr' ? 'tr' : 'en';
+    const preferredVoice = voices.find(voice => 
+      voice.lang.toLowerCase().includes(langPrefix)
     );
 
     return {
-      voice: turkishVoice || voices[0] || null,
+      voice: preferredVoice || voices[0] || null,
       rate: config?.speechRate || 1.0,
       pitch: config?.speechPitch || 1.0,
       volume: config?.speechVolume || 1.0,
-      lang: 'tr-TR'
+      lang: lang === 'tr' ? 'tr-TR' : 'en-US'
     };
-  }, [isVoiceModeSupported, config]);
+  }, [isVoiceModeSupported, config, lang]);
 
   return {
     isVoiceModeSupported,

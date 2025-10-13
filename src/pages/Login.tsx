@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -9,6 +10,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { signIn } = useAuth();
+  const { t } = useI18n();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -21,11 +23,11 @@ export default function Login() {
       console.error('Login error:', signInError);
       // Daha anlaşılır hata mesajları
       if (signInError.message.includes('Invalid login credentials')) {
-        setError('E-posta veya şifre hatalı. Henüz kayıt olmadıysanız, önce "Kayıt Ol" butonuna tıklayın.');
+        setError(t('login.error.invalid','E-posta veya şifre hatalı. Henüz kayıt olmadıysanız, önce "Kayıt Ol" butonuna tıklayın.'));
       } else if (signInError.message.includes('Email not confirmed')) {
-        setError('E-posta adresinizi doğrulamanız gerekiyor. Lütfen e-posta kutunuzu kontrol edin.');
+        setError(t('login.error.confirm','E-posta adresinizi doğrulamanız gerekiyor. Lütfen e-posta kutunuzu kontrol edin.'));
       } else {
-        setError(signInError.message || 'Giriş yapılamadı');
+        setError(signInError.message || t('login.error.generic','Giriş yapılamadı'));
       }
       setLoading(false);
     } else {
@@ -38,10 +40,10 @@ export default function Login() {
       <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Hoş Geldiniz
+            {t('login.title','Hoş Geldiniz')}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Hesabınıza giriş yapın
+            {t('login.subtitle','Hesabınıza giriş yapın')}
           </p>
         </div>
 
@@ -54,7 +56,7 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              E-posta
+              {t('login.email','E-posta')}
             </label>
             <input
               id="email"
@@ -69,7 +71,7 @@ export default function Login() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Şifre
+              {t('login.password','Şifre')}
             </label>
             <input
               id="password"
@@ -87,15 +89,15 @@ export default function Login() {
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
+            {loading ? t('login.loading','Giriş yapılıyor...') : t('login.submit','Giriş Yap')}
           </button>
         </form>
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Hesabınız yok mu?{' '}
+            {t('login.noAccount','Hesabınız yok mu?')}
             <Link to="/register" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 font-medium">
-              Kayıt Ol
+              {t('login.register','Kayıt Ol')}
             </Link>
           </p>
         </div>

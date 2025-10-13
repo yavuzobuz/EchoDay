@@ -1,4 +1,5 @@
 import React from 'react';
+import { useI18n } from '../contexts/I18nContext';
 
 interface InfoBannerProps {
   assistantName: string;
@@ -6,6 +7,7 @@ interface InfoBannerProps {
 }
 
 const InfoBanner: React.FC<InfoBannerProps> = ({ assistantName, onClose }) => {
+  const { t } = useI18n();
   return (
     <div className="bg-[var(--accent-color-100)] dark:bg-[var(--accent-color-900)] border-t border-b border-[var(--accent-color-300)] dark:border-[var(--accent-color-800)] text-[var(--accent-color-900)] dark:text-[var(--accent-color-200)] px-4 py-3 rounded-lg mb-6 shadow-sm relative" role="alert">
       <div className="flex items-center">
@@ -16,17 +18,17 @@ const InfoBanner: React.FC<InfoBannerProps> = ({ assistantName, onClose }) => {
         </div>
         <div>
           <p className="font-bold text-sm sm:text-base">
-            İpucu: Asistanı aktive etmek için "<span className="font-semibold">{assistantName}</span>" deyin.
+            {t('banner.tipPrefix','İpucu: Asistanı aktive etmek için')} "<span className="font-semibold">{assistantName}</span>" {t('banner.tipSuffix','deyin.')} 
           </p>
           <p className="text-xs sm:text-sm">
-            Ardından komutunuzu söyleyin: "Yarın 14:00'te toplantı ayarla" veya "Bu fikri not al".
+            {t('banner.sub1','Ardından komutunuzu söyleyin: "Yarın 14:00\'te toplantı ayarla" veya "Bu fikri not al".')}
           </p>
         </div>
       </div>
       <button 
         onClick={onClose} 
         className="absolute top-2 right-2 p-1.5 rounded-full text-current opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
-        aria-label="İpucunu kapat"
+        aria-label={t('banner.close','İpucunu kapat')}
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
           <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
