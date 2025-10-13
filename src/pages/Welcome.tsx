@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Logo from '../components/Logo';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useI18n } from '../contexts/I18nContext';
 
 interface WelcomeProps {
   onGetStarted: () => void;
@@ -36,10 +37,11 @@ const Feature: React.FC<{ icon: React.ReactNode; title: string; children: React.
 
 
 const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFirstRun = false, onFinishOnboarding }) => {
+  const { t, lang, setLang } = useI18n();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentScene, setCurrentScene] = useState(0);
-  const scenes = 4; // Toplam sahne sayısı
+  const scenes = 4; // Total scenes
   
   // Routing and auth
   const navigate = useNavigate();
@@ -62,14 +64,14 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
   const os = getOS();
 
   const downloadLinks = {
-    windows: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/EchoDay-1.0.0-win-unpacked.zip',
+    windows: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/EchoDay-Windows-Portable-1.0.0.zip',
     mac: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_macOS.dmg',
     linux: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/SesliGunlukPlanlayici_Linux.AppImage',
-    android: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/app-debug.apk',
+    android: 'https://github.com/yavuzobuz/EchoDay/releases/download/v1.0.0/EchoDay-Android-Debug-1.0.0.apk',
   } as const;
 
   const primaryDownloadHref = os === 'mac' ? downloadLinks.mac : os === 'linux' ? downloadLinks.linux : os === 'android' ? downloadLinks.android : downloadLinks.windows;
-  const primaryLabel = os === 'mac' ? 'macOS için İndir' : os === 'linux' ? 'Linux için İndir' : os === 'android' ? 'Android için İndir (APK)' : 'Windows için İndir';
+  const primaryLabel = os === 'mac' ? t('welcome.downloadLabel.mac', 'macOS için İndir') : os === 'linux' ? t('welcome.downloadLabel.linux', 'Linux için İndir') : os === 'android' ? t('welcome.downloadLabel.android', 'Android için İndir (APK)') : t('welcome.downloadLabel.windows', 'Windows için İndir');
   
 
   useEffect(() => {
@@ -83,11 +85,11 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Otomatik sahne değişimi - Her 5 saniyede bir
+  // Auto scene change - Every 5 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentScene((prev) => (prev + 1) % scenes);
-    }, 5000); // 5000ms = 5 saniye
+    }, 5000); // 5000ms = 5 seconds
 
     return () => clearInterval(interval);
   }, [scenes]);
@@ -138,6 +140,32 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
       </div>
       
       <div className="text-center max-w-7xl mx-auto relative z-10 w-full px-2 sm:px-4 break-words">
+        {/* Top Actions - Language Switcher and Pricing */}
+        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-50 flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3">
+          <button
+            onClick={() => setLang(lang === 'tr' ? 'en' : 'tr')}
+            className="group flex items-center gap-2 px-2 sm:px-4 py-1 sm:py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-lg sm:rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-[hsl(var(--primary))] dark:hover:border-[hsl(var(--primary))] shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base"
+            title={lang === 'tr' ? 'Switch to English' : 'Türkçe\'ye geç'}
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300 group-hover:text-[hsl(var(--primary))] transition-colors" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M7 2a1 1 0 011 1v1h3a1 1 0 110 2H9.578a18.87 18.87 0 01-1.724 4.78c.29.354.596.696.914 1.026a1 1 0 11-1.44 1.389c-.188-.196-.373-.396-.554-.6a19.098 19.098 0 01-3.107 3.567 1 1 0 01-1.334-1.49 17.087 17.087 0 003.13-3.733 18.992 18.992 0 01-1.487-2.494 1 1 0 111.79-.89c.234.47.489.928.764 1.372.417-.934.752-1.913.997-2.927H3a1 1 0 110-2h3V3a1 1 0 011-1zm6 6a1 1 0 01.894.553l2.991 5.982a.869.869 0 01.02.037l.99 1.98a1 1 0 11-1.79.895L15.383 16h-4.764l-.724 1.447a1 1 0 11-1.788-.894l.99-1.98.019-.038 2.99-5.982A1 1 0 0113 8zm-1.382 6h2.764L13 11.236 11.618 14z" clipRule="evenodd" />
+            </svg>
+            <span className="font-semibold text-gray-700 dark:text-gray-300 group-hover:text-[hsl(var(--primary))] transition-colors">
+              {lang === 'tr' ? 'EN' : 'TR'}
+            </span>
+          </button>
+          <button
+            onClick={() => navigate('/pricing')}
+            className="group flex items-center gap-2 px-2 sm:px-4 py-1 sm:py-2 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white backdrop-blur-lg rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold text-sm sm:text-base"
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="hidden sm:inline">{t('welcome.pricing', 'Fiyatlandırma')}</span>
+            <span className="sm:hidden">€</span>
+          </button>
+        </div>
+        
         {/* Logo with pulse animation - BÜYÜTÜLDÜ */}
         <div className={`inline-block p-8 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-3xl mb-8 glow-primary transform transition-all duration-1000 ${
           isLoaded ? 'scale-100 opacity-100 rotate-0' : 'scale-0 opacity-0 rotate-180'
@@ -153,10 +181,10 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
             <button
               onClick={handleQuickStart}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[hsl(var(--accent))] text-white font-semibold shadow hover:shadow-md hover:bg-[hsl(var(--accent)_/_0.9)] transition-all"
-              title="Hemen Başla"
+              title={t('welcome.getStartedTitle', 'Hemen Başla')}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5m5 5H3" /></svg>
-              Hemen Başla
+              {t('welcome.getStartedButton', 'Hemen Başla')}
             </button>
           )}
         </div>
@@ -176,7 +204,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
             <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
           </svg>
           <p className="text-xl sm:text-3xl md:text-4xl font-bold text-[hsl(var(--foreground))] break-words">
-            Gününüzün Yankısı
+            {t('welcome.tagline','Echo of Your Day')}
           </p>
         </div>
         
@@ -184,54 +212,45 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
         <p className={`text-lg md:text-xl text-[hsl(var(--muted-foreground))] mb-12 max-w-3xl mx-auto leading-relaxed transform transition-all duration-1000 delay-300 break-words hyphens-auto ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
-          <span className="inline-flex items-center gap-2 font-semibold text-[hsl(var(--primary))]">
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M13 7H7v6h6V7z" />
-              <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
-            </svg>
-            AI destekli
-          </span> sesli komutlar, 
-          <span className="font-semibold text-[hsl(var(--accent))]">akıllı öneriler</span> ve 
-          <span className="font-semibold text-[hsl(var(--primary))]">güçlü analiz</span> özellikleriyle 
-          verimliliğinizi <span className="font-bold underline decoration-wavy decoration-[hsl(var(--primary))]">üst seviyeye</span> çıkarın.
+          {t('welcome.heroDescription','Boost your productivity with AI-powered voice commands, smart suggestions, and powerful analysis features.')}
         </p>
 
         {/* Features Grid with stagger animation */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-16">
           <Feature
             icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>}
-            title="Sesle Yönetim"
+            title={t('welcome.feature1.title','Voice Management')}
             delay={100}
           >
-            Görevlerinizi ve notlarınızı <strong>sesli komutlarla</strong> ekleyin, AI asistanınızla <strong>sohbet edin</strong>.
+            {t('welcome.feature1.desc','Add your tasks and notes with voice commands, chat with your AI assistant.')}
           </Feature>
           <Feature
             icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>}
-            title="Akıllı Analiz"
+            title={t('welcome.feature2.title','Smart Analysis')}
             delay={200}
           >
-            Yapay zeka <strong>tarih, öncelik ve konum</strong> gibi detayları <strong>otomatik çıkarır</strong>.
+            {t('welcome.feature2.desc','AI automatically extracts details like date, priority, and location.')}
           </Feature>
           <Feature
             icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
-            title="Görselden Görev"
+            title={t('welcome.feature3.title','Task from Image')}
             delay={300}
           >
-            <strong>Fatura, takvim</strong> veya <strong>el yazısı</strong> fotoğraflarından anında görev oluşturun.
+            {t('welcome.feature3.desc','Create tasks instantly from invoices, calendars, or handwritten notes.')}
           </Feature>
           <Feature
             icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
-            title="Proaktif Öneriler"
+            title={t('welcome.feature4.title','Proactive Suggestions')}
             delay={400}
           >
-            AI <strong>alışkanlıklarınızı öğrenir</strong> ve size <strong>özel öneriler</strong> sunar.
+            {t('welcome.feature4.desc','AI learns your habits and offers personalized suggestions.')}
           </Feature>
           <Feature
             icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>}
-            title="PDF'den Görev"
+            title={t('welcome.feature5.title','Task from PDF')}
             delay={500}
           >
-            <strong>PDF belgelerinizi</strong> yükleyin, AI <strong>otomatik görev ve not çıkarsın</strong> - Çok dilli destek!
+            {t('welcome.feature5.desc','Upload your PDF documents, AI automatically extracts tasks and notes - Multilingual support!')}
           </Feature>
         </div>
         
@@ -244,14 +263,14 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
             <button 
               onClick={prevScene}
               className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
-              aria-label="Önceki sahne"
+              aria-label={t('welcome.scenes.prev', 'Önceki sahne')}
             >
               <svg className="w-6 h-6 text-[hsl(var(--foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
             </button>
             <button 
               onClick={nextScene}
               className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
-              aria-label="Sonraki sahne"
+              aria-label={t('welcome.scenes.next', 'Sonraki sahne')}
             >
               <svg className="w-6 h-6 text-[hsl(var(--foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </button>
@@ -291,8 +310,8 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                       <svg className="w-7 h-7 text-[hsl(var(--primary-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                     </div>
                     <div className="text-center">
-                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">Sesle Görev</h3>
-                      <p className="text-sm text-[hsl(var(--muted-foreground))]">Sesli komutla hızlıca ekle</p>
+                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">{t('welcome.mockup.voiceTask','Voice Task')}</h3>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.voiceTaskDesc','Add quickly with voice command')}</p>
                     </div>
                   </div>
 
@@ -302,8 +321,8 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                       <svg className="w-7 h-7 text-[hsl(var(--accent-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                     </div>
                     <div className="text-center">
-                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">AI Sohbet</h3>
-                      <p className="text-sm text-[hsl(var(--muted-foreground))]">Asistanınızla sohbet edin.</p>
+                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">{t('welcome.mockup.aiChat','AI Chat')}</h3>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.aiChatDesc','Chat with your assistant.')}</p>
                     </div>
                   </div>
 
@@ -313,8 +332,8 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                       <svg className="w-7 h-7 text-[hsl(var(--destructive-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                     </div>
                     <div className="text-center">
-                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">Resimle</h3>
-                      <p className="text-sm text-[hsl(var(--muted-foreground))]">Fotoğraftan otomatik görev oluştur</p>
+                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">{t('welcome.mockup.fromImage','From Image')}</h3>
+                      <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.fromImageDesc','Create task from photo automatically')}</p>
                     </div>
                   </div>
                 </div>
@@ -323,12 +342,12 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-                      ⭐ Görevlerim
-                      <span className="text-xs bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-2 py-0.5 rounded-full">Bugün</span>
+                      ⭐ {t('welcome.mockup.myTasks','My Tasks')}
+                      <span className="text-xs bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-2 py-0.5 rounded-full">{t('welcome.mockup.today','Today')}</span>
                     </h2>
                     <button className="text-sm text-[hsl(var(--primary))] font-semibold flex items-center gap-1">
-                      Liste 
-                      <span className="text-xs">Zaman Sırası</span>
+                      {t('welcome.mockup.list','List')} 
+                      <span className="text-xs">{t('welcome.mockup.timeline','Timeline')}</span>
                     </button>
                   </div>
 
@@ -357,8 +376,8 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-                      ⭐ Görevlerim
-                      <span className="text-xs bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-2 py-0.5 rounded-full">Bugün</span>
+                      ⭐ {t('welcome.mockup.myTasks', 'Görevlerim')}
+                      <span className="text-xs bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] px-2 py-0.5 rounded-full">{t('welcome.mockup.today', 'Bugün')}</span>
                     </h2>
                   </div>
 
@@ -403,9 +422,9 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-                      🤖 AI Asistan
+                      🤖 {t('welcome.mockup.aiAssistant','AI Assistant')}
                     </h2>
-                    <button className="p-1 hover:bg-[hsl(var(--muted))] rounded" title="Kapat">
+                    <button className="p-1 hover:bg-[hsl(var(--muted))] rounded" title={t('welcome.mockup.close','Close')}>
                       <svg className="w-5 h-5 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
@@ -428,24 +447,28 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                         </svg>
                       </div>
                       <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%] break-words">
-                        <p className="text-sm text-[hsl(var(--foreground))]">Elbette, "hastane randevusu saat 12.35'te boğaz kontrolü diş kontrolü için hastaneye gidilecek" görevi listeye eklendi.</p>
+                        <p className="text-sm text-[hsl(var(--foreground))]">"Hastane randevusu - 12:35 boğaz ve diş kontrolü" görevi başarıyla listeye eklendi.</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Chat Input */}
-                  <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-[hsl(var(--border))]">
+                  <div className="flex flex-col gap-2 pt-2 border-t border-[hsl(var(--border))]">
                     <input 
                       type="text" 
-                      placeholder="Mesajınızı yazın..."
-                      className="flex-1 px-4 py-2 bg-[hsl(var(--input))] text-[hsl(var(--foreground))] rounded-lg border border-[hsl(var(--border))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))] text-sm" 
+                      placeholder={t('welcome.mockup.typePlaceholder','Type your message...')}
+                      className="w-full px-4 py-2 bg-[hsl(var(--input))] text-[hsl(var(--foreground))] rounded-lg border border-[hsl(var(--border))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))] text-sm" 
                     />
-                    <button className="p-2 bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors" title="Sesli mesaj">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-                    </button>
-                    <button className="p-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:bg-[hsl(var(--primary)_/_0.9)] transition-colors" title="Gönder">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </button>
+                    <div className="flex gap-2">
+                      <button className="flex-1 sm:flex-none p-2 bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors flex items-center justify-center gap-2" title={t('welcome.mockup.voiceMessage','Voice message')}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                        <span className="text-xs sm:hidden">Sesli</span>
+                      </button>
+                      <button className="flex-1 sm:flex-none p-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg hover:bg-[hsl(var(--primary)_/_0.9)] transition-colors flex items-center justify-center gap-2" title={t('welcome.mockup.send','Send')}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 9l3 3m0 0l-3 3m3-3H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span className="text-xs sm:hidden">Gönder</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -459,9 +482,9 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <div className="space-y-3" style={{ display: 'none' }}>
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-                      🤖 AI Asistan
+                      🤖 {t('welcome.mockup.aiAssistant', 'AI Asistan')}
                     </h2>
-                    <button className="p-1 hover:bg-[hsl(var(--muted))] rounded" title="Kapat">
+                    <button className="p-1 hover:bg-[hsl(var(--muted))] rounded" title={t('welcome.mockup.close', 'Kapat')}>
                       <svg className="w-5 h-5 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
@@ -484,7 +507,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                         </svg>
                       </div>
                       <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%] break-words">
-                        <p className="text-sm text-[hsl(var(--foreground))]">Elbette, "hastane randevusu saat 12.35'te boğaz kontrolü diş kontrolü için hastaneye gidilecek" görevi listeye eklendi.</p>
+                        <p className="text-sm text-[hsl(var(--foreground))]">"Hastane randevusu - 12:35 boğaz ve diş kontrolü" görevi başarıyla listeye eklendi.</p>
                       </div>
                     </div>
                   </div>
@@ -509,7 +532,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-                      📝 Günlük Not Defterim
+                      📝 {t('welcome.mockup.myNotepad','My Daily Notepad')}
                     </h2>
                     <div className="flex gap-2">
                       <button className="px-3 py-1 text-xs bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg">Basit</button>
@@ -549,12 +572,12 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                   <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t border-[hsl(var(--border))]">
                   <input 
                     type="text" 
-                    placeholder="Yeni not ekle veya sesli görev yarat..."
+                    placeholder={t('welcome.mockup.newNotePlaceholder','Add a new note or create voice task...')}
                     className="flex-1 px-4 py-3 bg-[hsl(var(--input))] text-[hsl(var(--foreground))] rounded-lg border border-[hsl(var(--border))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--ring))] placeholder:text-[hsl(var(--muted-foreground))]" 
                   />
                   <button className="px-4 py-3 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg font-semibold hover:bg-[hsl(var(--primary)_/_0.9)] transition-colors flex items-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
-                    Ekle
+                    {t('welcome.mockup.add','Add')}
                   </button>
                   <button className="px-4 py-3 bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] rounded-lg hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -570,8 +593,8 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-bold text-[hsl(var(--foreground))] flex items-center gap-2">
-                      📝 PDF Analizi
-                      <span className="text-xs bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white px-3 py-1 rounded-full animate-pulse">YENİ!</span>
+                      📝 {t('welcome.mockup.pdfAnalysis','PDF Analysis')}
+                      <span className="text-xs bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white px-3 py-1 rounded-full animate-pulse">{t('welcome.mockup.new','NEW!')}</span>
                     </h2>
                   </div>
 
@@ -582,11 +605,11 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                         <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                       </div>
                       <div className="text-center">
-                        <h3 className="text-lg font-bold text-[hsl(var(--foreground))] mb-2">PDF Belgenizi Yükleyin</h3>
-                        <p className="text-sm text-[hsl(var(--muted-foreground))] mb-3">Mahkeme celbi, fatura, toplantı notları... AI otomatik analiz edecek!</p>
+                        <h3 className="text-lg font-bold text-[hsl(var(--foreground))] mb-2">{t('welcome.mockup.uploadPdf','Upload Your PDF Document')}</h3>
+                        <p className="text-sm text-[hsl(var(--muted-foreground))] mb-3">{t('welcome.mockup.pdfDesc','Court summons, invoices, meeting notes... AI will analyze automatically!')}</p>
                         <div className="inline-flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-lg font-semibold">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                          PDF Seç
+                          {t('welcome.mockup.selectPdf','Select PDF')}
                         </div>
                       </div>
                     </div>
@@ -603,10 +626,10 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-lg font-bold text-[hsl(var(--foreground))]">Mahkeme_Celbi_2024.pdf</h3>
-                          <span className="text-xs bg-green-500 text-white px-2 py-1 rounded">✓ Analiz Tamamlandı</span>
+<h3 className="text-lg font-bold text-[hsl(var(--foreground))]">Toplanti_Daveti_2024-11-15.pdf</h3>
+                          <span className="text-xs bg-green-500 text-white px-2 py-1 rounded">✓ {t('welcome.mockup.analysisComplete','Analysis Complete')}</span>
                         </div>
-                        <p className="text-sm text-[hsl(var(--muted-foreground))]">Belge Türü: <strong>Mahkeme Belgesi</strong> | Dil: <strong>Türkçe</strong></p>
+<p className="text-sm text-[hsl(var(--muted-foreground))]">Belge Türü: <strong>Toplantı Daveti</strong> | Dil: <strong>Türkçe</strong></p>
                       </div>
                     </div>
 
@@ -614,31 +637,31 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                     <div className="space-y-3">
                       <div className="flex items-center gap-2 text-sm font-semibold text-[hsl(var(--foreground))]">
                         <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>
-                        3 Görev Çıkarıldı (Türkçe)
+                        3 {t('welcome.mockup.taskExtracted','Task Extracted')} (TR)
                       </div>
                       <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3 text-sm">
-                        <div className="font-semibold text-[hsl(var(--foreground))] mb-1">• Duruşmaya katıl</div>
-                        <div className="text-[hsl(var(--muted-foreground))] text-xs">Ankara 5. Ağır Ceza Mahkemesi - 15 Kasım 2024, 10:00</div>
+<div className="font-semibold text-[hsl(var(--foreground))] mb-1">• Toplantıya katıl</div>
+<div className="text-[hsl(var(--muted-foreground))] text-xs">Toplantı Odası A - 15 Kasım 2024, 10:00</div>
                       </div>
                       <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3 text-sm">
-                        <div className="font-semibold text-[hsl(var(--foreground))] mb-1">• Tanık listesi hazırla</div>
-                        <div className="text-[hsl(var(--muted-foreground))] text-xs">Duruşma öncesi hazırlık - 14 Kasım 2024</div>
+<div className="font-semibold text-[hsl(var(--foreground))] mb-1">• Gündem maddelerini hazırla</div>
+<div className="text-[hsl(var(--muted-foreground))] text-xs">Toplantı öncesi hazırlık - 14 Kasım 2024</div>
                       </div>
 
                       <div className="flex items-center gap-2 text-sm font-semibold text-[hsl(var(--foreground))] mt-3">
                         <svg className="w-5 h-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
-                        2 Not Eklendi (Türkçe)
+                        2 {t('welcome.mockup.noteAdded','Note Added')} (TR)
                       </div>
                       <div className="bg-white/50 dark:bg-black/20 rounded-lg p-3 text-sm">
-                        <div className="font-semibold text-[hsl(var(--foreground))] mb-1">Dosya Bilgileri</div>
-                        <div className="text-[hsl(var(--muted-foreground))] text-xs">Dosya No: 2024/123 Esas | Mahkeme: Ankara 5. AGM</div>
+<div className="font-semibold text-[hsl(var(--foreground))] mb-1">Toplantı Bilgileri</div>
+<div className="text-[hsl(var(--muted-foreground))] text-xs">Toplantı: Q4 Planlama | Yer: Toplantı Odası A</div>
                       </div>
                     </div>
 
                     <div className="mt-4 p-3 bg-[hsl(var(--primary))]/10 rounded-lg border border-[hsl(var(--primary))]/30">
                       <div className="flex items-center gap-2 text-xs text-[hsl(var(--foreground))]">
                         <svg className="w-4 h-4 text-[hsl(var(--primary))]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" /></svg>
-                        <span><strong>Çok Dilli Destek:</strong> PDF Türkçe, İngilizce, Almanca veya başka dilde olabilir - AI aynı dilde yanıt verir!</span>
+                        <span><strong>{t('welcome.mockup.multilingualSupport','Multilingual Support: PDF can be in Turkish, English, German, or another language - AI responds in the same language!')}</strong></span>
                       </div>
                     </div>
                   </div>
@@ -659,7 +682,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                       ? 'bg-[hsl(var(--primary))] w-8' 
                       : 'bg-[hsl(var(--muted))] hover:bg-[hsl(var(--muted-foreground))]'
                   }`}
-                  aria-label={`Sahne ${scene + 1}`}
+                  aria-label={t('welcome.scenes.indicator', 'Sahne {number}').replace('{number}', (scene + 1).toString())}
                 />
               ))}
             </div>
@@ -669,20 +692,20 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
               <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
               </svg>
-              Sesli
+              {t('welcome.badge.voice','Voice')}
             </div>
             <div className="hidden md:flex absolute -top-4 -right-4 bg-purple-500 text-white px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg animate-bounce items-center gap-2" style={{ animationDelay: '0.5s' }}>
               <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M13 7H7v6h6V7z" />
                 <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
               </svg>
-              AI
+              {t('welcome.badge.ai','AI')}
             </div>
             <div className="hidden md:flex absolute -bottom-4 left-1/2 -translate-x-1/2 bg-pink-500 text-white px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold shadow-lg animate-bounce items-center gap-2" style={{ animationDelay: '1s' }}>
               <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
               </svg>
-              Hızlı
+              {t('welcome.badge.fast','Fast')}
             </div>
           </div>
         </div>
@@ -698,7 +721,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
               </svg>
               <span className="text-3xl font-black text-[var(--accent-color-600)]">100%</span>
             </div>
-            <p className="text-sm text-gray-700 dark:text-gray-300 font-semibold">Yerel & Güvenli</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 font-semibold">{t('welcome.stats.secure', 'Yerel & Güvenli')}</p>
           </div>
           <div className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl border-2 border-purple-300 dark:border-purple-700 shadow-lg hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-center gap-2 mb-2">
@@ -707,7 +730,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2zM5 5h10v10H5V5z" clipRule="evenodd" />
               </svg>
             </div>
-            <p className="text-sm text-gray-700 dark:text-gray-300 font-semibold">Yapay Zeka Destekli</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 font-semibold">{t('welcome.stats.aiEnabled', 'Yapay Zeka Destekli')}</p>
           </div>
           <div className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl border-2 border-pink-300 dark:border-pink-700 shadow-lg hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-center gap-2 mb-2">
@@ -715,7 +738,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
               </svg>
             </div>
-            <p className="text-sm text-gray-700 dark:text-gray-300 font-semibold">Sesli Komut Desteği</p>
+            <p className="text-sm text-gray-700 dark:text-gray-300 font-semibold">{t('welcome.stats.voiceCommands', 'Sesli Komut Desteği')}</p>
           </div>
         </div>
 
@@ -725,7 +748,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
         }`}>
           <h3 className="text-xl sm:text-2xl font-extrabold text-[hsl(var(--foreground))] mb-4 flex items-center gap-2">
             <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-green-500 text-white text-xs">✓</span>
-            Yeni Özellikler
+            {t('welcome.newFeaturesTitle', 'Yeni Özellikler')}
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Email → Görev/Not */}
@@ -734,8 +757,8 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18a1 1 0 011 1v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a1 1 0 011-1zm0 2l9 6 9-6"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">E-postadan Görev/Not</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">AI özet ve aksiyon maddeleri; tek tıkla Görev Oluştur/Notlara Ekle</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.emailTask.title', 'E-postadan Görev/Not')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.emailTask.desc', 'AI özet ve aksiyon maddeleri; tek tıkla Görev Oluştur/Notlara Ekle')}</div>
               </div>
             </div>
             {/* Email Yanıtlama */}
@@ -744,18 +767,18 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4h4a7 7 0 000-14h-1v2h1a5 5 0 010 10h-4z"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">E-postaya Yanıtla</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">Zengin editör, şablonlar, ek dosyalar; Yanıtla/Tümünü yanıtla</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.emailReply.title', 'E-postaya Yanıtla')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.emailReply.desc', 'Zengin editör, şablonlar, ek dosyalar; Yanıtla/Tümünü yanıtla')}</div>
               </div>
             </div>
-            {/* Gerçek Zamanlı Sesli Sohbet */}
+            {/* Real-time Voice Chat */}
             <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
               <div className="w-10 h-10 rounded-lg bg-red-500/10 text-red-600 flex items-center justify-center">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 003-3V7a3 3 0 10-6 0v4a3 3 0 003 3z"/><path d="M5 11a7 7 0 0014 0h-2a5 5 0 11-10 0H5z"/><path d="M11 18h2v3h-2v-3z"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">Gerçek Zamanlı Sesli Sohbet</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">Anahtar kelime dinleme ve anlık AI transkripsiyonla akıcı sohbet</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.realTimeVoice.title', 'Gerçek Zamanlı Sesli Sohbet')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.realTimeVoice.desc', 'Anahtar kelime dinleme ve anlık AI transkripsiyonla akıcı sohbet')}</div>
               </div>
             </div>
             {/* Yinelenen Görevler */}
@@ -764,18 +787,18 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 6v2a4 4 0 014 4h2a6 6 0 00-6-6zm-6 6H4a8 8 0 008 8v-2a6 6 0 01-6-6zm12 0a8 8 0 01-8 8v2a10 10 0 0010-10h-2zM6 12a6 6 0 016-6V4a8 8 0 00-8 8h2z"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">Yinelenen Görevler</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">Tamamlayınca bir sonraki oluşumu otomatik oluştur</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.recurringTasks.title', 'Yinelenen Görevler')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.recurringTasks.desc', 'Tamamlayınca bir sonraki oluşumu otomatik oluştur')}</div>
               </div>
             </div>
-            {/* ICS Dışa Aktarma */}
+            {/* ICS Export */}
             <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
               <div className="w-10 h-10 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2a1 1 0 012 0v2h6V2a1 1 0 112 0v2h1a2 2 0 012 2v2H4V6a2 2 0 012-2h1V2z"/><path d="M4 10h16v8a2 2 0 01-2 2H6a2 2 0 01-2-2v-8z"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">ICS Dışa Aktarma</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">AI süre tahminiyle takvime ekleyin</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.icsExport.title', 'ICS Dışa Aktarma')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.icsExport.desc', 'AI süre tahminiyle takvime ekleyin')}</div>
               </div>
             </div>
             {/* Zaman Çizelgesi + Gün Özeti */}
@@ -784,28 +807,28 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8a4 4 0 100 8 4 4 0 000-8zm1-6h-2v3h2V2zM4.22 5.64L2.8 7.06l2.12 2.12 1.42-1.42L4.22 5.64zM18.36 5.64l-1.42 1.42 2.12 2.12 1.42-1.42-2.12-2.12zM21 11h-3v2h3v-2zM6 13H3v-2h3v2zm1.78 5.36L6.36 19.2l-2.12 2.12 1.42 1.42 2.12-2.12zM19.78 19.78l-2.12-2.12-1.42 1.42 2.12 2.12 1.42-1.42z"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">Zaman Çizelgesi + Gün Özeti</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">Zaman bazlı görünüm ve günlük özet bildirimleri</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.timelineDaily.title', 'Zaman Çizelgesi + Gün Özeti')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.timelineDaily.desc', 'Zaman bazlı görünüm ve günlük özet bildirimleri')}</div>
               </div>
             </div>
-            {/* Supabase Senkronizasyonu */}
+            {/* Supabase Sync */}
             <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
               <div className="w-10 h-10 rounded-lg bg-teal-500/10 text-teal-600 flex items-center justify-center">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M4 7c0-1.657 3.582-3 8-3s8 1.343 8 3-3.582 3-8 3-8-1.343-8-3zm16 5c0 1.657-3.582 3-8 3s-8-1.343-8-3"/><path d="M4 17c0 1.657 3.582 3 8 3s8-1.343 8-3V7"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">Supabase Senkronizasyonu</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">Kullanıcıya özel verilerle opsiyonel senk</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.supabaseSync.title', 'Supabase Senkronizasyonu')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.supabaseSync.desc', 'Kullanıcıya özel verilerle opsiyonel senk')}</div>
               </div>
             </div>
-            {/* PDF Analizi */}
+            {/* PDF Analysis Multilingual */}
             <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
               <div className="w-10 h-10 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h8l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm8 7h5l-5-5v5z"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">PDF Analizi (Çok Dilli)</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">Belgelerden otomatik görev/not çıkarımı</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.pdfAnalysisMult.title', 'PDF Analizi (Çok Dilli)')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.pdfAnalysisMult.desc', 'Belgelerden otomatik görev/not çıkarımı')}</div>
               </div>
             </div>
             {/* Konum + Yol Tarifi */}
@@ -814,38 +837,38 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9a2 2 0 110-4 2 2 0 010 4z"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">Konum Hatırlatıcı + Yol Tarifi</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">Konuma bağlı tetikleyiciler ve AI yönlendirme</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.locationReminder.title', 'Konum Hatırlatıcı + Yol Tarifi')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.locationReminder.desc', 'Konuma bağlı tetikleyiciler ve AI yönlendirme')}</div>
               </div>
             </div>
-            {/* Mesaj Bildirimleri */}
+            {/* Message Notifications */}
             <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
               <div className="w-10 h-10 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4a2 2 0 00-2 2v13a2 2 0 002 2h3l4 3 4-3h5a2 2 0 002-2V4a2 2 0 00-2-2z"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">Mesaj Bildirimleri</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">Electron yerel bildirim + toast; geliştirilmiş konuşma başlığı</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.messageNotifs.title', 'Mesaj Bildirimleri')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.messageNotifs.desc', 'Electron yerel bildirim + toast; geliştirilmiş konuşma başlığı')}</div>
               </div>
             </div>
-            {/* Hatırlatma Sesleri */}
+            {/* Reminder Sounds */}
             <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
               <div className="w-10 h-10 rounded-lg bg-pink-500/10 text-pink-600 flex items-center justify-center">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M10 21h4a2 2 0 11-4 0zm10-5h-1V9a7 7 0 10-14 0v7H4v2h16v-2z"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">Hatırlatma Sesleri</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">TTS ve 3 farklı alarm seçeneği</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.reminderSounds.title', 'Hatırlatma Sesleri')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.reminderSounds.desc', 'TTS ve 3 farklı alarm seçeneği')}</div>
               </div>
             </div>
-            {/* Android + OS Algılama */}
+            {/* Android APK + OS Detection */}
             <div className="p-4 rounded-xl bg-[hsl(var(--card))]/80 border border-[hsl(var(--border))] shadow-sm hover:shadow-md hover:bg-[hsl(var(--card))] transition-all flex items-start gap-3">
               <div className="w-10 h-10 rounded-lg bg-gray-500/10 text-gray-600 flex items-center justify-center">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>
               </div>
               <div>
-                <div className="font-semibold text-[hsl(var(--foreground))]">Android APK + OS Algılama</div>
-                <div className="text-sm text-[hsl(var(--muted-foreground))]">Cihaza uygun doğrudan indirme bağlantısı</div>
+                <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.androidOS.title', 'Android APK + OS Algılama')}</div>
+                <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.feature.androidOS.desc', 'Cihaza uygun doğrudan indirme bağlantısı')}</div>
               </div>
             </div>
           </div>
@@ -863,7 +886,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
               <svg className="w-6 h-6 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
               </svg>
-              <span>Başlayalım!</span>
+              <span>{t('welcome.startButton', 'Başlayalım!')}</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:translate-x-2 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
@@ -876,7 +899,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
               <svg className="w-6 h-6 group-hover:scale-110 transition-transform" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
               </svg>
-              <span>Hemen Başla</span>
+              <span>{t('welcome.getStartedButton', 'Hemen Başla')}</span>
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:translate-x-2 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
@@ -894,7 +917,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
               </svg>
               <span>{primaryLabel}</span>
             </div>
-            <span className="text-xs font-normal opacity-75">Doğrudan indirme</span>
+            <span className="text-xs font-normal opacity-75">{t('welcome.downloadDirectLabel', 'Doğrudan indirme')}</span>
           </a>
         </div>
 
@@ -918,6 +941,28 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
           </a>
         </div>
 
+        {/* QR Code for Android APK */}
+        <div className={`mt-6 flex flex-col items-center justify-center gap-3 transform transition-all duration-1000 delay-850 ${
+          isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+        }`}>
+          <div className="text-center">
+            <h3 className="text-sm font-semibold text-[hsl(var(--foreground))] mb-2 flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/></svg>
+              {t('welcome.qrCode.title', 'Android APK - QR ile İndir')}
+            </h3>
+            <div className="p-3 bg-white dark:bg-gray-800 rounded-xl border-2 border-[hsl(var(--border))] shadow-lg hover:shadow-xl transition-shadow">
+              <img 
+                src="/android-apk-qr.png" 
+                alt={t('welcome.qrCode.alt', 'Android APK QR Code')} 
+                className="w-24 h-24 sm:w-32 sm:h-32"
+              />
+            </div>
+            <p className="text-xs text-[hsl(var(--muted-foreground))] mt-2 max-w-xs">
+              {t('welcome.qrCode.description', 'Telefonunuzla QR kodu tarayarak APK dosyasını doğrudan indirin')}
+            </p>
+          </div>
+        </div>
+
         <div className={`mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 text-xs sm:text-sm text-gray-600 dark:text-gray-400 transform transition-all duration-1000 delay-800 px-4 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
@@ -925,14 +970,14 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z" clipRule="evenodd" />
             </svg>
-            Windows, macOS ve Linux için mevcut
+            {t('welcome.availability', 'Windows, macOS ve Linux için mevcut')}
           </span>
           <span className="text-gray-400">|</span>
           <span className="flex items-center gap-2">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
             </svg>
-            Tamamen ücretsiz ve açık kaynak
+            {t('welcome.freeOpen', 'Tamamen ücretsiz ve açık kaynak')}
           </span>
         </div>
       </div>
