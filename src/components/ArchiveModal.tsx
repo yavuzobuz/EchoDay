@@ -786,9 +786,9 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                           <p className="text-xs text-gray-500 dark:text-gray-400">
                             📅 {new Date(todo.createdAt).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}
                           </p>
-                          {todo.archivedAt && (
+                          {todo.isArchived && (
                             <p className="text-xs text-purple-500 dark:text-purple-400">
-                              📦 {new Date(todo.archivedAt).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}
+                              📦 Arşivlendi
                             </p>
                           )}
                           {todo.completed && (
@@ -864,8 +864,8 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                         <div className="flex items-center justify-between mt-2">
                           <div className="flex items-center gap-2">
                             <p className="text-xs text-gray-500 dark:text-gray-400">📅 {new Date(note.createdAt).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</p>
-                            {note.archivedAt && (
-                              <p className="text-xs text-purple-500 dark:text-purple-400">📦 {new Date(note.archivedAt).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                            {note.isArchived && (
+                              <p className="text-xs text-purple-500 dark:text-purple-400">📦 Arşivlendi</p>
                             )}
                           </div>
                           {(note.tags && note.tags.length > 0) && (

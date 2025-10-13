@@ -125,6 +125,7 @@ export interface Note {
   userId?: string; // Kullanıcıya özel veri için
   pdfSource?: PdfSourceMetadata; // PDF'den oluşturulan notlar için
   isDeleted?: boolean; // Soft delete flag - geçici silme için
+  isArchived?: boolean; // Archive flag - arşivlendiğini takip etmek için
 }
 
 export interface ChatMessage {
