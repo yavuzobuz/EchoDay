@@ -1,8 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { getMobileEnvVar, isMobileEnvironment } from './mobileEnvService';
 
-const rawUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
-const rawKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
+// Electron ve web (Vite) için environment değişkenlerini güvenilir şekilde al
+// NOT: Vite production build'de dinamik erişim (import.meta.env[key]) çalışmaz.
+// Bu nedenle VITE_* anahtarlarına doğrudan erişiyoruz ve Electron'daki window.env ile yedekliyoruz.
+const rawUrl = (
+  (typeof window !== 'undefined' && (window as any).env?.VITE_SUPABASE_URL) ||
+  getMobileEnvVar('VITE_SUPABASE_URL') ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_URL) ||
+  import.meta.env?.VITE_SUPABASE_URL
+)?.trim();
+
+const rawKey = (
+  (typeof window !== 'undefined' && (window as any).env?.VITE_SUPABASE_ANON_KEY) ||
+  getMobileEnvVar('VITE_SUPABASE_ANON_KEY') ||
+  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_ANON_KEY) ||
+  import.meta.env?.VITE_SUPABASE_ANON_KEY
+)?.trim();
 
 function isValidHttpUrl(maybeUrl?: string): boolean {
   if (!maybeUrl) return false;

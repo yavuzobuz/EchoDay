@@ -23,9 +23,9 @@
     "build:quick": "vite build",
     "preview": "vite preview",
     "sync": "npm run build && npx cap sync",
-    "android:build": "npm run build && npx cap sync android && npx cap build android",
-    "android:dev": "npm run build && npx cap sync android && npx cap open android",
-    "android:apk": "npm run build && npx cap sync android && cd android && ./gradlew assembleDebug"
+    "android:build": "npm run build && node scripts/inject-env-android.js && npx cap sync android && npx cap build android",
+    "android:dev": "npm run build && node scripts/inject-env-android.js && npx cap sync android && npx cap open android",
+    "android:apk": "npm run build && node scripts/inject-env-android.js && npx cap sync android && cd android && ./gradlew assembleDebug"
   },
   "build": {
     "appId": "com.echoday.assistant",
@@ -103,6 +103,7 @@
     "cors": "^2.8.5",
     "dexie-react-hooks": "^1.1.7",
     "dompurify": "^3.2.7",
+    "dotenv": "^17.2.3",
     "es6-promise-plugin": "^4.2.2",
     "express": "^4.19.2",
     "imapflow": "^1.0.141",

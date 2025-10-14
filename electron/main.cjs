@@ -1,5 +1,13 @@
 const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
 const path = require('path');
+
+// .env dosyasını yükle
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+// Environment variable'ları kontrol et
+console.log('[Main] VITE_SUPABASE_URL:', process.env.VITE_SUPABASE_URL ? 'LOADED ✓' : 'NOT FOUND ✗');
+console.log('[Main] VITE_SUPABASE_ANON_KEY:', process.env.VITE_SUPABASE_ANON_KEY ? 'LOADED ✓' : 'NOT FOUND ✗');
+
 const os = require('os');
 const fs = require('fs');
 const isDev = process.env.NODE_ENV === 'development';

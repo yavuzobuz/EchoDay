@@ -52,3 +52,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isSupported: () => ipcRenderer.invoke('notification:isSupported')
   },
 });
+
+// Environment variables'ları expose et
+contextBridge.exposeInMainWorld('env', {
+  VITE_SUPABASE_URL: process.env.VITE_SUPABASE_URL,
+  VITE_SUPABASE_ANON_KEY: process.env.VITE_SUPABASE_ANON_KEY,
+  VITE_GEMINI_API_KEY: process.env.VITE_GEMINI_API_KEY,
+  VITE_GMAIL_CLIENT_ID: process.env.VITE_GMAIL_CLIENT_ID,
+  VITE_GMAIL_CLIENT_SECRET: process.env.VITE_GMAIL_CLIENT_SECRET,
+  VITE_OUTLOOK_CLIENT_ID: process.env.VITE_OUTLOOK_CLIENT_ID,
+  VITE_OUTLOOK_CLIENT_SECRET: process.env.VITE_OUTLOOK_CLIENT_SECRET
+});

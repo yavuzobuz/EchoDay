@@ -6,7 +6,12 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    cleartext: true // Development için gerekli
+    cleartext: true, // Development için gerekli
+    allowNavigation: [
+      'https://*.supabase.co',
+      'https://*.googleapis.com',
+      'https://*.google.com'
+    ]
   },
   plugins: {
     SpeechRecognition: {

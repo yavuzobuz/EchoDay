@@ -34,3 +34,10 @@ dist-electron
 
 # Release artifacts directory (do not track binaries)
 release-package/
+
+# Large build files
+*.exe
+*.dmg
+*.deb
+*.rpm
+*.msi
