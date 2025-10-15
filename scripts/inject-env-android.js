@@ -33,7 +33,17 @@ Object.keys(envVars).forEach(key => {
 // Convert to JavaScript code
 const androidEnvCode = `window.androidEnv = ${JSON.stringify(androidEnv, null, 2)};`;
 
-// Write to Android assets directory
+// 1) Write into dist so that Cap sync copies it into Android assets
+const distPath = path.join(__dirname, '../dist');
+if (fs.existsSync(distPath)) {
+  const distOutput = path.join(distPath, 'android-env.js');
+  fs.writeFileSync(distOutput, androidEnvCode);
+  console.log('[inject-env-android] Wrote to dist:', distOutput);
+} else {
+  console.warn('[inject-env-android] dist/ not found. Did you run "npm run build"?');
+}
+
+// 2) Also write directly to Android assets directory (useful if building without sync)
 const androidAssetsPath = path.join(__dirname, '../android/app/src/main/assets/public');
 if (!fs.existsSync(androidAssetsPath)) {
   fs.mkdirSync(androidAssetsPath, { recursive: true });

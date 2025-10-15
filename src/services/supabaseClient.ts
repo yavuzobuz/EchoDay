@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import { getMobileEnvVar, isMobileEnvironment } from './mobileEnvService';
+import { getMobileEnvVar } from './mobileEnvService';
 
 // Electron ve web (Vite) için environment değişkenlerini güvenilir şekilde al
 // NOT: Vite production build'de dinamik erişim (import.meta.env[key]) çalışmaz.
