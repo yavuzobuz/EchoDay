@@ -189,27 +189,31 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                 setIsVoiceModeActive(newValue);
                 if (tts.isSpeaking) tts.cancel();
               }}
-              className={`flex items-center gap-1 px-2 py-1 text-xs rounded-full transition-colors flex-shrink-0 ${
+              className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-full transition-colors flex-shrink-0 min-h-[36px] ${
                 isVoiceModeActive 
                   ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' 
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
               }`}
               title={t('chat.voiceMode', 'Sesli sohbet modu')}
+              aria-label={t('chat.voiceMode', 'Sesli sohbet modu')}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
               </svg>
+              <span className="hidden xs:inline">{t('chat.voice', 'Ses')}</span>
             </button>
             {notes.length > 0 && onProcessNotes && (
               <button
                 onClick={() => setShowNoteProcessor(!showNoteProcessor)}
-                className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--accent-color-100)] dark:bg-[var(--accent-color-900)] text-[var(--accent-color-700)] dark:text-[var(--accent-color-300)] rounded-md hover:bg-[var(--accent-color-200)] dark:hover:bg-[var(--accent-color-800)] transition-colors flex-shrink-0"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-[var(--accent-color-100)] dark:bg-[var(--accent-color-900)] text-[var(--accent-color-700)] dark:text-[var(--accent-color-300)] rounded-full hover:bg-[var(--accent-color-200)] dark:hover:bg-[var(--accent-color-800)] transition-colors flex-shrink-0 min-h-[36px]"
+                title={t('chat.noteProcessor.title', 'Notları Seç ve AI ya Komut Ver:')}
+                aria-label={t('chat.noteProcessor.title', 'Notları Seç ve AI ya Komut Ver:')}
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
-                  <path fillRule="evenodd" d="M4 5a2 2 0 012-2 1 1 0 000 2H6a2 2 0 00-2 2v6a2 2 0 002 2h2a1 1 0 100 2H6a4 4 0 01-4-4V5a4 4 0 014-4h4a1 1 0 001-1h2a1 1 0 011 1 1 1 0 001 1h4a4 4 0 014 4v8a4 4 0 01-4 4h-4a1 1 0 110-2h4a2 2 0 002-2V7a2 2 0 00-2-2h-2a1 1 0 110-2h2a4 4 0 014 4v8a4 4 0 01-4 4H9.5a1 1 0 00-.707.293l-2 2a1 1 0 01-1.414-1.414l2-2A3 3 0 019 13h5a2 2 0 002-2V7a2 2 0 00-2-2H6z" clipRule="evenodd" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5h6M9 3h6a2 2 0 012 2v1h1a1 1 0 011 1v11a2 2 0 01-2 2H6a2 2 0 01-2-2V7a1 1 0 011-1h1V5a2 2 0 012-2z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6M9 16h6M7 12h.01M7 16h.01" />
                 </svg>
-                <span className="hidden xs:inline text-xs">Not</span>
+                <span className="hidden xs:inline">{t('common.notes', 'Not')}</span>
               </button>
             )}
           </div>

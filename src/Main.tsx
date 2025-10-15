@@ -83,6 +83,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const [chatHistory, setChatHistory] = useLocalStorage<ChatMessage[]>(`chatHistory_${userId}`, []);
     const [showInfoBanner, setShowInfoBanner] = useLocalStorage<boolean>(`show-info-banner_${userId}`, true);
     const [lastArchiveDate, setLastArchiveDate] = useLocalStorage<string>(`lastArchiveDate_${userId}`, '');
+    const [autoArchiveEnabled] = useLocalStorage<boolean>(`auto-archive-enabled_${userId}`, false);
     
     // New AI Features State
     const [userContext, setUserContext] = useState<UserContext>(contextMemoryService.getUserContext());
@@ -997,6 +998,20 @@ const base64Data = await (window.electronAPI as any).readFileAsBase64(note.image
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     
+    // Gün sonu otomatik arşivleme
+    useEffect(() => {
+        const today = new Date().toISOString().slice(0,10);
+        if (autoArchiveEnabled && lastArchiveDate !== today) {
+            (async () => {
+                const count = await archiveService.autoArchiveCompletedTasks(todos, userId);
+                if (count > 0) {
+                    setNotification({ message: `${count} tamamlanan görev arşivlendi.`, type: 'success' });
+                }
+                setLastArchiveDate(today);
+            })();
+        }
+    }, [autoArchiveEnabled, lastArchiveDate, todos, userId]);
+
     // --- Daily Briefing ---
     const handleGetDailyBriefing = async () => {
         if (!checkApiKey()) return;

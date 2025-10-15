@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Todo, Note, Priority, DashboardStats } from '../types';
 import { archiveService } from '../services/archiveService';
 import { useAuth } from '../contexts/AuthContext';
@@ -67,6 +67,21 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
+  // Restore mode state
+  const [restoreMode, setRestoreMode] = useState(false);
+  
+  // Filter & view state
+  const [contentView, setContentView] = useState<'all' | 'tasks' | 'notes'>('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  
+  // Auto-archive setting (persist per user)
+  const [autoArchiveEnabled, setAutoArchiveEnabled] = useState<boolean>(() => {
+    try { return localStorage.getItem(`auto-archive-enabled_${userId}`) === 'true'; } catch { return false; }
+  });
+  
+  // Import file input ref
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  
   // Detail view state
   const [detailView, setDetailView] = useState<{ type: 'todo' | 'note'; item: Todo | Note } | null>(null);
   
@@ -109,6 +124,10 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
       setDbErrors([]);
     }
   }, [isOpen, selectedDate, searchMode, view]);
+
+  useEffect(() => {
+    try { localStorage.setItem(`auto-archive-enabled_${userId}`, autoArchiveEnabled ? 'true' : 'false'); } catch {}
+  }, [autoArchiveEnabled, userId]);
 
   // Debug function to check if completed tasks are archived
   const checkArchivedCompletedTasks = async () => {
@@ -380,15 +399,15 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
     }
   };
 
-  const sortedTodos = useMemo(() => 
-    [...results.todos].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [results.todos]
-  );
+  const sortedTodos = useMemo(() => {
+    const arr = [...results.todos].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return sortOrder === 'desc' ? arr : arr.reverse();
+  }, [results.todos, sortOrder]);
   
-  const sortedNotes = useMemo(() => 
-    [...results.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [results.notes]
-  );
+  const sortedNotes = useMemo(() => {
+    const arr = [...results.notes].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return sortOrder === 'desc' ? arr : arr.reverse();
+  }, [results.notes, sortOrder]);
 
   const handleItemClick = (type: 'todo' | 'note', item: Todo | Note) => {
     if (!deleteMode) {
@@ -635,10 +654,91 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
     );
   };
 
+  // Restore selected
+  const handleRestoreSelected = async () => {
+    if (selectedTodoIds.length === 0 && selectedNoteIds.length === 0) {
+      setNotification({ message: t('archive.messages.selectToRestore', 'Lütfen geri yüklenecek en az bir öğe seçin.'), type: 'error' });
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    try {
+      setIsLoading(true);
+      if (selectedTodoIds.length) await archiveService.unarchiveTodos(selectedTodoIds, userId);
+      if (selectedNoteIds.length) await archiveService.unarchiveNotes(selectedNoteIds, userId);
+      // Remove restored from current list
+      setResults(prev => ({
+        todos: prev.todos.filter(t => !selectedTodoIds.includes(t.id)),
+        notes: prev.notes.filter(n => !selectedNoteIds.includes(n.id))
+      }));
+      setSelectedTodoIds([]);
+      setSelectedNoteIds([]);
+      setRestoreMode(false);
+      setNotification({ message: t('archive.messages.restoreSuccess', 'Seçili öğeler geri yüklendi.'), type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error: any) {
+      setNotification({ message: error.message || t('archive.messages.restoreFailed', 'Geri yükleme başarısız.'), type: 'error' });
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUnarchiveSingle = async (type: 'todo' | 'note', id: string) => {
+    try {
+      setIsLoading(true);
+      if (type === 'todo') await archiveService.unarchiveTodos([id], userId);
+      else await archiveService.unarchiveNotes([id], userId);
+      setResults(prev => ({
+        todos: type === 'todo' ? prev.todos.filter(t => t.id !== id) : prev.todos,
+        notes: type === 'note' ? prev.notes.filter(n => n.id !== id) : prev.notes,
+      }));
+      setNotification({ message: t('archive.messages.itemRestored', 'Öğe geri yüklendi.'), type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
+    } catch (error: any) {
+      setNotification({ message: error.message || t('archive.messages.restoreFailed', 'Geri yükleme başarısız.'), type: 'error' });
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      setIsLoading(true);
+      const json = await archiveService.exportArchive();
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `echoday-archive-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    try {
+      setIsLoading(true);
+      const text = await file.text();
+      await archiveService.importArchive(text);
+      setNotification({ message: t('archive.messages.importSuccess','Arşiv içe aktarıldı.'), type: 'success' });
+      setTimeout(() => setNotification(null), 3000);
+      if (searchMode === 'date') await fetchByDate(selectedDate);
+      else await fetchAllArchived();
+    } catch (e: any) {
+      setNotification({ message: e.message || t('archive.messages.importFailed','İçe aktarma başarısız.'), type: 'error' });
+      setTimeout(() => setNotification(null), 3000);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const renderSearchView = () => (
     <>
       <div className="p-2 sm:p-4 flex-shrink-0 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 sm:gap-3">
                <input
                   type="date"
                   value={selectedDate}
@@ -673,6 +773,21 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                 >
                   🐛 Debug
                 </button>
+                <button
+                  onClick={handleExport}
+                  className="px-2 py-1.5 bg-gray-700 text-white rounded-md hover:bg-gray-800 font-medium text-xs whitespace-nowrap text-left"
+                  title={t('archive.export','Export archive')}
+                >
+                  ⬇️ Export
+                </button>
+                <button
+                  onClick={() => importInputRef.current?.click()}
+                  className="px-2 py-1.5 bg-gray-500 text-white rounded-md hover:bg-gray-600 font-medium text-xs whitespace-nowrap text-left"
+                  title={t('archive.import','Import archive')}
+                >
+                  ⬆️ Import
+                </button>
+                <input ref={importInputRef} type="file" accept="application/json" className="hidden" onChange={(e)=>{ const f=e.target.files?.[0]; if (f) handleImport(f); e.currentTarget.value=''; }} />
               <form onSubmit={handleSearch} className="flex gap-2 sm:col-span-1 lg:col-span-2">
                   <input
                       type="search"
@@ -690,7 +805,33 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                 ℹ️ {t('archive.viewingAll', 'Viewing all archive')}
               </div>
             )}
-            <div className="flex gap-2 ml-auto w-full sm:w-auto justify-end">
+            <div className="flex gap-2 ml-auto w-full sm:w-auto justify-end items-center">
+              {/* Content view */}
+              <select value={contentView} onChange={e=>setContentView(e.target.value as any)} className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded">
+                <option value="all">{t('archive.view.all','Tümü')}</option>
+                <option value="tasks">{t('archive.view.tasks','Görevler')}</option>
+                <option value="notes">{t('archive.view.notes','Notlar')}</option>
+              </select>
+              {/* Sort */}
+              <select value={sortOrder} onChange={e=>setSortOrder(e.target.value as any)} className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded">
+                <option value="desc">{t('archive.sort.newest','Yeniden eskiye')}</option>
+                <option value="asc">{t('archive.sort.oldest','Eskiden yeniye')}</option>
+              </select>
+              {/* Auto-archive toggle */}
+              <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
+                <input type="checkbox" checked={autoArchiveEnabled} onChange={()=>setAutoArchiveEnabled(!autoArchiveEnabled)} />
+                {t('archive.auto.daily','Gün sonunda otomatik arşivle')}
+              </label>
+              {/* Restore mode */}
+              {!restoreMode ? (
+                <button onClick={()=>{ setRestoreMode(true); setDeleteMode(false); }} className="px-2 sm:px-3 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-xs sm:text-sm font-medium whitespace-nowrap text-left">{t('archive.restoreMode','Geri Yükleme')}</button>
+              ) : (
+                <>
+                  <button onClick={handleRestoreSelected} disabled={(selectedTodoIds.length + selectedNoteIds.length)===0} className="px-2 sm:px-3 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs sm:text-sm font-medium whitespace-nowrap text-left">{t('archive.restoreSelected','Seçilenleri Geri Yükle')} ({selectedTodoIds.length + selectedNoteIds.length})</button>
+                  <button onClick={()=>{ setRestoreMode(false); setSelectedTodoIds([]); setSelectedNoteIds([]); }} className="px-2 sm:px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-xs sm:text-sm font-medium whitespace-nowrap text-left">{t('common.cancel','Cancel')}</button>
+                </>
+              )}
+              {/* Delete mode */}
               {!deleteMode ? (
                 <button 
                   onClick={toggleDeleteMode}
@@ -701,7 +842,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                 </button>
               ) : (
                 <>
-<button 
+                  <button 
                     onClick={handleDeleteSelected}
                     disabled={(selectedTodoIds.length + selectedNoteIds.length) === 0}
                     className="px-2 sm:px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs sm:text-sm font-medium whitespace-nowrap text-left"
@@ -709,7 +850,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                     <span className="hidden sm:inline">{t('archive.deleteSelected','Delete Selected')} ({selectedTodoIds.length + selectedNoteIds.length})</span>
                     <span className="sm:hidden">{t('common.delete','Delete')} ({selectedTodoIds.length + selectedNoteIds.length})</span>
                   </button>
-<button 
+                  <button 
                     onClick={toggleDeleteMode}
                     className="px-2 sm:px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-xs sm:text-sm font-medium whitespace-nowrap text-left"
                   >
@@ -734,6 +875,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 p-2 sm:p-4">
+          {(contentView === 'all' || contentView === 'tasks') && (
           <div className="flex flex-col h-full">
             <h3 className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 pb-2 border-b-2 border-[var(--accent-color-500)] text-gray-800 dark:text-gray-200 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 text-[var(--accent-color-600)] flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" /></svg>
@@ -749,7 +891,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                   } ${!deleteMode ? 'cursor-pointer hover:shadow-lg hover:border-[var(--accent-color-400)] hover:-translate-y-0.5' : ''}`}
                   onClick={() => handleItemClick('todo', todo)}
                 >
-                    {deleteMode && (
+                    {(deleteMode || restoreMode) && (
                       <input
                         type="checkbox"
                         checked={selectedTodoIds.includes(todo.id)}
@@ -761,17 +903,26 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                         className="absolute top-2 right-2 h-5 w-5 text-red-600 rounded focus:ring-red-500"
                       />
                     )}
-                    {!deleteMode && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteSingle('todo', todo.id);
-                        }}
-                        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-red-100 dark:bg-red-900 rounded hover:bg-red-200 dark:hover:bg-red-800"
-                        title={t('archive.deleteTooltip', 'Delete')}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-600 dark:text-red-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                      </button>
+                    {(!deleteMode && !restoreMode) && (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteSingle('todo', todo.id);
+                          }}
+                          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-red-100 dark:bg-red-900 rounded hover:bg-red-200 dark:hover:bg-red-800"
+                          title={t('archive.deleteTooltip', 'Delete')}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-600 dark:text-red-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleUnarchiveSingle('todo', todo.id); }}
+                          className="absolute top-2 right-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-emerald-100 dark:bg-emerald-900 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800"
+                          title={t('archive.restoreTooltip','Restore')}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-700 dark:text-emerald-300" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 10a5 5 0 1110 0v3a2 2 0 11-4 0V9a1 1 0 112 0v4a1 1 0 102 0v-3a7 7 0 10-14 0v3a3 3 0 006 0V9a3 3 0 116 0v4a5 5 0 11-10 0v-3z" clipRule="evenodd" /></svg>
+                        </button>
+                      </>
                     )}
                     <div className="flex items-start gap-2 pr-8">
                       <span className={`flex-shrink-0 w-2 h-2 rounded-full mt-1.5 ${
@@ -810,6 +961,8 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
               ))}
             </div>
           </div>
+          )}
+          {(contentView === 'all' || contentView === 'notes') && (
           <div className="flex flex-col h-full">
             <h3 className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 pb-2 border-b-2 border-purple-500 text-gray-800 dark:text-gray-200 flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" /></svg>
@@ -825,7 +978,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                       } ${!deleteMode ? 'cursor-pointer hover:shadow-lg hover:border-purple-400 hover:-translate-y-0.5' : ''}`}
                       onClick={() => handleItemClick('note', note)}
                     >
-                        {deleteMode && (
+                        {(deleteMode || restoreMode) && (
                           <input
                             type="checkbox"
                             checked={selectedNoteIds.includes(note.id)}
@@ -837,17 +990,26 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                             className="absolute top-2 right-2 h-5 w-5 text-red-600 rounded focus:ring-red-500"
                           />
                         )}
-                        {!deleteMode && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteSingle('note', note.id);
-                            }}
-                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-red-100 dark:bg-red-900 rounded hover:bg-red-200 dark:hover:bg-red-800"
-                            title={t('archive.deleteTooltip', 'Delete')}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-600 dark:text-red-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                          </button>
+                        {(!deleteMode && !restoreMode) && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteSingle('note', note.id);
+                              }}
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-red-100 dark:bg-red-900 rounded hover:bg-red-200 dark:hover:bg-red-800"
+                              title={t('archive.deleteTooltip', 'Delete')}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-red-600 dark:text-red-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleUnarchiveSingle('note', note.id); }}
+                              className="absolute top-2 right-10 opacity-0 group-hover:opacity-100 transition-opacity p-1 bg-emerald-100 dark:bg-emerald-900 rounded hover:bg-emerald-200 dark:hover:bg-emerald-800"
+                              title={t('archive.restoreTooltip','Restore')}
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-700 dark:text-emerald-300" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 10a5 5 0 1110 0v3a2 2 0 11-4 0V9a1 1 0 112 0v4a1 1 0 102 0v-3a7 7 0 10-14 0v3a3 3 0 006 0V9a3 3 0 116 0v4a5 5 0 11-10 0v-3z" clipRule="evenodd" /></svg>
+                            </button>
+                          </>
                         )}
                         <p className="text-gray-800 dark:text-gray-200 pr-8 line-clamp-3 break-words overflow-hidden">{note.text}</p>
                         {note.imageUrl && (
@@ -877,6 +1039,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                 ))}
             </div>
           </div>
+          )}
         </div>
       )}
     </>
