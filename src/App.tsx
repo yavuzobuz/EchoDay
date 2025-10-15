@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSettingsStorage } from './hooks/useSettingsStorage';
@@ -16,15 +16,15 @@ import Email from './pages/Email';
 import GmailCallback from './components/auth/GmailCallback';
 import Pricing from './pages/Pricing';
 
-// Admin pages
-import AdminLogin from './pages/admin/AdminLogin';
-import AdminDashboardRealtime from './pages/admin/AdminDashboardRealtime';
-import AdminUsers from './pages/admin/AdminUsers';
-import AdminAnalytics from './pages/admin/AdminAnalytics';
-import AdminSettings from './pages/admin/AdminSettings';
-import AdminContent from './pages/admin/AdminContent';
-import AdminEmails from './pages/admin/AdminEmails';
-import AdminNotifications from './pages/admin/AdminNotifications';
+// Admin pages - lazy load to reduce main bundle
+const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
+const AdminDashboardRealtime = lazy(() => import('./pages/admin/AdminDashboardRealtime'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'));
+const AdminSettings = lazy(() => import('./pages/admin/AdminSettings'));
+const AdminContent = lazy(() => import('./pages/admin/AdminContent'));
+const AdminEmails = lazy(() => import('./pages/admin/AdminEmails'));
+const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications'));
 
 export type AccentColor = 'blue' | 'green' | 'red';
 
@@ -164,7 +164,8 @@ function AppContent() {
 
   return (
     <div className="app">
-      <Routes>
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" /></div>}>
+        <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -300,7 +301,8 @@ function AppContent() {
             </AdminProtectedRoute>
           }
         />
-      </Routes>
+        </Routes>
+      </Suspense>
     </div>
   );
 }

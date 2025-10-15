@@ -27,11 +27,22 @@ lines.forEach(line => {
   }
 });
 
-// Create JavaScript object with only VITE_ variables
+// Create JavaScript object with safe mobile vars only
 const androidEnv = {};
+const allowList = new Set([
+  'VITE_SUPABASE_URL',
+  'VITE_SUPABASE_ANON_KEY',
+  'VITE_GEMINI_API_KEY', // optional
+  'VITE_GOOGLE_AI_API_KEY', // optional
+  'VITE_ENABLE_MANUAL_IMAP', // dev only
+  'VITE_MAIL_BRIDGE_URL' // dev only
+]);
 Object.keys(envVars).forEach(key => {
-  if (key.startsWith('VITE_')) {
+  const isSecretLike = /SECRET/i.test(key) || /CLIENT_SECRET/i.test(key);
+  if (allowList.has(key) && !isSecretLike) {
     androidEnv[key] = envVars[key];
+  } else if (isSecretLike) {
+    console.warn(`[inject-env-android] Skipping secret-like key for mobile bundle: ${key}`);
   }
 });
 
