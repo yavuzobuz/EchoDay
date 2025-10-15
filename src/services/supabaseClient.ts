@@ -462,8 +462,15 @@ export async function archiveFetchByDate(userId: string, date: string) {
     // Filter by archived_at (when it was archived) - this is the primary filter for archive date
     // Also include items created on the selected date as fallback
     const [tRes, nRes] = await Promise.all([
-      supabase.from('archived_todos').select('*').eq('user_id', userId).or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
-      supabase.from('archived_notes').select('*').eq('user_id', userId).or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
+      supabase.from('archived_todos')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('completed', true)
+        .or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
+      supabase.from('archived_notes')
+        .select('*')
+        .eq('user_id', userId)
+        .or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
     ]);
     
     const todos = (tRes.data || []).map((row: any) => ({
@@ -503,7 +510,7 @@ export async function archiveSearch(userId: string, query: string) {
   
   try {
     const [tRes, nRes] = await Promise.all([
-      supabase.from('archived_todos').select('*').eq('user_id', userId).ilike('text', `%${query}%`),
+      supabase.from('archived_todos').select('*').eq('user_id', userId).eq('completed', true).ilike('text', `%${query}%`),
       supabase.from('archived_notes').select('*').eq('user_id', userId).ilike('text', `%${query}%`),
     ]);
     

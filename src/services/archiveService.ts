@@ -350,7 +350,7 @@ const getAllArchivedItems = async (userId?: string): Promise<{ todos: Todo[], no
 
   try {
     const [tRes, nRes] = await Promise.all([
-      supabase!.from('archived_todos').select('*').eq('user_id', currentUserId),
+      supabase!.from('archived_todos').select('*').eq('user_id', currentUserId).eq('completed', true),
       supabase!.from('archived_notes').select('*').eq('user_id', currentUserId),
     ]);
     
