@@ -1,5 +1,6 @@
 import React from 'react';
 import { useI18n } from '../contexts/I18nContext';
+import { debugLog } from '../utils/debugOverlay';
 
 interface MobileBottomNavProps {
   onVoiceCommand: () => void;
@@ -123,7 +124,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
         {/* Profile */}
         <button
-          onClick={onShowProfile}
+          onClick={() => { console.log('[BottomNav] Profil butonu tıklandı'); try { debugLog('BOTTOMNAV → PROFIL'); } catch {}; onShowProfile(); }}
           className="flex flex-col items-center justify-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
         >
           <svg

@@ -1,5 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
+import { debugLog, debugSetHeader } from './utils/debugOverlay';
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSettingsStorage } from './hooks/useSettingsStorage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -189,8 +191,16 @@ function AppContent() {
                 setAccentColor={setAccentColor}
                 apiKey={apiKey}
                 assistantName={assistantName}
-                onNavigateToProfile={() => navigate('/profile')}
-                onNavigateToHome={() => navigate('/welcome')}
+                onNavigateToProfile={() => {
+                  console.log('[App] Profile butonuna tıklandı, /profile yapılıyor');
+                  try { debugLog('NAV → /profile'); } catch {}
+                  navigate('/profile');
+                }}
+                onNavigateToHome={() => {
+                  console.log('[App] Home butonuna tıklandı, /welcome yapılıyor');
+                  try { debugLog('NAV → /welcome'); } catch {}
+                  navigate('/welcome');
+                }}
               />
             </ProtectedRoute>
           }
@@ -310,7 +320,13 @@ function AppContent() {
 
 const App: React.FC = () => {
   const isElectron = typeof (window as any).electronAPI !== 'undefined' || typeof (window as any).isElectron !== 'undefined';
-  const Router: React.ComponentType<React.PropsWithChildren<{}>> = isElectron ? (HashRouter as any) : (BrowserRouter as any);
+  // Capacitor (mobil) için de HashRouter kullan
+  const isCapacitor = Capacitor.isNativePlatform?.() || Capacitor.getPlatform() !== 'web';
+  const Router: React.ComponentType<React.PropsWithChildren<{}>> = (isElectron || isCapacitor) ? (HashRouter as any) : (BrowserRouter as any);
+  const routerType = (isElectron || isCapacitor) ? 'HashRouter' : 'BrowserRouter';
+  console.log('[App] Router modu:', { isElectron, isCapacitor, platform: Capacitor.getPlatform(), routerType });
+  try { debugSetHeader(`Router: ${routerType} • Platform: ${Capacitor.getPlatform()}`); } catch {}
+  try { debugLog('App başladı'); } catch {}
   return (
     <ErrorBoundary>
       <Router>

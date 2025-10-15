@@ -36,13 +36,15 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
       lowerTranscript.endsWith(cmd.toLowerCase())
     );
     
-    if (foundCommand && isElectron) {
-      // Komut bulundu - komutu temizle ve görevi otomatik ekle
+    if (foundCommand) {
+      // Komut bulundu - komutu temizle ve görevi otomatik ekle (mobil ve Electron)
       const commandIndex = lowerTranscript.lastIndexOf(foundCommand.toLowerCase());
       const cleanedTranscript = transcript.substring(0, commandIndex).trim();
       
       if (cleanedTranscript) {
-        // Görevi hemen ekle
+        // Dinlemeyi güvenli şekilde durdur
+        try { (stopListening as any)?.(); } catch {}
+        
         console.log(`[TaskModal] Komut "${foundCommand}" algılandı, görev ekleniyor:`, cleanedTranscript);
         onAddTask(cleanedTranscript, undefined, undefined, undefined);
         setDescription('');
@@ -69,12 +71,23 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     }
   }, [transcript, isListening]);
   
-  // Clear description when modal opens
+  // Clear description when modal opens and stop mic on close
   useEffect(() => {
-    if(isOpen) {
-        setDescription('');
+    if (isOpen) {
+      setDescription('');
+    } else {
+      try { (stopListening as any)?.(); } catch {}
     }
-  }, [isOpen]);
+  }, [isOpen, stopListening]);
+
+  // Emergency auto-stop after 15s to avoid stuck mic
+  useEffect(() => {
+    if (!isListening) return;
+    const t = setTimeout(() => {
+      try { (stopListening as any)?.(); } catch {}
+    }, 15000);
+    return () => clearTimeout(t);
+  }, [isListening, stopListening]);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -205,44 +218,18 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
           ) : hasSupport ? (
             <button 
               type="button"
-              onMouseDown={() => {
-                console.log('[TaskModal] Microphone button clicked:', {
-                  isListening,
-                  hasSupport,
-                  userAgent: navigator.userAgent,
-                  isSecureContext: window.isSecureContext,
-                  protocol: window.location.protocol
-                });
-                if (isListening) {
-                  stopListening();
-                } else {
-                  startListening();
-                }
-              }}
-              onMouseUp={() => {
-                if (isListening) {
-                  stopListening();
-                }
-              }}
-              onMouseLeave={() => {
-                if (isListening) {
-                  stopListening();
-                }
-              }}
-              onTouchStart={() => {
-                if (isListening) {
-                  stopListening();
-                } else {
-                  startListening();
-                }
-              }}
-              onTouchEnd={() => {
-                if (isListening) {
-                  stopListening();
-                }
+              onClick={() => {
+                console.log('[TaskModal] Mic toggle click', { isListening, hasSupport });
+                try {
+                  if (isListening) {
+                    stopListening();
+                  } else {
+                    startListening();
+                  }
+                } catch {}
               }}
               className="p-3 rounded-full bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] active:scale-95 transition-all shadow-lg hover:shadow-xl"
-              title={t('taskModal.mic.start','Basılı tutarak sesli görev kaydet')}
+              title={t('taskModal.mic.start','Mikrofonu aç/kapat')}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />

@@ -37,8 +37,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
   const [lastAIMessageIndex, setLastAIMessageIndex] = useState(-1);
 
   const handleTranscriptReady = useCallback((transcript: string) => {
-    if (transcript.trim()) {
-      onSendMessage(transcript.trim());
+    const cleanedTranscript = transcript.trim();
+    if (cleanedTranscript) {
+      console.log('[ChatModal] Transcript ready, sending:', cleanedTranscript);
+      onSendMessage(cleanedTranscript);
+      // Input alanını temizle
+      setUserInput('');
     }
   }, [onSendMessage]);
 
@@ -63,21 +67,35 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
     scrollToBottom();
   }, [chatHistory, isLoading]);
   
+  // Modal kapatıldığında cleanup yap
   useEffect(() => {
       if (!isOpen) {
-          if (isListening) {
-            stopListening();
-          }
-          if (tts.isSpeaking) {
-            tts.cancel();
-          }
-          setUserInput('');
-          setShowNoteProcessor(false);
-          setSelectedNoteIds([]);
-          setNotePrompt('');
-          setSpeakingMessageIndex(null);
+          console.log('[ChatModal] Modal kapanıyor, mikrofon ve TTS durduruluyor...');
+          // Mikrofonu ZORLA durdur (state bakmadan)
+          console.log('[ChatModal] Mikrofon durduruluyor (zorla)...');
+          
+          // Birden çok kez çağrılmayı önlemek için bir flag kullan
+          const cleanup = async () => {
+            try {
+              await stopListening();
+            } catch (error) {
+              console.warn('[ChatModal] Mikrofon durdurulurken hata:', error);
+            }
+            
+            if (tts.isSpeaking) {
+              console.log('[ChatModal] TTS konuşuyor, iptal ediliyor...');
+              tts.cancel();
+            }
+            setUserInput('');
+            setShowNoteProcessor(false);
+            setSelectedNoteIds([]);
+            setNotePrompt('');
+            setSpeakingMessageIndex(null);
+          };
+          
+          cleanup();
       }
-  }, [isOpen, isListening, stopListening, tts.isSpeaking, tts.cancel]);
+  }, [isOpen, stopListening, tts]);
   
   const handleSpeakMessage = useCallback((text: string, index: number) => {
     if (speakingMessageIndex === index) {
@@ -544,7 +562,16 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                 ) : hasSupport ? (
                   <button
                     type="button"
-                    onClick={() => (isListening ? stopListening() : startListening())}
+                    onClick={() => {
+                      console.log('[ChatModal] Mikrofon butonu tıklandı, mevcut durum:', isListening);
+                      if (isListening) {
+                        console.log('[ChatModal] Mikrofon durduruluyor...');
+                        stopListening();
+                      } else {
+                        console.log('[ChatModal] Mikrofon başlatılıyor...');
+                        startListening();
+                      }
+                    }}
                     className={`p-3 rounded-full transition-all duration-200 ${
                       isListening 
                         ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg scale-110' 

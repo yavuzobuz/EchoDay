@@ -5,12 +5,7 @@ import { resolve } from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react({
-      // Disable Fast Refresh on mobile for better compatibility
-      fastRefresh: process.env.MOBILE_BUILD !== 'true',
-      // JSX runtime for better compatibility
-      jsxRuntime: 'automatic'
-    }),
+    react(),
     {
       name: 'electron-index-html-fix',
       enforce: 'post',
@@ -31,8 +26,6 @@ export default defineConfig({
     },
     // Disable file watching for mobile to prevent any websocket connections
     watch: process.env.MOBILE_BUILD === 'true' ? null : undefined,
-    // Enable HTTPS for mobile microphone access
-    https: process.env.MOBILE_BUILD === 'true',
     headers: {
       // Security headers for development
       'X-Frame-Options': 'DENY',
@@ -48,18 +41,26 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    // Chunk size warning limit
-    chunkSizeWarningLimit: 500,
-    // Minification settings
+    // Chunk size warning limit - daha küçük chunk'lar için
+    chunkSizeWarningLimit: 300,
+    // Minification settings - daha agresif
     minify: 'terser',
     terserOptions: {
       compress: {
         drop_console: true,
         drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug']
+        pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+        passes: 2, // İki geçiş yaparak daha iyi optimizasyon
+        unsafe: true,
+        unsafe_comps: true,
+        unsafe_math: true,
+        unsafe_methods: true
       },
       format: {
         comments: false
+      },
+      mangle: {
+        safari10: true
       }
     },
     rollupOptions: {
@@ -68,35 +69,68 @@ export default defineConfig({
         cyberpunk: resolve(__dirname, 'index-cyberpunk.html')
       },
       output: {
-        entryFileNames: 'assets/[name].js',
-        chunkFileNames: 'assets/[name].js',
-        assetFileNames: 'assets/[name][extname]',
-        // Manual chunks for better code splitting
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]',
+        // Manual chunks for better code splitting - daha detaylı
         manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-router': ['react-router-dom'],
           'vendor-supabase': ['@supabase/supabase-js'],
           'vendor-ai': ['@google/generative-ai'],
-          'vendor-capacitor': [
-            '@capacitor/core',
+          'vendor-capacitor-core': ['@capacitor/core'],
+          'vendor-capacitor-plugins': [
             '@capacitor/clipboard',
             '@capacitor/geolocation',
             '@capacitor/haptics',
             '@capacitor/splash-screen',
-            '@capacitor/status-bar'
+            '@capacitor/status-bar',
+            '@capacitor-community/speech-recognition'
           ],
-          'vendor-ui': ['@heroicons/react', 'dompurify'],
-          'vendor-utils': ['uuid', 'dexie-react-hooks']
+          'vendor-ui': ['@heroicons/react'],
+          'vendor-utils': ['uuid', 'dexie-react-hooks', 'dompurify']
         }
+      },
+      // Tree shaking optimizasyonu
+      treeshake: {
+        moduleSideEffects: false,
+        propertyReadSideEffects: false,
+        tryCatchDeoptimization: false
       }
-    }
+    },
+    // CSS optimizasyonu
+    cssCodeSplit: true,
+    // Source map'leri mobile build'de devre dışı bırak
+    sourcemap: process.env.MOBILE_BUILD !== 'true'
   },
   // ESBuild configuration for development
   esbuild: {
-    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : []
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+    // JSX optimizasyonu
+    jsxDev: false,
+    // Daha agresif minification
+    minifyIdentifiers: process.env.NODE_ENV === 'production',
+    minifySyntax: process.env.NODE_ENV === 'production',
+    minifyWhitespace: process.env.NODE_ENV === 'production'
   },
   // Define global constants
   define: {
     __DEV__: JSON.stringify(process.env.NODE_ENV === 'development'),
     __PROD__: JSON.stringify(process.env.NODE_ENV === 'production')
+  },
+  // Dependency optimization
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@supabase/supabase-js',
+      '@heroicons/react/24/outline',
+      '@heroicons/react/24/solid'
+    ],
+    exclude: [
+      // Electron-specific packages
+      'electron'
+    ]
   }
 })

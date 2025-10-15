@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useI18n } from '../contexts/I18nContext';
@@ -338,7 +338,7 @@ const MessagesPage: React.FC = () => {
       });
     });
     
-    // Fallback: Poll for new messages every 2 seconds
+    // Fallback: Poll for new messages every 5 seconds (reduced from 2 seconds)
     const pollInterval = setInterval(async () => {
       try {
         const allMessages = await listMessages(conversation.id);
@@ -364,16 +364,16 @@ const MessagesPage: React.FC = () => {
       } catch (e) {
         console.error('Polling failed:', e);
       }
-    }, 2000);
+    }, 5000); // Changed from 2000 to 5000ms
     
     return () => {
       unsub();
       clearInterval(pollInterval);
     };
-  }, [conversation]);
+  }, [conversation, myId, notificationsEnabled, other]);
 
   
-  async function handleStartConversationWithFriend(friend: Friend) {
+  const handleStartConversationWithFriend = useCallback(async (friend: Friend) => {
     if (!friend.friend_profile?.email) return;
     try {
       const { conversation, other } = await getOrCreateDirectConversationByEmail(friend.friend_profile.email);
@@ -385,9 +385,9 @@ const MessagesPage: React.FC = () => {
     } catch (e: any) {
       alert(e.message || 'Sohbet başlatılamadı');
     }
-  }
+  }, []);
   
-  async function handleAddFriend(e: React.FormEvent) {
+  const handleAddFriend = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setFriendError(null);
     setAddingFriend(true);
@@ -401,62 +401,62 @@ const MessagesPage: React.FC = () => {
     } finally {
       setAddingFriend(false);
     }
-  }
+  }, [newFriendEmail]);
   
-  async function handleRemoveFriend(friendshipId: string) {
-    if (!confirm('Bu arkadaşı silmek istediğinize emin misiniz?')) return;
+  const handleRemoveFriend = useCallback(async (friendId: string) => {
+    if (!confirm(t('messages.confirmRemoveFriend','Bu arkadaşı silmek istediğinizden emin misiniz?'))) return;
     try {
-      await removeFriend(friendshipId);
-      setFriends(prev => prev.filter(f => f.id !== friendshipId));
+      await removeFriend(friendId);
+      setFriends(prev => prev.filter(f => f.id !== friendId));
     } catch (e: any) {
-      alert('Arkadaş silinemedi: ' + (e.message || 'Bilinmeyen hata'));
+      alert(e.message || 'Arkadaş silinemedi');
     }
-  }
+  }, [t]);
 
-  async function handleSendText(e: React.FormEvent) {
+  const handleSendText = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!conversation || !newText.trim()) return;
     const text = newText.trim();
     setNewText('');
-    setShouldAutoScroll(true); // Always scroll when user sends a message
+    setShouldAutoScroll(true);
     try {
       await sendTextMessage(conversation.id, text);
-    } catch (e) {
-      console.error('Send text failed:', e);
-      setNewText(text); // revert
+    } catch (error) {
+      console.error('Mesaj gönderilemedi:', error);
+      alert('Mesaj gönderilemedi.');
     }
-  }
+  }, [conversation, newText]);
 
-  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !conversation) return;
+    setShouldAutoScroll(true);
     try {
       await sendFileMessage(conversation.id, file);
-    } catch (e) {
-      console.error('Send file failed:', e);
-      alert('Dosya gönderilemedi. Yetki veya boyut limiti olabilir.');
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (error) {
+      console.error('Dosya gönderilemedi:', error);
+      alert('Dosya gönderilemedi.');
     }
-  }
+    e.target.value = '';
+  }, [conversation]);
 
-  async function handleDownload(path?: string | null) {
-    if (!path) return;
+  const handleDownload = useCallback(async (attachmentPath: string | null | undefined) => {
+    if (!attachmentPath) return;
     try {
-      const blob = await downloadAttachment(path);
+      const blob = await downloadAttachment(attachmentPath);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = path.split('/').pop() || 'dosya';
+      a.download = attachmentPath.split('/').pop() || 'download';
       document.body.appendChild(a);
       a.click();
-      a.remove();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error('Download failed:', e);
-      alert('Dosya indirilemedi');
+    } catch (error) {
+      console.error('Dosya indirilemedi:', error);
+      alert('Dosya indirilemedi.');
     }
-  }
+  }, []);
 
   // Close current conversation
   function handleCloseConversation() {
@@ -508,7 +508,7 @@ const MessagesPage: React.FC = () => {
     }
   };
   
-  const stopVoiceRecording = () => {
+  const stopVoiceRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
@@ -519,9 +519,9 @@ const MessagesPage: React.FC = () => {
         recordingTimerRef.current = null;
       }
     }
-  };
+  }, [isRecording]);
   
-  const cancelVoiceRecording = () => {
+  const cancelVoiceRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
       // Just stop without sending
       const recorder = mediaRecorderRef.current;
@@ -541,9 +541,9 @@ const MessagesPage: React.FC = () => {
         recordingTimerRef.current = null;
       }
     }
-  };
+  }, [isRecording]);
   
-  const sendVoiceMessage = async (audioBlob: Blob) => {
+  const sendVoiceMessage = useCallback(async (audioBlob: Blob) => {
     if (!conversation) return;
     
     try {
@@ -555,14 +555,14 @@ const MessagesPage: React.FC = () => {
       console.error('Sesli mesaj gönderilemedi:', error);
       alert('Sesli mesaj gönderilemedi.');
     }
-  };
+  }, [conversation]);
   
   // Format recording time as MM:SS
-  const formatTime = (seconds: number) => {
+  const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  }, []);
   
 
   const title = useMemo(() => {
@@ -572,7 +572,7 @@ const MessagesPage: React.FC = () => {
   }, [other]);
 
   // Pretty date label for separators
-  const formatDateLabel = (d: Date) => {
+  const formatDateLabel = useCallback((d: Date) => {
     const today = new Date();
     const yday = new Date();
     yday.setDate(today.getDate() - 1);
@@ -580,14 +580,14 @@ const MessagesPage: React.FC = () => {
     if (sameDay(d, today)) return 'Bugün';
     if (sameDay(d, yday)) return 'Dün';
     return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
-  };
+  }, []);
 
   // Check if file is audio (voice message)
-  const isAudioFile = (fileName: string | null | undefined) => {
+  const isAudioFile = useCallback((fileName: string | null | undefined) => {
     if (!fileName) return false;
     const audioExtensions = ['.webm', '.mp3', '.ogg', '.wav', '.m4a'];
     return audioExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
-  };
+  }, []);
   
   // Render messages with date separators and improved bubbles
   const renderedMessages = useMemo(() => {
@@ -887,7 +887,7 @@ const MessagesPage: React.FC = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                   </svg>
                 </button>
-                <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
+                <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
                 
                 <div className="flex-1 relative">
                   <input

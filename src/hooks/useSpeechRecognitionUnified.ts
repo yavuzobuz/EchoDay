@@ -37,8 +37,9 @@ export const useSpeechRecognition = (
   const cleanedTranscriptRef = useRef<string | null>(null);
   const finalTranscriptRef = useRef('');
   const onTranscriptReadyRef = useRef(onTranscriptReady);
-  // Capacitor (mobil) için event dinleyicileri
+  // Mobil (Capacitor) için event dinleyicileri
   const mobileListenersRef = useRef<PluginListenerHandle[] | null>(null);
+  const isStoppingRef = useRef(false);
   
   // Platform detection after all hooks
   const isWeb = Capacitor.getPlatform() === 'web';
@@ -165,7 +166,6 @@ export const useSpeechRecognition = (
     };
 
     rec.onerror = (event: any) => {
-      console.error('[SpeechRecognition] Error event:', event.error, event);
       setIsListening(false);
       
       // Handle specific error cases
@@ -179,37 +179,27 @@ export const useSpeechRecognition = (
           userAgent: navigator.userAgent.substring(0, 50) + '...'
         };
         
-        console.error('[SpeechRecognition] Microphone permission denied:', debugInfo);
-        
         // Check actual permission state
         if (navigator.permissions) {
           navigator.permissions.query({name: 'microphone'}).then(result => {
             const permState = result.state;
-            console.error('[SpeechRecognition] Permission state:', permState);
             
             // Mobil için detaylı alert
             alert(`🎤 Mikrofon Sorunu:\n\nDurum: ${permState}\nProtokol: ${window.location.protocol}\nGüvenli: ${window.isSecureContext}\n\nÇözüm: Tarayıcı adres çubuğundaki mikrofon simgesine bas → "Allow" seç`);
           }).catch(e => {
-            console.error('[SpeechRecognition] Permission query failed:', e);
             alert(`🎤 Mikrofon izni sorunu!\n\nHata: ${e.message || 'Bilinmeyen'}\nProtokol: ${window.location.protocol}\n\nÇözüm: Tarayıcı ayarlarından mikrofon iznini ver`);
           });
         } else {
           alert(`🎤 Mikrofon Sorunu!\n\nTarayıcınız Permission API'yi desteklemiyor.\nProtokol: ${window.location.protocol}\n\nHTTPS gerekli!`);
         }
       } else if (event.error === 'no-speech') {
-        console.warn('[SpeechRecognition] No speech detected');
         // Bu normal bir durum, kullanıcıyı uyarmaya gerek yok
       } else if (event.error === 'audio-capture') {
-        console.error('[SpeechRecognition] Audio capture failed');
         alert('Ses kaydı başarısız. Mikrofonunuzun düzgün çalıştığından emin olun.');
       } else if (event.error === 'network') {
-        console.error('[SpeechRecognition] Network error');
         alert('Ağ hatası. İnternet bağlantınızı kontrol edin.');
       } else if (event.error === 'service-not-allowed') {
-        console.error('[SpeechRecognition] Service not allowed');
         alert('Ses tanıma servisi izin verilmedi.');
-      } else {
-        console.error('[SpeechRecognition] Unknown error:', event.error);
       }
     };
 
@@ -232,7 +222,15 @@ export const useSpeechRecognition = (
   }, [options, hasSupport, setIsListening, setTranscript, setHasSupport, onTranscriptReadyRef, finalTranscriptRef]);
   
   const startListening = useCallback(async () => {
-    if (!hasSupport || isListening) return;
+    if (!hasSupport) return;
+    if (isListening) {
+      return;
+    }
+    
+    // Eğer zaten durduruluyorsa, başlatma
+    if (isStoppingRef.current) {
+      return;
+    }
     
     // Reset retry counter on new start
     retryCountRef.current = 0;
@@ -242,7 +240,6 @@ export const useSpeechRecognition = (
       // Enhanced mobile permission check
       try {
         // First, test actual microphone access with getUserMedia
-        console.log('[SpeechRecognition] Testing microphone access...');
         
         const stream = await navigator.mediaDevices.getUserMedia({ 
           audio: {
@@ -254,10 +251,8 @@ export const useSpeechRecognition = (
         
         // If we get here, we have mic access - stop the stream immediately
         stream.getTracks().forEach(track => track.stop());
-        console.log('[SpeechRecognition] Microphone access confirmed');
         
       } catch (micError) {
-        console.error('[SpeechRecognition] Microphone access failed:', micError);
         
         let errorMsg = '🎤 Mikrofon Erişim Hatası\n\n';
         
@@ -284,21 +279,20 @@ export const useSpeechRecognition = (
       if (navigator.permissions) {
         try {
           const permission = await navigator.permissions.query({name: 'microphone'});
-          console.log('[SpeechRecognition] Permission API state:', permission.state);
           
           if (permission.state === 'denied') {
             alert('Mikrofon izni reddedilmiş. Tarayıcı ayarlarından mikrofon iznini aktifleştirin.');
             return;
           }
         } catch (e) {
-          console.warn('[SpeechRecognition] Permission API check failed:', e);
+          // Permission API check failed
         }
       }
       
       try {
         // Eğer zaten dinliyorsak, önce durdur
         if (isListening && recognitionRef.current) {
-          console.log('[SpeechRecognition] Already listening, stopping first...');
+          isStoppingRef.current = true;
           try {
             recognitionRef.current.stop();
           } catch (e) {
@@ -308,6 +302,7 @@ export const useSpeechRecognition = (
           setIsListening(false);
           // Kısa bir bekleme süresi ekle
           await new Promise(resolve => setTimeout(resolve, 100));
+          isStoppingRef.current = false;
         }
         
         // Create a new recognition instance for this listening session
@@ -322,32 +317,25 @@ export const useSpeechRecognition = (
           cleanedTranscriptRef.current = null;
           setTranscript('');
           
-          console.log('[SpeechRecognition] Starting speech recognition...');
           recognitionRef.current.start();
           setIsListening(true);
         }
       } catch (error) {
-        console.error('[SpeechRecognition] Failed to start:', error);
         setIsListening(false);
           
         // Check if this is a security/permission issue
         if (error instanceof DOMException) {
           if (error.name === 'NotAllowedError') {
-            console.error('[SpeechRecognition] Mikrophone permission denied');
             alert('Mikrofon izni reddedildi. Lütfen tarayıcı ayarlarından mikrofon iznini verin.');
           } else if (error.name === 'NotSupportedError') {
-            console.error('[SpeechRecognition] Not supported in this context');
             alert('Bu tarayıcıda ses tanıma desteklenmiyor.');
           } else if (error.name === 'ServiceNotAvailableError') {
-            console.error('[SpeechRecognition] Service not available');
             alert('Ses tanıma servisi şu anda kullanılamıyor. İnternet bağlantınızı kontrol edin.');
           } else if (error.name === 'InvalidStateError') {
-            console.warn('[SpeechRecognition] Recognition already started, ignoring...');
             // Bu durumda sadece uyarı ver, hata mesajı gösterme
             return;
           }
         } else {
-          console.error('[SpeechRecognition] Unexpected error:', error);
           alert('Ses tanıma başlatılırken beklenmeyen bir hata oluştu.');
         }
         // Clean up instance if start failed
@@ -379,7 +367,6 @@ export const useSpeechRecognition = (
           }
         } catch (permError) {
           // İzin kontrolü/isteği başarısız - graceful fallback
-          console.error('İzin hatası:', permError);
           alert('Mikrofon iznine erişilemiyor. Lütfen cihaz ayarlarını kontrol edin.');
           setHasSupport(false);
           return;
@@ -395,21 +382,70 @@ export const useSpeechRecognition = (
         const listeners: PluginListenerHandle[] = [];
 
         const extractText = (data: any): string => {
-          const m = (data && (data.matches || data.value || data.transcript)) || '';
+          const m = (data && (data.matches || data.value || data.transcript || data.text)) || '';
           if (Array.isArray(m)) return m.join(' ').trim();
           return String(m || '').trim();
         };
 
+        const stopWordsOption = options?.stopOnKeywords;
+        const useStopWords = stopWordsOption !== false;
+
+        const shouldStopOnKeywords = (raw: string): { triggered: boolean; cleaned?: string } => {
+          if (!useStopWords) return { triggered: false };
+          const normalizedTranscript = raw.toLocaleLowerCase('tr-TR').trim();
+          let stopWords = ['tamam', 'bitti', 'bıttı', 'kaydet', 'kayıt', 'ekle', 'oluştur', 'ok'];
+          if (Array.isArray(stopWordsOption)) {
+            stopWords = stopWordsOption;
+          }
+          const normalizedStopWords = stopWords.map(w => w.toLocaleLowerCase('tr-TR'));
+          const sorted = [...normalizedStopWords].sort((a, b) => b.length - a.length);
+          const hit = sorted.find(word => {
+            const pattern = new RegExp(`\\s*${word.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\s*[.,!?]*\\s*$`);
+            return pattern.test(normalizedTranscript);
+          });
+          if (!hit) return { triggered: false };
+          const pattern = new RegExp(`\\s*${hit.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\s*[.,!?]*\\s*$`);
+          const match = normalizedTranscript.match(pattern);
+          if (match && match.index !== undefined) {
+            const cleaned = raw.substring(0, match.index).trim();
+            return { triggered: true, cleaned };
+          }
+          return { triggered: true };
+        };
+
+        // Partial results - update live text and optionally stop on keywords
         listeners.push(await SpeechRecognition.addListener('partialResults', (data: any) => {
           const text = extractText(data);
-          if (text) setTranscript(text);
+          if (text) {
+            setTranscript(text);
+            const decision = shouldStopOnKeywords(text);
+            if (decision.triggered && !isStoppingRef.current) {
+              isStoppingRef.current = true;
+              const cleaned = (decision.cleaned || text).trim();
+              cleanedTranscriptRef.current = cleaned;
+              if (!transcriptReadyCalledRef.current && cleaned) {
+                transcriptReadyCalledRef.current = true;
+                onTranscriptReadyRef.current(cleaned);
+              }
+              setIsListening(false);
+              // Asenkron durdur - bir kez çağır
+              SpeechRecognition.stop().catch(() => {}).finally(() => {
+                setTimeout(() => { isStoppingRef.current = false; }, 500);
+              });
+            }
+          }
         }));
 
+        // Listening state - sadece state güncellemesi için
         listeners.push(await SpeechRecognition.addListener('listeningState', (data: any) => {
-          if (data?.status === 'stopped') {
+          if (data?.status === 'stopped' && !isStoppingRef.current) {
             setIsListening(false);
-            const finalText = (finalTranscriptRef.current || '').trim();
-            if (finalText) onTranscriptReadyRef.current(finalText);
+            const finalText = (cleanedTranscriptRef.current || finalTranscriptRef.current || '').trim();
+            if (!transcriptReadyCalledRef.current && finalText) {
+              transcriptReadyCalledRef.current = true;
+              onTranscriptReadyRef.current(finalText);
+            }
+            cleanedTranscriptRef.current = null;
           }
         }));
 
@@ -417,8 +453,11 @@ export const useSpeechRecognition = (
 
         // İzin alındı, şimdi dinlemeyi başlat
         try {
-          setIsListening(true);
+          transcriptReadyCalledRef.current = false;
+          cleanedTranscriptRef.current = null;
+          isStoppingRef.current = false;
           setTranscript('');
+          setIsListening(true);
           
           await SpeechRecognition.start({
             language: 'tr-TR',
@@ -427,7 +466,6 @@ export const useSpeechRecognition = (
           });
         } catch (startError) {
           // Başlatma hatası
-          console.error('Sesli tanıma başlatma hatası:', startError);
           setIsListening(false);
           alert('Sesli tanıma başlatılamadı. Lütfen tekrar deneyin.');
           // Dinleyicileri temizle
@@ -438,7 +476,6 @@ export const useSpeechRecognition = (
         }
       } catch (e) {
         // Genel hata - modül yüklenemedi
-        console.error("Konuşma tanıma modülü yüklenemedi:", e);
         setIsListening(false);
         setHasSupport(false);
         alert('Sesli tanıma özelliği bu cihazda kullanılamıyor.');
@@ -447,10 +484,23 @@ export const useSpeechRecognition = (
   }, [isListening, hasSupport, isWeb, setupRecognitionHandlers]);
 
   const stopListening = useCallback(async () => {
-    if (!isListening) return;
+    // isListening durumunu ref üzerinden okuyarak callback sabit kalır
+    const currentlyListening = isListening;
+    
+    // Eğer zaten durduruluyorsa, tekrar çağırma
+    if (isStoppingRef.current) {
+      return;
+    }
+    
+    // Dinlemiyorsa bile devam et - zorla durdur
+    // Bu, UI state ve gerçek mikrofon state'i arasındaki senkronizasyon sorunlarını çözer
     
     if (isWeb) {
       // Web Speech API durdur (Electron dahil)
+      
+      // Zorla durdurma bayrağını ayarla
+      isStoppingRef.current = true;
+      
       if (recognitionRef.current) {
         if (silenceTimerRef.current) {
           clearTimeout(silenceTimerRef.current);
@@ -459,33 +509,47 @@ export const useSpeechRecognition = (
         try {
           recognitionRef.current.stop();
         } catch (e) {
-          // Ignore errors when stopping
+          // Stop hatası yoksayıldı
         }
         // Clean up the instance after stopping
         recognitionRef.current = null;
         setIsListening(false);
+      } else {
+        setIsListening(false);
       }
+      
+      // Bayrağı sıfırla
+      setTimeout(() => { isStoppingRef.current = false; }, 300);
     } else {
-      // Capacitor durdur
+      // Capacitor durdur - bir kez çağır
+      isStoppingRef.current = true;
+      
       try {
         const { SpeechRecognition } = await import('@capacitor-community/speech-recognition');
-        await SpeechRecognition.stop();
         setIsListening(false);
         
-        if (finalTranscriptRef.current.trim()) {
-           onTranscriptReadyRef.current(finalTranscriptRef.current.trim());
+        // Stop çağır
+        await SpeechRecognition.stop().catch(() => {});
+        
+        const finalText = (cleanedTranscriptRef.current || finalTranscriptRef.current || '').trim();
+        if (!transcriptReadyCalledRef.current && finalText) {
+          transcriptReadyCalledRef.current = true;
+          onTranscriptReadyRef.current(finalText);
         }
         setTranscript('');
+        cleanedTranscriptRef.current = null;
       } catch (e) {
-        console.error("Konuşma tanıma durdurulamadı:", e);
+        setIsListening(false);
       } finally {
         if (mobileListenersRef.current) {
           mobileListenersRef.current.forEach(h => h.remove());
           mobileListenersRef.current = null;
         }
+        // Reset flag
+        setTimeout(() => { isStoppingRef.current = false; }, 500);
       }
     }
-  }, [isListening, isWeb]);
+  }, [isWeb]);
   
   const checkAndRequestPermission = useCallback(async () => {
     if (!hasSupport) return;
