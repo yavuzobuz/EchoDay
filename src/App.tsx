@@ -6,15 +6,16 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AdminAuthProvider, useAdminAuth } from './contexts/AdminAuthContext';
 import { I18nProvider } from './contexts/I18nContext';
 import ErrorBoundary from './components/ErrorBoundary';
-import Welcome from './pages/Welcome';
+// Lazy-load user-facing pages to reduce initial bundle
+const Welcome = lazy(() => import('./pages/Welcome'));
 import Main from './Main';
-import Profile from './pages/Profile';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Messages from './pages/Messages';
-import Email from './pages/Email';
+const Profile = lazy(() => import('./pages/Profile'));
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const Messages = lazy(() => import('./pages/Messages'));
+const Email = lazy(() => import('./pages/Email'));
 import GmailCallback from './components/auth/GmailCallback';
-import Pricing from './pages/Pricing';
+const Pricing = lazy(() => import('./pages/Pricing'));
 
 // Admin pages - lazy load to reduce main bundle
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
