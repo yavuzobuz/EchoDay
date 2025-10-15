@@ -8,7 +8,12 @@ const __dirname = path.dirname(__filename);
 
 // Read .env file
 const envPath = path.join(__dirname, '../.env');
-const envContent = fs.readFileSync(envPath, 'utf8');
+let envContent = '';
+if (fs.existsSync(envPath)) {
+  envContent = fs.readFileSync(envPath, 'utf8');
+} else {
+  console.warn('[inject-env-android] .env not found, proceeding with empty env');
+}
 
 // Parse environment variables
 const envVars = {};
@@ -17,7 +22,7 @@ lines.forEach(line => {
   if (line.trim() && !line.startsWith('#')) {
     const [key, value] = line.split('=');
     if (key && value) {
-      envVars[key.trim()] = value.trim().replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
+      envVars[key.trim()] = value.trim().replace(/^\"(.*)\"$/, '$1').replace(/^'(.*)'$/, '$1');
     }
   }
 });

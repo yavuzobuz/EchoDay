@@ -540,11 +540,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                 ) : hasSupport ? (
                   <button
                     type="button"
-                    onMouseDown={startListening}
-                    onMouseUp={stopListening}
-                    onMouseLeave={stopListening}
-                    onTouchStart={startListening}
-                    onTouchEnd={stopListening}
+                    onClick={() => (isListening ? stopListening() : startListening())}
                     className={`p-3 rounded-full transition-all duration-200 ${
                       isListening 
                         ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg scale-110' 

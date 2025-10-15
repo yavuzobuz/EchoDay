@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, PluginListenerHandle } from '@capacitor/core';
 import { useElectronSpeechRecognition } from './useElectronSpeechRecognition';
 import { speechRecognitionManager } from './speechRecognitionManager';
 
@@ -37,6 +37,8 @@ export const useSpeechRecognition = (
   const cleanedTranscriptRef = useRef<string | null>(null);
   const finalTranscriptRef = useRef('');
   const onTranscriptReadyRef = useRef(onTranscriptReady);
+  // Capacitor (mobil) için event dinleyicileri
+  const mobileListenersRef = useRef<PluginListenerHandle[] | null>(null);
   
   // Platform detection after all hooks
   const isWeb = Capacitor.getPlatform() === 'web';
@@ -78,7 +80,7 @@ export const useSpeechRecognition = (
         clearTimeout(silenceTimerRef.current);
       }
       
-      // Clean up if this instance was listening
+      // Web API cleanup
       if (recognitionRef.current && isListening) {
         try {
           recognitionRef.current.stop();
@@ -86,6 +88,12 @@ export const useSpeechRecognition = (
           // Ignore errors when stopping
         }
         recognitionRef.current = null;
+      }
+
+      // Mobile (Capacitor) dinleyicilerini kaldır
+      if (mobileListenersRef.current) {
+        mobileListenersRef.current.forEach((h) => h.remove());
+        mobileListenersRef.current = null;
       }
     };
   }, [isListening]);
@@ -377,6 +385,36 @@ export const useSpeechRecognition = (
           return;
         }
         
+        // Önce eski dinleyicileri kaldır
+        if (mobileListenersRef.current) {
+          mobileListenersRef.current.forEach(h => h.remove());
+          mobileListenersRef.current = null;
+        }
+
+        // Event dinleyicileri ekle (partial ve final sonuçlar)
+        const listeners: PluginListenerHandle[] = [];
+
+        const extractText = (data: any): string => {
+          const m = (data && (data.matches || data.value || data.transcript)) || '';
+          if (Array.isArray(m)) return m.join(' ').trim();
+          return String(m || '').trim();
+        };
+
+        listeners.push(await SpeechRecognition.addListener('partialResults', (data: any) => {
+          const text = extractText(data);
+          if (text) setTranscript(text);
+        }));
+
+        listeners.push(await SpeechRecognition.addListener('listeningState', (data: any) => {
+          if (data?.status === 'stopped') {
+            setIsListening(false);
+            const finalText = (finalTranscriptRef.current || '').trim();
+            if (finalText) onTranscriptReadyRef.current(finalText);
+          }
+        }));
+
+        mobileListenersRef.current = listeners;
+
         // İzin alındı, şimdi dinlemeyi başlat
         try {
           setIsListening(true);
@@ -392,6 +430,11 @@ export const useSpeechRecognition = (
           console.error('Sesli tanıma başlatma hatası:', startError);
           setIsListening(false);
           alert('Sesli tanıma başlatılamadı. Lütfen tekrar deneyin.');
+          // Dinleyicileri temizle
+          if (mobileListenersRef.current) {
+            mobileListenersRef.current.forEach(h => h.remove());
+            mobileListenersRef.current = null;
+          }
         }
       } catch (e) {
         // Genel hata - modül yüklenemedi
@@ -435,6 +478,11 @@ export const useSpeechRecognition = (
         setTranscript('');
       } catch (e) {
         console.error("Konuşma tanıma durdurulamadı:", e);
+      } finally {
+        if (mobileListenersRef.current) {
+          mobileListenersRef.current.forEach(h => h.remove());
+          mobileListenersRef.current = null;
+        }
       }
     }
   }, [isListening, isWeb]);
