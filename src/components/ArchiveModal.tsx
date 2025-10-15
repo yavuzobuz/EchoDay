@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Todo, Note, Priority, DashboardStats } from '../types';
 import { archiveService } from '../services/archiveService';
 import { useAuth } from '../contexts/AuthContext';
-import PeriodicReportView from './PeriodicReportView';
+import { Suspense, lazy } from 'react';
+const PeriodicReportView = lazy(() => import('./PeriodicReportView'));
 import { useI18n } from '../contexts/I18nContext';
 
 interface ArchiveModalProps {
@@ -951,7 +952,11 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
             <div className="flex justify-center items-center h-full">
               <div className="w-12 h-12 border-4 border-t-blue-500 border-gray-200 rounded-full animate-spin"></div>
             </div>
-          ) : view === 'search' ? renderSearchView() : view === 'stats' ? renderStatsView() : <PeriodicReportView currentTodos={currentTodos} />}
+          ) : view === 'search' ? renderSearchView() : view === 'stats' ? renderStatsView() : (
+            <Suspense fallback={<div className="flex justify-center items-center h-full"><div className="w-12 h-12 border-4 border-t-blue-500 border-gray-200 rounded-full animate-spin"></div></div>}>
+              <PeriodicReportView currentTodos={currentTodos} />
+            </Suspense>
+          )}
         </main>
       </div>
       

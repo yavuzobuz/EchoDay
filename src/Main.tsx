@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 import Header from './components/Header';
@@ -7,11 +7,12 @@ import TodoList from './components/TodoList';
 import { useNavigate, useLocation } from 'react-router-dom';
 import ActionBar from './components/ActionBar';
 import TaskModal from './components/TaskModal';
-import ChatModal from './components/ChatModal';
-import ImageTaskModal from './components/ImageTaskModal';
+// Lazy-loaded modals to reduce initial bundle size
+const ChatModal = lazy(() => import('./components/ChatModal'));
+const ImageTaskModal = lazy(() => import('./components/ImageTaskModal'));
+const SuggestionsModal = lazy(() => import('./components/SuggestionsModal'));
+const NotepadAiModal = lazy(() => import('./components/NotepadAiModal'));
 import LocationPromptModal from './components/LocationPromptModal';
-import SuggestionsModal from './components/SuggestionsModal';
-import NotepadAiModal from './components/NotepadAiModal';
 import AiAssistantMessage from './components/AiAssistantMessage';
 import Loader from './components/Loader';
 import NotificationPopup from './components/NotificationPopup';
@@ -19,10 +20,10 @@ import ReminderPopup from './components/ReminderPopup';
 import DailyNotepad from './components/DailyNotepad';
 import ToastNotification from './components/ToastNotification';
 import TimelineView from './components/TimelineView';
-import ArchiveModal from './components/ArchiveModal';
+const ArchiveModal = lazy(() => import('./components/ArchiveModal'));
 import InfoBanner from './components/InfoBanner';
 import ShareModal from './components/ShareModal';
-import ContextInsightsPanel from './components/ContextInsightsPanel';
+const ContextInsightsPanel = lazy(() => import('./components/ContextInsightsPanel'));
 import ProactiveSuggestionsModal from './components/ProactiveSuggestionsModal';
 import MobileBottomNav from './components/MobileBottomNav';
 
