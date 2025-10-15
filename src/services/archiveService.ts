@@ -350,7 +350,7 @@ const getAllArchivedItems = async (userId?: string): Promise<{ todos: Todo[], no
 
   try {
     const [tRes, nRes] = await Promise.all([
-      supabase!.from('archived_todos').select('*').eq('user_id', currentUserId).eq('completed', true),
+      supabase!.from('archived_todos').select('*').eq('user_id', currentUserId),
       supabase!.from('archived_notes').select('*').eq('user_id', currentUserId),
     ]);
     
@@ -359,6 +359,7 @@ const getAllArchivedItems = async (userId?: string): Promise<{ todos: Todo[], no
       createdAt: row.created_at ?? row.createdAt,
       archivedAt: row.archived_at ?? row.archivedAt,
       userId: row.user_id ?? row.userId,
+      completed: true,
     }));
     
     const notes = (nRes.data || []).map((row: any) => ({
@@ -414,11 +415,11 @@ const getDashboardStats = async (currentTodos: Todo[], userId?: string): Promise
     try {
       const tRes = await supabase!
         .from('archived_todos')
-        .select('id, created_at, completed')
+        .select('id, created_at')
         .eq('user_id', currentUserId);
       archivedTodos = (tRes.data || []).map((r: any) => ({
         created_at: r.created_at || new Date().toISOString(),
-        completed: r.completed ?? true
+        completed: true
       }));
     } catch (error) {
       console.warn('[Archive] Failed to fetch archived todos for stats:', error);

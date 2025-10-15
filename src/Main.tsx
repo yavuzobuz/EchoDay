@@ -450,6 +450,16 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                 const { updateTodo } = await import('./services/supabaseClient');
                 await updateTodo(userId, id, { completed: newCompleted });
                 console.log('[Main] Todo update synced to Supabase');
+
+                // Görev tamamlandıysa otomatik arşivle
+                if (newCompleted) {
+                    try {
+                        await archiveService.archiveItems([{ ...todo, completed: true }], [], userId);
+                        console.log('[Main] Auto-archived toggled completed task');
+                    } catch (e) {
+                        console.warn('[Main] Auto-archive skipped:', e);
+                    }
+                }
             } catch (error: any) {
                 console.error('[Main] Failed to sync todo update:', error);
                 

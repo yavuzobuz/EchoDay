@@ -412,22 +412,30 @@ export async function archiveUpsertTodos(userId: string, todos: any[]) {
     console.warn('[Archive] Geçersiz userId (guest modu?) - archiveUpsertTodos atlandı');
     return;
   }
+  // Not: RLS zaten user_id ile koruyor. ensureSessionFor başarısız olsa bile denemeye devam et.
   const ok = await ensureSessionFor(userId);
   if (!ok) {
-    console.warn('[Archive] Oturum yok veya userId uyuşmuyor - archiveUpsertTodos atlandı');
-    return;
+    console.warn('[Archive] Oturum yok veya userId uyuşmuyor - yine de arşivlemeyi deneyeceğim');
   }
   try {
     const now = new Date().toISOString();
     const payload = todos.map((t) => {
-      const { id, text, priority, datetime, createdAt, completed } = t;
+      const { id, text, priority, datetime, createdAt } = t;
+      // Priority'yi string'e dönüştür (DB enum/text bekleyebilir)
+      let priorityStr: any = 'medium';
+      if (typeof priority === 'string') {
+        const p = priority.toLowerCase();
+        priorityStr = p === 'high' ? 'high' : p === 'low' ? 'low' : 'medium';
+      } else if (typeof priority === 'number') {
+        // 0: low, 1: medium, 2: high varsayıyoruz
+        priorityStr = priority >= 2 ? 'high' : priority <= 0 ? 'low' : 'medium';
+      }
       return {
         id, // use original id
         user_id: userId,
         text: text || '',
-        priority: priority || 'medium',
+        priority: priorityStr,
         datetime: datetime || null,
-        completed: completed ?? false,
         created_at: createdAt || now,
         archived_at: now,
       };
@@ -437,7 +445,7 @@ export async function archiveUpsertTodos(userId: string, todos: any[]) {
     
     console.log('[Archive] ✅ Görevler başarıyla arşivlendi:', todos.length);
   } catch (error: any) {
-    console.warn('[Archive] ⚠️ Arşiv tablosu mevcut değil, arşivleme atlandı:', error.message);
+    console.warn('[Archive] ⚠️ Arşiv tablosu mevcut değil veya insert hatası, arşivleme atlandı:', error.message);
     // Hata fırlatmak yerine sessizce geç - arşiv opsiyonel
   }
 }
@@ -465,7 +473,6 @@ export async function archiveFetchByDate(userId: string, date: string) {
       supabase.from('archived_todos')
         .select('*')
         .eq('user_id', userId)
-        .eq('completed', true)
         .or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
       supabase.from('archived_notes')
         .select('*')
@@ -478,7 +485,7 @@ export async function archiveFetchByDate(userId: string, date: string) {
       createdAt: row.created_at ?? row.createdAt,
       archivedAt: row.archived_at ?? row.archivedAt,
       userId: row.user_id ?? row.userId,
-      completed: row.completed ?? false,
+      completed: true,
     }));
     const notes = (nRes.data || []).map((row: any) => ({
       ...row,
@@ -510,7 +517,7 @@ export async function archiveSearch(userId: string, query: string) {
   
   try {
     const [tRes, nRes] = await Promise.all([
-      supabase.from('archived_todos').select('*').eq('user_id', userId).eq('completed', true).ilike('text', `%${query}%`),
+      supabase.from('archived_todos').select('*').eq('user_id', userId).ilike('text', `%${query}%`),
       supabase.from('archived_notes').select('*').eq('user_id', userId).ilike('text', `%${query}%`),
     ]);
     
@@ -662,8 +669,7 @@ export async function batchArchiveTodos(userId: string, todos: any[], batchSize 
   
   const ok = await ensureSessionFor(userId);
   if (!ok) {
-    console.warn('[BatchArchive] Oturum yok veya userId uyuşmuyor - batchArchiveTodos atlandı');
-    return;
+    console.warn('[BatchArchive] Oturum yok veya userId uyuşmuyor - yine de deneyeceğim');
   }
   
   try {
