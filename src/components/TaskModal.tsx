@@ -57,7 +57,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     setDescription(transcript);
   };
 
-  const { isListening, transcript, startListening, stopListening, hasSupport } = useSpeechRecognition(
+  const { isListening, transcript, startListening, stopListening, hasSupport, checkAndRequestPermission } = useSpeechRecognition(
     handleTranscript,
     { 
       stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'kayıt', 'ekle', 'oluştur', 'ok'], // Turkish final phrases
@@ -218,13 +218,14 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
           ) : hasSupport ? (
             <button 
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 console.log('[TaskModal] Mic toggle click', { isListening, hasSupport });
                 try {
                   if (isListening) {
-                    stopListening();
+                    await stopListening();
                   } else {
-                    startListening();
+                    await checkAndRequestPermission?.();
+                    await startListening();
                   }
                 } catch {}
               }}

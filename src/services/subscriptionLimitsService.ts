@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { getSubscription as getDemoSubscription } from './paymentService';
 
 // Plan limitleri tanımı
 export interface PlanLimits {
@@ -63,17 +64,57 @@ export interface UsageStats {
  */
 export async function getUserSubscription(userId: string) {
   try {
+    // Supabase configured değilse veya erişilemiyorsa demo aboneliğe düş
+    if (!supabase) {
+      const demo = getDemoSubscription(userId);
+      if (demo) {
+        return {
+          user_id: userId,
+          plan_type: demo.planId?.includes('pro-plus') ? 'enterprise' : demo.planId?.includes('pro') ? 'pro' : 'free',
+          status: demo.status || 'active',
+          subscription_plans: null,
+        } as any;
+      }
+      return null;
+    }
+
     const { data, error } = await supabase
       .from('subscriptions')
       .select('*, subscription_plans(*)')
       .eq('user_id', userId)
       .eq('status', 'active')
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1);
 
     if (error) throw error;
-    return data;
+
+    const row = Array.isArray(data) ? data[0] : (data as any);
+    if (row) return row;
+
+    // Aktif kayıt yoksa demo aboneliğe düş
+    const demo = getDemoSubscription(userId);
+    if (demo) {
+      return {
+        user_id: userId,
+        plan_type: demo.planId?.includes('pro-plus') ? 'enterprise' : demo.planId?.includes('pro') ? 'pro' : 'free',
+        status: demo.status || 'active',
+        subscription_plans: null,
+      } as any;
+    }
+
+    return null;
   } catch (error) {
     console.error('Error fetching subscription:', error);
+    // Hata durumunda demo aboneliğe düş
+    const demo = getDemoSubscription(userId);
+    if (demo) {
+      return {
+        user_id: userId,
+        plan_type: demo.planId?.includes('pro-plus') ? 'enterprise' : demo.planId?.includes('pro') ? 'pro' : 'free',
+        status: demo.status || 'active',
+        subscription_plans: null,
+      } as any;
+    }
     return null;
   }
 }
@@ -104,54 +145,93 @@ export async function getUserLimits(userId: string): Promise<PlanLimits> {
  */
 export async function getUserUsage(userId: string): Promise<UsageStats> {
   try {
-    // Task sayısı
-    const { count: tasksCount } = await supabase
-      .from('todos')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-
-    // Not sayısı (notes tablosu varsa, yoksa 0)
+    let tasksCount = 0;
     let notesCount = 0;
+    let aiRequestsCount = 0;
+
+    // 1) Supabase'den okumayı dene (varsa)
     try {
-      const { count, error: notesError } = await supabase
-        .from('daily_notes')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-      if (!notesError) notesCount = count || 0;
+      if (supabase) {
+        const { count: sTasks } = await supabase
+          .from('todos')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId);
+        tasksCount = sTasks || 0;
+
+        try {
+          const { count, error: notesError } = await supabase
+            .from('daily_notes')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId);
+          if (!notesError) notesCount = count || 0;
+        } catch (e) {
+          // Tablo yoksa sessizce devam et
+          console.warn('daily_notes table not found, using 0');
+        }
+
+        try {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const { count, error: chatError } = await supabase
+            .from('chat_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .gte('created_at', today.toISOString());
+          if (!chatError) aiRequestsCount = count || 0;
+        } catch (e) {
+          console.warn('chat_messages table not found, using 0');
+        }
+      }
     } catch (e) {
-      // Tablo yoksa sessizce devam et
-      console.warn('daily_notes table not found, using 0');
+      console.warn('[Usage] Supabase counts failed, will use local fallbacks:', e);
     }
 
-    // Bugünkü AI istekleri (chat_messages tablosundan, yoksa 0)
-    let aiRequestsCount = 0;
+    // 2) LocalStorage fallback (guest veya Supabase yoksa)
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const { count, error: chatError } = await supabase
-        .from('chat_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .gte('created_at', today.toISOString());
-      if (!chatError) aiRequestsCount = count || 0;
-    } catch (e) {
-      // Tablo yoksa sessizce devam et
-      console.warn('chat_messages table not found, using 0');
-    }
+      const todosRaw = localStorage.getItem(`todos_${userId}`);
+      if (todosRaw) {
+        const todos = JSON.parse(todosRaw);
+        const localTasks = Array.isArray(todos) ? todos.filter((t: any) => !t.isDeleted).length : 0;
+        // Supabase dönerse bile yerel sayım daha yüksekse onu kullan
+        tasksCount = Math.max(tasksCount, localTasks);
+      }
+    } catch {}
+
+    try {
+      const notesRaw = localStorage.getItem(`notes_${userId}`);
+      if (notesRaw) {
+        const arr = JSON.parse(notesRaw);
+        const localNotes = Array.isArray(arr) ? arr.filter((n: any) => !n.isDeleted).length : 0;
+        notesCount = Math.max(notesCount, localNotes);
+      }
+    } catch {}
+
+    try {
+      const todayKey = `ai_usage_${userId}_${new Date().toDateString()}`;
+      const localAi = parseInt(localStorage.getItem(todayKey) || '0', 10);
+      if (!Number.isNaN(localAi)) aiRequestsCount = Math.max(aiRequestsCount, localAi);
+    } catch {}
 
     return {
-      tasks_count: tasksCount || 0,
+      tasks_count: tasksCount,
       notes_count: notesCount,
       ai_requests_today: aiRequestsCount,
     };
   } catch (error) {
     console.error('Error fetching usage stats:', error);
-    return {
-      tasks_count: 0,
-      notes_count: 0,
-      ai_requests_today: 0,
-    };
+    // Tamamen hata olursa en azından local fallback döndür
+    try {
+      const todos = JSON.parse(localStorage.getItem(`todos_${userId}`) || '[]');
+      const notes = JSON.parse(localStorage.getItem(`notes_${userId}`) || '[]');
+      const ai = parseInt(localStorage.getItem(`ai_usage_${userId}_${new Date().toDateString()}`) || '0', 10) || 0;
+      return {
+        tasks_count: (Array.isArray(todos) ? todos.filter((t: any)=>!t.isDeleted).length : 0),
+        notes_count: (Array.isArray(notes) ? notes.filter((n: any)=>!n.isDeleted).length : 0),
+        ai_requests_today: ai,
+      };
+    } catch {
+      return { tasks_count: 0, notes_count: 0, ai_requests_today: 0 };
+    }
   }
 }
 

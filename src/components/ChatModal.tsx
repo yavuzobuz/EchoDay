@@ -51,7 +51,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
     continuous: true,
   }), []);
 
-  const { isListening, transcript, startListening, stopListening, hasSupport } = useSpeechRecognition(
+  const { isListening, transcript, startListening, stopListening, hasSupport, checkAndRequestPermission } = useSpeechRecognition(
     handleTranscriptReady,
     speechRecognitionOptions
   );
@@ -65,6 +65,15 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
   
   const tts = useTextToSpeech();
   const [speakingMessageIndex, setSpeakingMessageIndex] = useState<number | null>(null);
+
+  // Emergency auto-stop to prevent stuck mic on mobile
+  useEffect(() => {
+    if (!isListening) return;
+    const timer = setTimeout(() => {
+      try { (stopListening as any)?.(); } catch {}
+    }, 20000);
+    return () => clearTimeout(timer);
+  }, [isListening, stopListening]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -580,7 +589,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                         stopListening();
                       } else {
                         console.log('[ChatModal] Mikrofon başlatılıyor...');
-                        startListening();
+                        checkAndRequestPermission?.().then(() => startListening());
                       }
                     }}
                     className={`p-3 rounded-full transition-all duration-200 ${
