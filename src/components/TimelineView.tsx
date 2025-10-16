@@ -123,13 +123,13 @@ const TimelineView: React.FC<TimelineViewProps> = ({ todos, onEditTodo, scale: s
   };
   const goToday = () => setAnchor(new Date());
 
-  const dayLabel = useMemo(() => anchor.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }), [anchor]);
+  const dayLabel = useMemo(() => anchor.toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: '2-digit', day: '2-digit' }), [anchor]);
   const weekLabel = useMemo(() => {
     const s = startOfWeek(anchor);
     const e = endOfWeek(anchor);
-    return `${s.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })} - ${e.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}`;
+    return `${s.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })} - ${e.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })}`;
   }, [anchor]);
-  const monthLabel = useMemo(() => anchor.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' }), [anchor]);
+  const monthLabel = useMemo(() => anchor.toLocaleDateString('tr-TR', { month: '2-digit', year: 'numeric' }), [anchor]);
   const yearLabel = useMemo(() => anchor.getFullYear(), [anchor]);
 
   const [isAgendaOpen, setAgendaOpen] = useState(false);

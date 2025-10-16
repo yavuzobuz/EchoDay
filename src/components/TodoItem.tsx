@@ -131,8 +131,9 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
     } else if (reminder.type === 'absolute' && reminder.absoluteTime) {
       const date = new Date(reminder.absoluteTime);
       return date.toLocaleString('tr-TR', {
-        day: 'numeric',
-        month: 'short',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
       });

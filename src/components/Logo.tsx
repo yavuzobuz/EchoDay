@@ -22,7 +22,7 @@ const Logo: React.FC<LogoProps> = ({ className, alt = 'EchoDay logo', priority =
       className={className}
       decoding="async"
       loading={priority ? 'eager' : 'lazy'}
-      fetchpriority={priority ? 'high' : 'auto'}
+      fetchPriority={priority ? 'high' : 'auto'}
       style={{ contentVisibility: 'auto' }}
     />
   );

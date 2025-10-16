@@ -573,7 +573,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     // Helpers for agenda summaries
     const isWithin = (dt: Date, s: Date, e: Date) => dt >= s && dt <= e;
     const formatTime = (dt: Date) => dt.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-    const formatDate = (dt: Date) => dt.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' });
+    const formatDate = (dt: Date) => dt.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     const computeImportance = (todo: Todo) => {
         let score = 0;
@@ -691,9 +691,9 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
             // Build summary text
             const rangeLabel = (
-                period === 'day' ? now.toLocaleDateString('tr-TR', { weekday: 'long', day: '2-digit', month: 'long' }) :
-                period === 'week' ? `${start.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })} - ${end.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}` :
-                period === 'month' ? now.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' }) :
+                period === 'day' ? now.toLocaleDateString('tr-TR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }) :
+                period === 'week' ? `${start.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })} - ${end.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })}` :
+                period === 'month' ? now.toLocaleDateString('tr-TR', { month: '2-digit', year: 'numeric' }) :
                 `${now.getFullYear()}`
             );
 
@@ -702,7 +702,7 @@ const title = period === 'day' ? 'Günlük Görev Listesi' : period === 'week' ?
 const top = sorted;
             const bullets = top.map(t => {
                 const dt = new Date(t.datetime!);
-                const when = period === 'day' ? `${formatTime(dt)}` : period === 'week' ? `${dt.toLocaleDateString('tr-TR', { weekday: 'short' })} ${formatTime(dt)}` : period === 'month' ? `${formatDate(dt)} ${formatTime(dt)}` : `${dt.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short' })}`;
+                const when = period === 'day' ? `${formatTime(dt)}` : period === 'week' ? `${dt.toLocaleDateString('tr-TR', { weekday: 'short' })} ${formatTime(dt)}` : period === 'month' ? `${formatDate(dt)} ${formatTime(dt)}` : `${dt.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })}`;
                 const pr = t.priority === Priority.High ? 'Yüksek' : 'Orta';
                 return `• ${when} — ${t.text} (Öncelik: ${pr})`;
             }).join('\n');

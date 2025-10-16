@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { v4 as uuidv4 } from 'uuid';
 import { ReminderConfig } from '../types';
 
@@ -18,13 +19,13 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
   onSave
 }) => {
   const [reminders, setReminders] = useState<ReminderConfig[]>(existingReminders);
-  const [customDateTime, setCustomDateTime] = useState<string>('');
+  const [customDate, setCustomDate] = useState<string>('');
+  const [customTime, setCustomTime] = useState<string>('');
   
   useEffect(() => {
     setReminders(existingReminders);
   }, [existingReminders]);
   
-  // Preset reminder options (in minutes)
   const presetOptions = [
     { label: '5 dakika önce', minutes: 5 },
     { label: '10 dakika önce', minutes: 10 },
@@ -41,35 +42,38 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
       return;
     }
     
-    const newReminder: ReminderConfig = {
+    setReminders([...reminders, {
       id: uuidv4(),
       type: 'relative',
       minutesBefore: minutes,
       triggered: false
-    };
-    
-    console.log('[ReminderSetup] Adding new relative reminder:', newReminder);
-    
-    setReminders([...reminders, newReminder]);
+    }]);
   };
   
   const addCustomReminder = () => {
-    if (!customDateTime) {
+    if (!customDate || !customTime) {
       alert('Lütfen hatırlatma için tarih ve saat seçiniz.');
       return;
     }
     
-    const newReminder: ReminderConfig = {
+    const [day, month, year] = customDate.split('/');
+    if (!day || !month || !year || day.length !== 2 || month.length !== 2 || year.length !== 4) {
+      alert('Lütfen geçerli bir tarih girin (gg/aa/yyyy formatında).');
+      return;
+    }
+    
+    const isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    const combinedDateTime = `${isoDate}T${customTime}:00`;
+    
+    setReminders([...reminders, {
       id: uuidv4(),
       type: 'absolute',
-      absoluteTime: customDateTime,
+      absoluteTime: combinedDateTime,
       triggered: false
-    };
+    }]);
     
-    console.log('[ReminderSetup] Adding new absolute reminder:', newReminder);
-    
-    setReminders([...reminders, newReminder]);
-    setCustomDateTime('');
+    setCustomDate('');
+    setCustomTime('');
   };
   
   const removeReminder = (id: string) => {
@@ -90,162 +94,137 @@ const ReminderSetupModal: React.FC<ReminderSetupModalProps> = ({
     } else if (reminder.type === 'absolute' && reminder.absoluteTime) {
       const date = new Date(reminder.absoluteTime);
       return date.toLocaleString('tr-TR', {
-        day: 'numeric',
-        month: 'short',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
       });
     }
     return 'Bilinmeyen';
   };
-  
+
   const handleSave = () => {
-    console.log('[ReminderSetup] Saving reminders:', reminders);
-    console.log('[ReminderSetup] Total reminders to save:', reminders.length);
     onSave(reminders);
     onClose();
   };
   
+  // Body scroll lock when modal open
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    const prevPaddingRight = document.body.style.paddingRight;
+    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+    document.body.style.overflow = 'hidden';
+    if (scrollbarWidth > 0) document.body.style.paddingRight = `${scrollbarWidth}px`;
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.body.style.paddingRight = prevPaddingRight;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
   
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow-xl max-w-md w-full max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
-            Hatırlatma Ayarları
-          </h2>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Bu göreve birden fazla hatırlatma ekleyebilirsiniz
-          </p>
+  const modalEl = (
+    <div className="fixed inset-0 z-[20001] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.5)', overscrollBehavior: 'contain' }}>
+      <div role="dialog" aria-modal="true" className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg" style={{ height: '600px', display: 'grid', gridTemplateRows: 'auto 1fr auto' }}>
+        
+        {/* HEADER - SABIT */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white">Hatırlatma Ayarları</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Bu göreve birden fazla hatırlatma ekleyebilirsiniz</p>
         </div>
         
-        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
-          {/* Existing Reminders */}
-          {reminders.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Mevcut Hatırlatmalar
-              </h3>
-              <div className="space-y-2">
-                {reminders.map(reminder => (
-                  <div
-                    key={reminder.id}
-                    className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700"
-                  >
-                    <div className="flex items-center gap-2">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-5 w-5 text-blue-600 dark:text-blue-400"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <span className="text-sm text-gray-900 dark:text-white">
-                        {formatReminderDisplay(reminder)}
-                      </span>
-                      {reminder.snoozedCount && reminder.snoozedCount > 0 && (
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          (Ertelendi: {reminder.snoozedCount}x)
-                        </span>
-                      )}
+        {/* CONTENT - SCROLLABLE */}
+        <div style={{ overflowY: 'auto', overflowX: 'hidden' }}>
+          <div className="p-6">
+            
+            {/* Mevcut Hatırlatmalar */}
+            {reminders.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Mevcut Hatırlatmalar</h3>
+                <div className="space-y-2">
+                  {reminders.map(reminder => (
+                    <div key={reminder.id} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <span className="text-sm text-gray-900 dark:text-white">{formatReminderDisplay(reminder)}</span>
+                      <button onClick={() => removeReminder(reminder.id)} className="text-red-600 dark:text-red-400 text-xl leading-none" style={{ width: '24px', height: '24px' }}>×</button>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Hızlı Ekleme */}
+            {taskDateTime && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Hızlı Ekleme</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {presetOptions.map(preset => (
                     <button
-                      onClick={() => removeReminder(reminder.id)}
-                      className="p-1 rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400"
-                      aria-label="Hatırlatmayı sil"
+                      key={preset.minutes}
+                      onClick={() => addPresetReminder(preset.minutes)}
+                      className="p-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700"
+                      style={{ cursor: 'pointer' }}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
+                      {preset.label}
                     </button>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-          
-          {/* Preset Options */}
-          {taskDateTime && (
+            )}
+            
+            {/* Özel Tarih/Saat */}
             <div className="mb-6">
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                Hızlı Ekleme
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {presetOptions.map(preset => (
-                  <button
-                    key={preset.minutes}
-                    onClick={() => addPresetReminder(preset.minutes)}
-                    className="p-2 sm:p-3 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-[var(--accent-color-50)] dark:hover:bg-[var(--accent-color-900)] hover:border-[var(--accent-color-500)] transition-colors text-gray-700 dark:text-gray-300 text-center"
-                  >
-                    {preset.label}
-                  </button>
-                ))}
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Özel Tarih/Saat</h3>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <input
+                  type="text"
+                  placeholder="16/10/2025"
+                  value={customDate}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/[^0-9\/]/g, '');
+                    if (val.length <= 10) setCustomDate(val);
+                  }}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  style={{ outline: 'none' }}
+                />
+                <input
+                  type="time"
+                  value={customTime}
+                  onChange={(e) => setCustomTime(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  style={{ outline: 'none' }}
+                />
               </div>
-            </div>
-          )}
-          
-          {/* Custom DateTime Reminder */}
-          <div>
-            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              Özel Tarih/Saat
-            </h3>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="datetime-local"
-                value={customDateTime}
-                onChange={(e) => setCustomDateTime(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
-              />
               <button
                 onClick={addCustomReminder}
-                className="w-full sm:w-auto px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-lg hover:bg-[var(--accent-color-700)] transition-colors text-sm font-medium"
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium"
+                style={{ cursor: 'pointer' }}
               >
                 Ekle
               </button>
             </div>
+            
+            {!taskDateTime && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">⚠️ Bu görevin tarih ve saati belirlenmemiş.</p>
+              </div>
+            )}
+            
           </div>
-          
-          {!taskDateTime && (
-            <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                ⚠️ Bu görevin tarih ve saati belirlenmemiş. Göreceli hatırlatmalar eklemek için önce görevin tarihini ayarlayın.
-              </p>
-            </div>
-          )}
         </div>
         
-        <div className="p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
-          <button
-            onClick={onClose}
-            className="w-full sm:w-auto px-4 py-2 sm:py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm sm:text-base"
-          >
-            İptal
-          </button>
-          <button
-            onClick={handleSave}
-            className="w-full sm:w-auto px-4 py-2 sm:py-2 bg-[var(--accent-color-600)] text-white rounded-lg hover:bg-[var(--accent-color-700)] transition-colors font-medium text-sm sm:text-base"
-          >
-            Kaydet
-          </button>
+        {/* FOOTER - SABIT */}
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300" style={{ cursor: 'pointer' }}>İptal</button>
+          <button onClick={handleSave} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium" style={{ cursor: 'pointer' }}>Kaydet</button>
         </div>
+        
       </div>
     </div>
   );
+
+  return createPortal(modalEl, document.body);
 };
 
 export default ReminderSetupModal;
