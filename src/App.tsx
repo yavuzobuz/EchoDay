@@ -7,6 +7,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AdminAuthProvider, useAdminAuth } from './contexts/AdminAuthContext';
 import { I18nProvider } from './contexts/I18nContext';
 import ErrorBoundary from './components/ErrorBoundary';
+// Load AI provider test utilities in development
+if (process.env.NODE_ENV === 'development') {
+  import('./utils/testAIProviders').catch(() => {});
+}
 // Lazy-load user-facing pages to reduce initial bundle
 const Welcome = lazy(() => import('./pages/Welcome'));
 import Main from './Main';

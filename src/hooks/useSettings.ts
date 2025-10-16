@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import { AIProvider } from '../types/ai';
 
 interface Settings {
+  'ai-provider'?: AIProvider;
   'gemini-api-key'?: string;
+  'openai-api-key'?: string;
+  'anthropic-api-key'?: string;
   // Add other settings as needed
   [key: string]: any;
 }

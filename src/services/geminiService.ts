@@ -1,4 +1,7 @@
 // Fix: Create the content for the geminiService to handle all AI interactions.
+// NOTE: This service currently uses Gemini directly. For multi-provider support,
+// use the new unified AIService from './aiService.ts' and 'getCurrentAIService()' from '../utils/aiHelper.ts'
+// Future TODO: Migrate this service to use the unified AIService for all providers
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { SchemaType } from "@google/generative-ai";
 // FIX: Import the new AnalyzedTaskData type.
@@ -527,7 +530,46 @@ const startChat = async (apiKey: string, history: ChatMessage[], newMessage: str
         const systemInstruction = lang === 'en' 
             ? 'You are a helpful AI assistant. Always respond in English. Be concise, friendly, and helpful. When helping with tasks, provide clear and actionable information.'
             : 'Sen yardımcı bir AI asistanısın. Her zaman Türkçe yanıt ver. Kısa, samimi ve yardımcı ol. Görevlerde yardım ederken net ve uygulanabilir bilgiler sağla.';
+        
+        // Try to use unified AI service if available
+        try {
+            const { getCurrentAIService, getCurrentProvider } = await import('../utils/aiHelper');
+            const { AIProvider } = await import('../types/ai');
+            const currentProvider = getCurrentProvider();
             
+            // Only use unified service for OpenAI and Anthropic
+            // Gemini will continue using the direct SDK for now (better compatibility with existing code)
+            if (currentProvider === AIProvider.OPENAI || currentProvider === AIProvider.ANTHROPIC) {
+                const aiService = getCurrentAIService();
+                
+                // Convert ChatMessage history to AIMessage format
+                const messages = [
+                    { role: 'system' as const, content: systemInstruction },
+                    ...history
+                        .filter((msg, index) => {
+                            // Skip first message if it's from model (for Gemini compatibility)
+                            if (index === 0 && msg.role === 'model') return false;
+                            return true;
+                        })
+                        .map(msg => ({
+                            role: (msg.role === 'model' ? 'assistant' : msg.role) as 'user' | 'assistant',
+                            content: msg.text
+                        })),
+                    { role: 'user' as const, content: newMessage }
+                ];
+                
+                const result = await aiService.generateWithHistory(messages, {
+                    temperature: 0.7,
+                    maxTokens: 2000
+                });
+                
+                return { text: result.text };
+            }
+        } catch (error) {
+            console.warn('Failed to use unified AI service, falling back to Gemini:', error);
+        }
+        
+        // Fallback to direct Gemini SDK (default behavior)
         const model = getAI(apiKey).getGenerativeModel({ 
             model: modelName,
             systemInstruction: systemInstruction
@@ -554,7 +596,7 @@ const startChat = async (apiKey: string, history: ChatMessage[], newMessage: str
         const response = await result.response;
         return { text: response.text() };
     } catch (error) {
-        console.error('Error in chat with Gemini:', error);
+        console.error('Error in chat:', error);
         return null;
     }
 };
@@ -1525,6 +1567,26 @@ Yarın: 2025-01-16 14:00 (yerel) → 2025-01-16T11:00:00.000Z (UTC)`;
  */
 const generateText = async (apiKey: string, prompt: string): Promise<string | null> => {
     try {
+        // Try to use unified AI service if available
+        try {
+            const { getCurrentAIService, getCurrentProvider } = await import('../utils/aiHelper');
+            const { AIProvider } = await import('../types/ai');
+            const currentProvider = getCurrentProvider();
+            
+            // Use unified service for OpenAI and Anthropic
+            if (currentProvider === AIProvider.OPENAI || currentProvider === AIProvider.ANTHROPIC) {
+                const aiService = getCurrentAIService();
+                const result = await aiService.generate(prompt, {
+                    temperature: 0.7,
+                    maxTokens: 2048
+                });
+                return result.text;
+            }
+        } catch (error) {
+            console.warn('Failed to use unified AI service, falling back to Gemini:', error);
+        }
+        
+        // Fallback to direct Gemini SDK
         const model = getAI(apiKey).getGenerativeModel({
             model: modelName,
             generationConfig: {
@@ -1539,7 +1601,7 @@ const generateText = async (apiKey: string, prompt: string): Promise<string | nu
         const response = await result.response;
         return response.text();
     } catch (error) {
-        console.error('Error generating text with Gemini:', error);
+        console.error('Error generating text:', error);
         return null;
     }
 };

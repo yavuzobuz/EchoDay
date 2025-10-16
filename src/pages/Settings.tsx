@@ -7,6 +7,7 @@ import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { mailService } from '../services/mailService';
 import { EmailAccount } from '../types/mail';
 import MailConnectModal from '../components/MailConnectModal';
+import { AIProvider, AI_PROVIDERS } from '../types/ai';
 
 interface SettingsProps {
   theme: 'light' | 'dark';
@@ -43,8 +44,16 @@ const Settings: React.FC<SettingsProps> = ({
   const { t, lang, setLang, isAutoDetected, browserLanguageInfo, enableAutoDetection } = useI18n();
   const { user } = useAuth();
 
-  const [localApiKey, setLocalApiKey] = useState(apiKey);
-  const [isEditingApiKey, setIsEditingApiKey] = useState(!apiKey);
+  // AI Provider state
+  const [selectedProvider, setSelectedProvider] = useState<AIProvider>(
+    (localStorage.getItem('ai-provider') as AIProvider) || AIProvider.GEMINI
+  );
+  const [providerApiKeys, setProviderApiKeys] = useState<Record<AIProvider, string>>({
+    [AIProvider.GEMINI]: localStorage.getItem('gemini-api-key') || apiKey || '',
+    [AIProvider.OPENAI]: localStorage.getItem('openai-api-key') || '',
+    [AIProvider.ANTHROPIC]: localStorage.getItem('anthropic-api-key') || '',
+  });
+  const [isEditingProvider, setIsEditingProvider] = useState(!providerApiKeys[selectedProvider]);
   const [showApiKey, setShowApiKey] = useState(false);
   const [localAssistantName, setLocalAssistantName] = useState(assistantName);
   const [notification, setNotification] = useState<string | null>(null);
@@ -61,27 +70,56 @@ const Settings: React.FC<SettingsProps> = ({
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
 
-  const handleSaveApiKey = (e: React.FormEvent) => {
+  const handleSaveProviderKey = (e: React.FormEvent) => {
     e.preventDefault();
-    setApiKey(localApiKey);
-    setIsEditingApiKey(false);
+    const currentKey = providerApiKeys[selectedProvider];
+    if (!currentKey) {
+      setNotification(t('profile.apiKeyRequired', 'API Key gereklidir'));
+      setTimeout(() => setNotification(null), 3000);
+      return;
+    }
+    
+    // Save to localStorage
+    localStorage.setItem('ai-provider', selectedProvider);
+    localStorage.setItem(`${selectedProvider}-api-key`, currentKey);
+    
+    // If Gemini, also update old apiKey prop for backward compatibility
+    if (selectedProvider === AIProvider.GEMINI) {
+      setApiKey(currentKey);
+    }
+    
+    setIsEditingProvider(false);
     setNotification(t('profile.apiKeySaved'));
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const handleEditApiKey = () => {
-    setIsEditingApiKey(true);
-    setLocalApiKey(apiKey);
+  const handleEditProviderKey = () => {
+    setIsEditingProvider(true);
   };
 
-  const handleDeleteApiKey = () => {
+  const handleDeleteProviderKey = () => {
     if (confirm(t('profile.confirmDeleteApiKey'))) {
-      setApiKey('');
-      setLocalApiKey('');
-      setIsEditingApiKey(true);
+      const newKeys = { ...providerApiKeys, [selectedProvider]: '' };
+      setProviderApiKeys(newKeys);
+      localStorage.removeItem(`${selectedProvider}-api-key`);
+      
+      if (selectedProvider === AIProvider.GEMINI) {
+        setApiKey('');
+      }
+      
+      setIsEditingProvider(true);
       setNotification(t('profile.apiKeyDeleted'));
       setTimeout(() => setNotification(null), 3000);
     }
+  };
+  
+  const handleProviderChange = (provider: AIProvider) => {
+    setSelectedProvider(provider);
+    setIsEditingProvider(!providerApiKeys[provider]);
+  };
+  
+  const handleApiKeyChange = (value: string) => {
+    setProviderApiKeys({ ...providerApiKeys, [selectedProvider]: value });
   };
 
   const handleSaveAssistantName = (e: React.FormEvent) => {
@@ -269,67 +307,147 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
-        {/* API Key */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">
-            {t('profile.apiKey')}
-          </h2>
-          
-          {isEditingApiKey ? (
-            <form onSubmit={handleSaveApiKey} className="space-y-3">
-              <label htmlFor="apiKey" className="font-semibold text-lg">{t('profile.apiKeyLabel')}</label>
-              <div className="relative">
-                <input
-                  id="apiKey"
-                  type={showApiKey ? 'text' : 'password'}
-                  value={localApiKey}
-                  onChange={(e) => setLocalApiKey(e.target.value)}
-                  className="w-full p-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
-                  placeholder={t('profile.apiKeyPlaceholder')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute inset-y-0 right-0 px-3 text-gray-500"
-                >
-                  {showApiKey ? '👁️' : '🙈'}
-                </button>
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {t('profile.apiKeyDescription').split('{link}')[0]}
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-[var(--accent-color-500)] hover:underline">
-                  {t('profile.apiKeyLinkText')}
-                </a>
-              </p>
-              <div className="flex gap-2">
-                <button type="submit" className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)]">
-                  {t('common.save')}
-                </button>
-                {apiKey && (
-                  <button type="button" onClick={() => setIsEditingApiKey(false)} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">
-                    {t('common.cancel')}
+        {/* AI Provider & API Key */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600 mb-4">
+              {t('profile.aiProvider', 'AI Sağlayıcı')}
+            </h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              {t('profile.aiProviderDesc', 'Kullanmak istediğiniz AI modelini seçin. Her sağlayıcı için kendi API anahtarınızı kullanabilirsiniz.')}
+            </p>
+          </div>
+
+          {/* Provider Selection */}
+          <div className="space-y-3">
+            <label className="font-semibold text-lg">{t('profile.selectProvider', 'Sağlayıcı Seçin')}</label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {Object.values(AIProvider).map((provider) => {
+                const info = AI_PROVIDERS[provider];
+                const hasKey = !!providerApiKeys[provider];
+                const isSelected = selectedProvider === provider;
+                
+                return (
+                  <button
+                    key={provider}
+                    onClick={() => handleProviderChange(provider)}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      isSelected
+                        ? 'border-[var(--accent-color-500)] bg-[var(--accent-color-50)] dark:bg-[var(--accent-color-900)]/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <h3 className="font-bold text-base">{info.name}</h3>
+                      {hasKey && (
+                        <span className="text-xs bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 px-2 py-0.5 rounded">
+                          ✓ {t('profile.configured', 'Yapılandırıldı')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">{info.description}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500">{info.pricingInfo}</p>
                   </button>
-                )}
-              </div>
-            </form>
-          ) : (
-            <div className="flex flex-col sm:flex-row items-start justify-between gap-2">
-              <div>
-                <p className="font-semibold text-lg text-green-600 dark:text-green-400">{t('profile.apiKeyConfigured')}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400 font-mono">
-                  {apiKey.substring(0, 4)}...{apiKey.substring(apiKey.length - 4)}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={handleEditApiKey} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500">
-                  {t('profile.apiKeyChange')}
-                </button>
-                <button onClick={handleDeleteApiKey} className="px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-900/80">
-                  {t('profile.apiKeyDelete')}
-                </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* API Key Input */}
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">💡</span>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-200 mb-1">
+                    {AI_PROVIDERS[selectedProvider].name}
+                  </h4>
+                  <p className="text-sm text-blue-800 dark:text-blue-300 mb-2">
+                    {t('profile.getApiKeyFrom', 'API anahtarınızı almak için:')}
+                  </p>
+                  <a
+                    href={AI_PROVIDERS[selectedProvider].websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-[var(--accent-color-600)] hover:text-[var(--accent-color-700)] hover:underline inline-flex items-center gap-1"
+                  >
+                    {AI_PROVIDERS[selectedProvider].websiteUrl}
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                  </a>
+                </div>
               </div>
             </div>
-          )}
+
+            {isEditingProvider ? (
+              <form onSubmit={handleSaveProviderKey} className="space-y-3">
+                <label htmlFor="providerApiKey" className="font-semibold text-lg">
+                  {t('profile.apiKeyLabel')} ({AI_PROVIDERS[selectedProvider].name})
+                </label>
+                <div className="relative">
+                  <input
+                    id="providerApiKey"
+                    type={showApiKey ? 'text' : 'password'}
+                    value={providerApiKeys[selectedProvider]}
+                    onChange={(e) => handleApiKeyChange(e.target.value)}
+                    className="w-full p-3 pr-10 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-[var(--accent-color-500)] focus:outline-none"
+                    placeholder={t('profile.apiKeyPlaceholder')}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  >
+                    {showApiKey ? '👁️' : '🙈'}
+                  </button>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    type="submit" 
+                    className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] transition-colors"
+                  >
+                    {t('common.save')}
+                  </button>
+                  {providerApiKeys[selectedProvider] && (
+                    <button 
+                      type="button" 
+                      onClick={() => setIsEditingProvider(false)} 
+                      className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                    >
+                      {t('common.cancel')}
+                    </button>
+                  )}
+                </div>
+              </form>
+            ) : (
+              <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-lg text-green-600 dark:text-green-400">
+                    {t('profile.apiKeyConfigured')} - {AI_PROVIDERS[selectedProvider].name}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-mono mt-1">
+                    {providerApiKeys[selectedProvider].substring(0, 8)}...{providerApiKeys[selectedProvider].substring(providerApiKeys[selectedProvider].length - 4)}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleEditProviderKey} 
+                    className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                  >
+                    {t('profile.apiKeyChange')}
+                  </button>
+                  <button 
+                    onClick={handleDeleteProviderKey} 
+                    className="px-4 py-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-md hover:bg-red-200 dark:hover:bg-red-900/80 transition-colors"
+                  >
+                    {t('profile.apiKeyDelete')}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Assistant Name */}

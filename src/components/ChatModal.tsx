@@ -51,10 +51,17 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
     continuous: true,
   }), []);
 
-  const { isListening, startListening, stopListening, hasSupport } = useSpeechRecognition(
+  const { isListening, transcript, startListening, stopListening, hasSupport } = useSpeechRecognition(
     handleTranscriptReady,
     speechRecognitionOptions
   );
+  
+  // Dinleme sırasında canlı yazma (kullanıcı görsün)
+  useEffect(() => {
+    if (isListening && transcript) {
+      setUserInput(transcript);
+    }
+  }, [isListening, transcript]);
   
   const tts = useTextToSpeech();
   const [speakingMessageIndex, setSpeakingMessageIndex] = useState<number | null>(null);

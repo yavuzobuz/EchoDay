@@ -63,13 +63,22 @@ export const useSpeechRecognition = (
     } else {
       // Mobil platformlarda Capacitor desteğini kontrol et
       import('@capacitor-community/speech-recognition').then(({ SpeechRecognition }) => {
+        console.log('[SpeechRecognition] Checking availability on mobile...');
         SpeechRecognition.available()
           .then(result => {
+            console.log('[SpeechRecognition] Availability result:', result);
             setHasSupport(result.available);
+            if (!result.available) {
+              console.warn('[SpeechRecognition] Speech recognition not available on this device');
+            }
           })
-          .catch(() => {
+          .catch((error) => {
+            console.error('[SpeechRecognition] Availability check failed:', error);
             setHasSupport(false);
           });
+      }).catch((error) => {
+        console.error('[SpeechRecognition] Failed to import module:', error);
+        setHasSupport(false);
       });
     }
   }, [isWeb]);
@@ -336,18 +345,24 @@ export const useSpeechRecognition = (
       }
     } else {
       // Capacitor kullan (dinamik import) - Android/iOS
+      console.log('[SpeechRecognition] Starting mobile (Capacitor) speech recognition...');
       try {
         const { SpeechRecognition } = await import('@capacitor-community/speech-recognition');
+        console.log('[SpeechRecognition] Module imported successfully');
         
         // İzinleri kontrol et - güvenli bir şekilde
         let hasPermission = false;
         try {
+          console.log('[SpeechRecognition] Checking permissions...');
           const permission = await SpeechRecognition.checkPermissions();
+          console.log('[SpeechRecognition] Permission status:', permission);
           hasPermission = permission.speechRecognition === 'granted';
           
           if (!hasPermission) {
             // İzin iste
+            console.log('[SpeechRecognition] Requesting permissions...');
             const permissionResult = await SpeechRecognition.requestPermissions();
+            console.log('[SpeechRecognition] Permission request result:', permissionResult);
             hasPermission = permissionResult.speechRecognition === 'granted';
             
             if (!hasPermission) {
@@ -373,9 +388,43 @@ export const useSpeechRecognition = (
         const listeners: PluginListenerHandle[] = [];
 
         const extractText = (data: any): string => {
-          const m = (data && (data.matches || data.value || data.transcript || data.text)) || '';
-          if (Array.isArray(m)) return m.join(' ').trim();
-          return String(m || '').trim();
+          console.log('[SpeechRecognition] Raw event data:', JSON.stringify(data));
+          
+          // Android/iOS'ta farklı field'lar ve format'lar olabilir
+          // Try multiple field names
+          const m = data && (data.matches || data.value || data.transcript || data.text || data.results);
+          
+          if (!m) {
+            console.log('[SpeechRecognition] No text field found in data');
+            return '';
+          }
+          
+          if (Array.isArray(m)) {
+            // Array ise ilk elemanı al
+            if (m.length === 0) {
+              console.log('[SpeechRecognition] Empty array');
+              return '';
+            }
+            
+            const first = m[0];
+            // Ilk eleman object ise (results format)
+            if (typeof first === 'object' && first !== null) {
+              const text = first.transcript || first.text || first.value || '';
+              const result = String(text).trim();
+              console.log('[SpeechRecognition] Extracted from array object:', result);
+              return result;
+            }
+            
+            // Ilk eleman string ise (matches format)
+            const result = String(first).trim();
+            console.log('[SpeechRecognition] Extracted from array string:', result);
+            return result;
+          }
+          
+          // String ise direkt kullan
+          const result = String(m).trim();
+          console.log('[SpeechRecognition] Extracted text:', result);
+          return result;
         };
 
         const stopWordsOption = options?.stopOnKeywords;
@@ -406,9 +455,12 @@ export const useSpeechRecognition = (
 
         // Partial results - update live text and optionally stop on keywords
         listeners.push(await SpeechRecognition.addListener('partialResults', (data: any) => {
+          console.log('[SpeechRecognition] partialResults event received');
           const text = extractText(data);
+          console.log('[SpeechRecognition] Partial result:', text);
           if (text) {
             setTranscript(text);
+            finalTranscriptRef.current = text; // finalTranscriptRef'i hemen güncelle
             const decision = shouldStopOnKeywords(text);
             if (decision.triggered && !isStoppingRef.current) {
               isStoppingRef.current = true;
@@ -426,10 +478,13 @@ export const useSpeechRecognition = (
             }
           }
         }));
+        // Not: Plugin 'finalResults' eventi sağlamıyor; final metni listeningState 'stopped' olduğunda işliyoruz.
 
         // Listening state - sadece state güncellemesi için
         listeners.push(await SpeechRecognition.addListener('listeningState', (data: any) => {
+          console.log('[SpeechRecognition] listeningState event:', JSON.stringify(data));
           if (data?.status === 'stopped' && !isStoppingRef.current) {
+            console.log('[SpeechRecognition] Recognition stopped');
             setIsListening(false);
             const finalText = (cleanedTranscriptRef.current || finalTranscriptRef.current || '').trim();
             if (!transcriptReadyCalledRef.current && finalText) {
@@ -439,11 +494,13 @@ export const useSpeechRecognition = (
             cleanedTranscriptRef.current = null;
           }
         }));
+        // Not: Plugin ayrı bir 'error' eventi sağlamıyor; start/stop hatalarını catch bloklarında ele alıyoruz.
 
         mobileListenersRef.current = listeners;
 
         // İzin alındı, şimdi dinlemeyi başlat
         try {
+          console.log('[SpeechRecognition] Starting speech recognition with config...');
           transcriptReadyCalledRef.current = false;
           cleanedTranscriptRef.current = null;
           isStoppingRef.current = false;
@@ -453,12 +510,15 @@ export const useSpeechRecognition = (
           await SpeechRecognition.start({
             language: 'tr-TR',
             partialResults: true,
-            popup: false,
+            popup: false, // Kendi UI'mızı kullanıyoruz
           });
+          console.log('[SpeechRecognition] Speech recognition started successfully!');
+          console.log('[SpeechRecognition] Listeners registered:', listeners.length);
         } catch (startError) {
           // Başlatma hatası
+          console.error('[SpeechRecognition] Failed to start:', startError);
           setIsListening(false);
-          alert('Sesli tanıma başlatılamadı. Lütfen tekrar deneyin.');
+          alert(`Sesli tanıma başlatılamadı: ${(startError as Error).message || 'Bilinmeyen hata'}\n\nLütfen mikrofon izinlerini kontrol edin.`);
           // Dinleyicileri temizle
           if (mobileListenersRef.current) {
             mobileListenersRef.current.forEach(h => h.remove());
@@ -511,22 +571,29 @@ export const useSpeechRecognition = (
     } else {
       // Capacitor durdur - bir kez çağır
       isStoppingRef.current = true;
+      console.log('[SpeechRecognition] Stopping Capacitor recognition...');
       
       try {
         const { SpeechRecognition } = await import('@capacitor-community/speech-recognition');
         setIsListening(false);
         
+        // Final text'i al
+        const finalText = (cleanedTranscriptRef.current || finalTranscriptRef.current || '').trim();
+        console.log('[SpeechRecognition] Final text before stop:', finalText);
+        
         // Stop çağır
         await SpeechRecognition.stop().catch(() => {});
         
-        const finalText = (cleanedTranscriptRef.current || finalTranscriptRef.current || '').trim();
+        // Text varsa gönder
         if (!transcriptReadyCalledRef.current && finalText) {
+          console.log('[SpeechRecognition] Sending final text from stopListening:', finalText);
           transcriptReadyCalledRef.current = true;
           onTranscriptReadyRef.current(finalText);
         }
         setTranscript('');
         cleanedTranscriptRef.current = null;
       } catch (e) {
+        console.error('[SpeechRecognition] Stop error:', e);
         setIsListening(false);
       } finally {
         if (mobileListenersRef.current) {

@@ -247,7 +247,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
             alt="EchoDay logo" 
             className="w-32 h-32 animate-pulse"
             loading="eager"
-            fetchpriority="high"
+            fetchPriority="high"
             decoding="async"
             onError={(e) => {
               const target = e.target as HTMLImageElement;

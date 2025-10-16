@@ -192,8 +192,18 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const [lastAddedTaskId, setLastAddedTaskId] = useState<string | null>(null); // Track last task for reminder
 
     const checkApiKey = useCallback(() => {
-        if (!apiKey) {
-            setNotification({ message: t('main.apiKey.missing', 'Lütfen profil sayfasından Gemini API anahtarınızı girin.'), type: 'error' });
+        // Check if any AI provider key is configured
+        const geminiKey = localStorage.getItem('gemini-api-key') || apiKey;
+        const openaiKey = localStorage.getItem('openai-api-key');
+        const anthropicKey = localStorage.getItem('anthropic-api-key');
+        
+        const hasAnyKey = !!(geminiKey || openaiKey || anthropicKey);
+        
+        if (!hasAnyKey) {
+            setNotification({ 
+                message: t('main.apiKey.missing', 'Lütfen ayarlar sayfasından bir AI sağlayıcısı API anahtarı girin (Gemini, OpenAI veya Anthropic).'), 
+                type: 'error' 
+            });
             return false;
         }
         return true;

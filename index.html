@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EchoDay - Konuş, Planla, Başar</title>
   
-  <!-- Content Security Policy - Updated to allow eruda and WebSocket connections -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: file:; connect-src 'self' http://localhost:* http://0.0.0.0:* ws://localhost:* ws://0.0.0.0:* wss://0.0.0.0:* https://generativelanguage.googleapis.com https://*.googleapis.com https://*.supabase.co wss://*.supabase.co; media-src *; worker-src 'self' blob: 'unsafe-inline';">
+  <!-- Content Security Policy - Updated to allow AI providers (Gemini, OpenAI, Anthropic) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https: file:; connect-src 'self' http://localhost:* http://0.0.0.0:* ws://localhost:* ws://0.0.0.0:* wss://0.0.0.0:* https://generativelanguage.googleapis.com https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://*.supabase.co wss://*.supabase.co; media-src *; worker-src 'self' blob: 'unsafe-inline';">
   
   <!-- Permissions Policy for microphone access -->
   <meta http-equiv="Permissions-Policy" content="microphone=*, camera=(), geolocation=*, payment=()">
