@@ -9,11 +9,12 @@ interface TodoListProps {
   onGetDirections: (todo: Todo) => void;
   onEdit: (id: string, newText: string) => void;
   onShare: (todo: Todo) => void;
+  onArchive?: (id: string) => void;
   onUpdateReminders?: (id: string, reminders: ReminderConfig[]) => void;
   onUpdateGeoReminder?: (id: string, geo: any) => void;
 }
 
-const TodoList: React.FC<TodoListProps> = ({ todos, onToggle, onDelete, onGetDirections, onEdit, onShare, onUpdateReminders, onUpdateGeoReminder }) => {
+const TodoList: React.FC<TodoListProps> = ({ todos, onToggle, onDelete, onGetDirections, onEdit, onShare, onArchive, onUpdateReminders, onUpdateGeoReminder }) => {
   if (todos.length === 0) {
     return <p className="text-center text-gray-500 dark:text-gray-400 mt-8">Henüz görev eklemediniz.</p>;
   }
@@ -31,6 +32,7 @@ const TodoList: React.FC<TodoListProps> = ({ todos, onToggle, onDelete, onGetDir
           onGetDirections={onGetDirections}
           onEdit={onEdit}
           onShare={onShare}
+          onArchive={onArchive}
           onUpdateReminders={onUpdateReminders}
           onUpdateGeoReminder={onUpdateGeoReminder}
         />

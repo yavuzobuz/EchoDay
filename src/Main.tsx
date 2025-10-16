@@ -1761,6 +1761,17 @@ const timer = setTimeout(async () => {
                                         onGetDirections={handleGetDirections}
                                         onEdit={handleEditTodo}
                                         onShare={(todo) => { setShareType('todo'); setShareItem(todo); setIsShareModalOpen(true); }}
+                                        onArchive={async (id) => {
+                                            const todo = todos.find(t => t.id === id);
+                                            if (!todo) return;
+                                            try {
+                                                await archiveService.archiveItems([todo], [], userId);
+                                            } catch (e) {
+                                                console.warn('[Main] Archive service failed or unavailable, archiving locally:', e);
+                                            }
+                                            setTodos(prev => prev.map(t => t.id === id ? { ...t, isArchived: true } : t));
+                                            setNotification({ message: t('archive.messages.successTasks', 'Görev arşivlendi!'), type: 'success' });
+                                        }}
                                         onUpdateReminders={handleUpdateReminders}
                                     />
                                 </div>

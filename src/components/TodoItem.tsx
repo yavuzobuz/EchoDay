@@ -12,6 +12,7 @@ interface TodoItemProps {
   onGetDirections: (todo: Todo) => void;
   onEdit: (id: string, newText: string) => void;
   onShare: (todo: Todo) => void;
+  onArchive?: (id: string) => void;
   onUpdateReminders?: (id: string, reminders: ReminderConfig[]) => void;
   onUpdateGeoReminder?: (id: string, geo: GeoReminder | null) => void;
 }
@@ -42,7 +43,7 @@ const RouteStep: React.FC<{ line: string }> = ({ line }) => {
     );
 };
 
-const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDirections, onEdit, onShare, onUpdateReminders, onUpdateGeoReminder }) => {
+const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDirections, onEdit, onShare, onArchive, onUpdateReminders, onUpdateGeoReminder }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { t, lang } = useI18n();
   const locale = lang === 'tr' ? 'tr-TR' : 'en-US';
@@ -213,6 +214,25 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                       <path d="M15 8a3 3 0 10-2.977-2.63l-4.94 2.47a3 3 0 100 4.319l4.94 2.47a3 3 0 10.895-1.789l-4.94-2.47a3.027 3.027 0 000-.74l4.94-2.47C13.456 7.68 14.19 8 15 8z" />
                     </svg>
                   </button>
+                  {onArchive && (
+                    <button 
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!todo.completed) {
+                          if (!confirm(t('todoItem.archive.confirm','Görev tamamlanmadı. Yine de arşivlensin mi?'))) return;
+                        }
+                        onArchive(todo.id);
+                      }}
+                      className="p-2 min-h-[44px] min-w-[44px] rounded-full text-gray-400 hover:text-purple-600 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-transform touch-manipulation" 
+                      aria-label={t('todoItem.aria.archive','Arşive taşı')}
+                      title={t('todoItem.aria.archive','Arşive taşı')}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M4 3h12a2 2 0 012 2v2a2 2 0 01-2 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 01-2-2V5a2 2 0 012-2zm3 8a1 1 0 100 2h6a1 1 0 100-2H7z" />
+                      </svg>
+                    </button>
+                  )}
                   <button 
                     onClick={(e) => {
                       e.preventDefault();
