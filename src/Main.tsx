@@ -1423,7 +1423,22 @@ const timer = setTimeout(async () => {
                     onImageTask={() => { if(checkApiKey()) setIsImageTaskModalOpen(true); }}
                     isListening={mainCommandListener.isListening}
                 />
-                {aiMessage && <AiAssistantMessage message={aiMessage} onClose={() => setAiMessage(null)} />}
+                {aiMessage && (
+                    <AiAssistantMessage 
+                        message={aiMessage} 
+                        onClose={() => setAiMessage(null)} 
+                        onAddToNotes={(text) => {
+                            const newNote: Note = { id: uuidv4(), text, createdAt: new Date().toISOString() };
+                            setNotes(prev => [newNote, ...prev]);
+                            setNotification({ message: t('aiAssistant.addedToNotes','Notlara eklendi'), type: 'success' });
+                            setAiMessage(null);
+                        }}
+                        onAddToTasks={(text) => {
+                            handleAddTask(text);
+                            setAiMessage(null);
+                        }}
+                    />
+                )}
 
                 <div className="flex flex-col gap-4 mb-6">
 

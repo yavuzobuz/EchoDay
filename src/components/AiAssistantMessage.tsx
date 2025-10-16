@@ -7,9 +7,11 @@ interface AiAssistantMessageProps {
   message: string;
   onClose: () => void;
   title?: string;
+  onAddToNotes?: (text: string) => void;
+  onAddToTasks?: (text: string) => void;
 }
 
-const AiAssistantMessage: React.FC<AiAssistantMessageProps> = ({ message, onClose, title }) => {
+const AiAssistantMessage: React.FC<AiAssistantMessageProps> = ({ message, onClose, title, onAddToNotes, onAddToTasks }) => {
   if (!message) return null;
 
   const { t } = useI18n();
@@ -23,6 +25,8 @@ const AiAssistantMessage: React.FC<AiAssistantMessageProps> = ({ message, onClos
       speak(message);
     }
   };
+
+  const toPlainText = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 
   const tableStartIndex = message.indexOf('<table');
   const tableEndIndex = message.lastIndexOf('</table>');
@@ -45,24 +49,26 @@ const AiAssistantMessage: React.FC<AiAssistantMessageProps> = ({ message, onClos
         <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center mb-1">
               <p className="font-bold">{displayTitle}</p>
-              {hasSupport && message && (
-                <button
-                  onClick={handleSpeakClick}
-                  className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
-                  aria-label={isSpeaking ? t('aiAssistant.speakButton.stop', 'Okumayı durdur') : t('aiAssistant.speakButton.read', 'Sesli oku')}
-                  title={isSpeaking ? t('aiAssistant.speakButton.stop', 'Okumayı durdur') : t('aiAssistant.speakButton.read', 'Sesli oku')}
-                >
-                  {isSpeaking ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
+              <div className="flex items-center gap-1">
+                {hasSupport && message && (
+                  <button
+                    onClick={handleSpeakClick}
+                    className="p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                    aria-label={isSpeaking ? t('aiAssistant.speakButton.stop', 'Okumayı durdur') : t('aiAssistant.speakButton.read', 'Sesli oku')}
+                    title={isSpeaking ? t('aiAssistant.speakButton.stop', 'Okumayı durdur') : t('aiAssistant.speakButton.read', 'Sesli oku')}
+                  >
+                    {isSpeaking ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500 animate-pulse" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                  ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
-              )}
+                      </svg>
+                    )}
+                  </button>
+                )}
+              </div>
             </div>
             {hasHtmlTable ? (
                <>
@@ -76,6 +82,22 @@ const AiAssistantMessage: React.FC<AiAssistantMessageProps> = ({ message, onClos
                </>
             ) : (
               <p className="text-sm whitespace-pre-wrap">{message}</p>
+            )}
+            {(onAddToNotes || onAddToTasks) && (
+              <div className="mt-3 flex items-center justify-end gap-2">
+                {onAddToNotes && (
+                  <button
+                    onClick={() => onAddToNotes(toPlainText(message))}
+                    className="px-3 py-1.5 rounded-full bg-[var(--accent-color-600)]/10 text-[var(--accent-color-700)] dark:text-[var(--accent-color-300)] hover:bg-[var(--accent-color-600)]/20 text-xs font-medium"
+                  >{t('aiAssistant.addToNotes','Notlara ekle')}</button>
+                )}
+                {onAddToTasks && (
+                  <button
+                    onClick={() => onAddToTasks(toPlainText(message))}
+                    className="px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-700 dark:text-blue-300 hover:bg-blue-600/20 text-xs font-medium"
+                  >{t('aiAssistant.addToTasks','Göreve ekle')}</button>
+                )}
+              </div>
             )}
         </div>
        </div>

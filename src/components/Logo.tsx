@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 interface LogoProps {
   className?: string;
   alt?: string;
+  priority?: boolean;
 }
 
 // Görsel logoya geçiş: public/app-icon.png varsa onu kullan, yoksa public/icon-512.svg'ye düş.
-const Logo: React.FC<LogoProps> = ({ className, alt = 'EchoDay logo' }) => {
+const Logo: React.FC<LogoProps> = ({ className, alt = 'EchoDay logo', priority = false }) => {
   const [src, setSrc] = useState<string>('/app-icon.png');
 
   return (
@@ -20,7 +21,8 @@ const Logo: React.FC<LogoProps> = ({ className, alt = 'EchoDay logo' }) => {
       aria-label={alt}
       className={className}
       decoding="async"
-      loading="eager"
+      loading={priority ? 'eager' : 'lazy'}
+      fetchPriority={priority ? 'high' : 'auto'}
       style={{ contentVisibility: 'auto' }}
     />
   );

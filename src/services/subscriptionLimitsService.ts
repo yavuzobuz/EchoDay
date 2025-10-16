@@ -105,7 +105,7 @@ export async function getUserLimits(userId: string): Promise<PlanLimits> {
 export async function getUserUsage(userId: string): Promise<UsageStats> {
   try {
     // Task sayısı
-    const { count: tasksCount, error: tasksError } = await supabase
+    const { count: tasksCount } = await supabase
       .from('todos')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);

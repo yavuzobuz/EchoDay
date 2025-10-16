@@ -138,35 +138,124 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
       </div>
       
       <div className="text-center max-w-7xl mx-auto relative z-10 w-full px-2 sm:px-4 break-words">
-        {/* Top Actions - Language Switcher and Pricing */}
-        <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-50 flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3">
-          <button
-            onClick={() => setLang(lang === 'tr' ? 'en' : 'tr')}
-            className="group flex items-center gap-2 px-2 sm:px-4 py-1 sm:py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-lg sm:rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-[hsl(var(--primary))] dark:hover:border-[hsl(var(--primary))] shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 text-sm sm:text-base"
-            title={lang === 'tr' ? 'Switch to English' : 'Türkçe\'ye geç'}
-          >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 dark:text-gray-300 group-hover:text-[hsl(var(--primary))] transition-colors" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M7 2a1 1 0 011 1v1h3a1 1 0 110 2H9.578a18.87 18.87 0 01-1.724 4.78c.29.354.596.696.914 1.026a1 1 0 11-1.44 1.389c-.188-.196-.373-.396-.554-.6a19.098 19.098 0 01-3.107 3.567 1 1 0 01-1.334-1.49 17.087 17.087 0 003.13-3.733 18.992 18.992 0 01-1.487-2.494 1 1 0 111.79-.89c.234.47.489.928.764 1.372.417-.934.752-1.913.997-2.927H3a1 1 0 110-2h3V3a1 1 0 011-1zm6 6a1 1 0 01.894.553l2.991 5.982a.869.869 0 01.02.037l.99 1.98a1 1 0 11-1.79.895L15.383 16h-4.764l-.724 1.447a1 1 0 11-1.788-.894l.99-1.98.019-.038 2.99-5.982A1 1 0 0113 8zm-1.382 6h2.764L13 11.236 11.618 14z" clipRule="evenodd" />
-            </svg>
-            <span className="font-semibold text-gray-700 dark:text-gray-300 group-hover:text-[hsl(var(--primary))] transition-colors">
-              {lang === 'tr' ? 'EN' : 'TR'}
-            </span>
-          </button>
-          <button
-            onClick={() => navigate('/pricing')}
-            className="group flex items-center gap-2 px-2 sm:px-4 py-1 sm:py-2 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white backdrop-blur-lg rounded-lg sm:rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 font-semibold text-sm sm:text-base"
-          >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="hidden sm:inline">{t('welcome.pricing', 'Fiyatlandırma')}</span>
-            <span className="sm:hidden">€</span>
-          </button>
+        {/* Top Navigation Bar - Magical Glassmorphic Design */}
+        <div className="fixed top-0 left-0 right-0 z-50 px-4 py-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            {/* Left side - Logo & Navigation Links */}
+            <div className="flex items-center gap-8">
+              {/* Mini Logo */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl flex items-center justify-center shadow-lg border border-white/20 dark:border-gray-700/50">
+                  <Logo className="w-6 h-6" />
+                </div>
+                <span className="hidden sm:block text-lg font-bold bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] bg-clip-text text-transparent">EchoDay</span>
+              </div>
+              
+              {/* Navigation Pills */}
+              <nav className="hidden md:flex items-center bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl rounded-full p-1 border border-white/20 dark:border-gray-700/50">
+                <button
+                  onClick={() => {
+                    const element = document.getElementById('new-features');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }}
+                  className="group px-5 py-2 rounded-full text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300 relative overflow-hidden"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <svg className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    {t('welcome.nav.features', 'Özellikler')}
+                  </span>
+                  <span className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--primary))]/20 to-[hsl(var(--accent))]/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                </button>
+                
+                <button
+                  onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="group px-5 py-2 rounded-full text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300 relative overflow-hidden"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <svg className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {t('welcome.nav.about', 'Hakkında')}
+                  </span>
+                  <span className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--primary))]/20 to-[hsl(var(--accent))]/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                </button>
+                
+                <button
+                  onClick={() => navigate('/faq')}
+                  className="group px-5 py-2 rounded-full text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300 relative overflow-hidden"
+                >
+                  <span className="relative z-10 flex items-center gap-2">
+                    <svg className="w-4 h-4 opacity-70 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {t('welcome.nav.faq', 'SSS')}
+                  </span>
+                  <span className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--primary))]/20 to-[hsl(var(--accent))]/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
+                </button>
+              </nav>
+              
+              {/* Mobile Menu Button */}
+              <button className="md:hidden p-2 rounded-lg bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50">
+                <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Right side - Action Buttons */}
+            <div className="flex items-center gap-3">
+              {/* Language Switcher */}
+              <button
+                onClick={() => setLang(lang === 'tr' ? 'en' : 'tr')}
+                className="group flex items-center gap-2 px-4 py-2.5 bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl rounded-xl border border-white/20 dark:border-gray-700/50 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
+                title={lang === 'tr' ? 'Switch to English' : 'Türkçe\'ye geç'}
+              >
+                <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-[hsl(var(--primary))] transition-colors" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M7 2a1 1 0 011 1v1h3a1 1 0 110 2H9.578a18.87 18.87 0 01-1.724 4.78c.29.354.596.696.914 1.026a1 1 0 11-1.44 1.389c-.188-.196-.373-.396-.554-.6a19.098 19.098 0 01-3.107 3.567 1 1 0 01-1.334-1.49 17.087 17.087 0 003.13-3.733 18.992 18.992 0 01-1.487-2.494 1 1 0 111.79-.89c.234.47.489.928.764 1.372.417-.934.752-1.913.997-2.927H3a1 1 0 110-2h3V3a1 1 0 011-1zm6 6a1 1 0 01.894.553l2.991 5.982a.869.869 0 01.02.037l.99 1.98a1 1 0 11-1.79.895L15.383 16h-4.764l-.724 1.447a1 1 0 11-1.788-.894l.99-1.98.019-.038 2.99-5.982A1 1 0 0113 8zm-1.382 6h2.764L13 11.236 11.618 14z" clipRule="evenodd" />
+                </svg>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">
+                  {lang === 'tr' ? 'EN' : 'TR'}
+                </span>
+              </button>
+              
+              {/* Pricing Button with Glow Effect */}
+              <button
+                onClick={() => navigate('/pricing')}
+                className="group relative px-5 py-2.5 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white rounded-xl font-semibold shadow-lg shadow-[hsl(var(--primary))]/25 hover:shadow-xl hover:shadow-[hsl(var(--primary))]/30 transition-all duration-300 hover:scale-105"
+              >
+                <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
+                <span className="relative flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="hidden sm:inline">{t('welcome.pricing', 'Fiyatlandırma')}</span>
+                  <span className="sm:hidden">Pro</span>
+                </span>
+              </button>
+            </div>
+          </div>
         </div>
         
-        {/* Logo with pulse animation - BÜYÜTÜLDÜ */}
-        <div className="inline-block p-8 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-3xl mb-8 glow-primary transform scale-100 opacity-100 rotate-0 transition-all duration-300">
-          <Logo className="w-32 h-32 animate-pulse" />
+        {/* Logo with pulse animation - BÜYÜTÜLDÜ - Preloaded */}
+        <div className="inline-block p-8 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-3xl mb-8 mt-20 glow-primary transform scale-100 opacity-100 rotate-0 transition-all duration-300">
+          <img 
+            src="/app-icon.png" 
+            alt="EchoDay logo" 
+            className="w-32 h-32 animate-pulse"
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              if (target.src !== '/icon-512.svg') {
+                target.src = '/icon-512.svg';
+              }
+            }}
+          />
         </div>
         
         {/* Auth link */}
@@ -212,7 +301,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
         </p>
 
         {/* Features Grid with stagger animation */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-16">
+        <div id="features" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-16 scroll-mt-20">
           <Feature
             icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>}
             title={t('welcome.feature1.title','Voice Management')}
@@ -707,7 +796,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
         </div>
         
         {/* Stats/Benefits Bar */}
-        <div className={`grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12 transform transition-all duration-1000 delay-600 ${
+        <div id="about" className={`grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12 transform transition-all duration-1000 delay-600 scroll-mt-20 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           <div className="p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg rounded-2xl border-2 border-[var(--accent-color-300)] dark:border-[var(--accent-color-700)] shadow-lg hover:shadow-xl transition-shadow">
@@ -738,8 +827,135 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
           </div>
         </div>
 
+        {/* Sosyal Kanıt - Kullanıcı Yorumları ve İstatistikler */}
+        <div className={`mb-16 transform transition-all duration-1000 delay-625 ${
+          isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+        }`}>
+          <h3 className="text-xl sm:text-2xl font-extrabold text-[hsl(var(--foreground))] mb-8 text-center">
+            {t('welcome.socialProof.title', 'Kullanıcılarımız Ne Diyor?')}
+          </h3>
+          
+          {/* İstatistikler */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            <div className="text-center p-4 bg-white/80 dark:bg-gray-800/80 rounded-xl border border-[hsl(var(--border))]">
+              <div className="text-3xl font-bold text-[hsl(var(--primary))]">5,000+</div>
+              <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.stats.activeUsers', 'Aktif Kullanıcı')}</div>
+            </div>
+            <div className="text-center p-4 bg-white/80 dark:bg-gray-800/80 rounded-xl border border-[hsl(var(--border))]">
+              <div className="text-3xl font-bold text-[hsl(var(--accent))]">150K+</div>
+              <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.stats.tasksCreated', 'Oluşturulan Görev')}</div>
+            </div>
+            <div className="text-center p-4 bg-white/80 dark:bg-gray-800/80 rounded-xl border border-[hsl(var(--border))]">
+              <div className="text-3xl font-bold text-emerald-600">4.8/5</div>
+              <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.stats.rating', 'Kullanıcı Puanı')}</div>
+            </div>
+            <div className="text-center p-4 bg-white/80 dark:bg-gray-800/80 rounded-xl border border-[hsl(var(--border))]">
+              <div className="text-3xl font-bold text-purple-600">98%</div>
+              <div className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.stats.satisfaction', 'Memnuniyet')}</div>
+            </div>
+          </div>
+          
+          {/* Kullanıcı Yorumları Carousel */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Yorum 1 */}
+            <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl p-6 border border-[hsl(var(--border))] shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-1 mb-3">
+                {[...Array(5)].map((_, i) => (
+                  <svg key={i} className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+              <p className="text-sm text-[hsl(var(--foreground))] mb-4 italic">
+                "Sesli komutlarla görev eklemek hayatımı çok kolaylaştırdı. PDF'den otomatik görev çıkarma özelliği muhteşem!"
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                  AY
+                </div>
+                <div>
+                  <div className="font-semibold text-sm text-[hsl(var(--foreground))]">Ayşe Y.</div>
+                  <div className="text-xs text-[hsl(var(--muted-foreground))]">Proje Yöneticisi</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Yorum 2 */}
+            <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl p-6 border border-[hsl(var(--border))] shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-1 mb-3">
+                {[...Array(5)].map((_, i) => (
+                  <svg key={i} className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+              <p className="text-sm text-[hsl(var(--foreground))] mb-4 italic">
+                "AI asistan gerçekten akıllı! E-postalarımı analiz edip otomatik görev oluşturuyor. Zaman tasarrufu inanılmaz."
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-white font-bold">
+                  MK
+                </div>
+                <div>
+                  <div className="font-semibold text-sm text-[hsl(var(--foreground))]">Mehmet K.</div>
+                  <div className="text-xs text-[hsl(var(--muted-foreground))]">Yazılım Geliştirici</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Yorum 3 */}
+            <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl p-6 border border-[hsl(var(--border))] shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-1 mb-3">
+                {[...Array(4)].map((_, i) => (
+                  <svg key={i} className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+                <svg className="w-5 h-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+              </div>
+              <p className="text-sm text-[hsl(var(--foreground))] mb-4 italic">
+                "Günlük özet ve hatırlatma özellikleri süper. Artık hiçbir şeyi unutmuyorum. Takvim entegrasyonu da çok pratik."
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-bold">
+                  ZD
+                </div>
+                <div>
+                  <div className="font-semibold text-sm text-[hsl(var(--foreground))]">Zeynep D.</div>
+                  <div className="text-xs text-[hsl(var(--muted-foreground))]">Öğrenci</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Güven Rozetleri */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-6">
+            <div className="flex items-center gap-2 px-4 py-2 bg-green-100 dark:bg-green-900/20 rounded-full">
+              <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="text-sm font-semibold text-green-700 dark:text-green-400">{t('welcome.trust.verified', 'Doğrulanmış Kullanıcılar')}</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/20 rounded-full">
+              <svg className="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+              </svg>
+              <span className="text-sm font-semibold text-blue-700 dark:text-blue-400">{t('welcome.trust.privacy', 'Gizlilik Öncelikli')}</span>
+            </div>
+            <div className="flex items-center gap-2 px-4 py-2 bg-purple-100 dark:bg-purple-900/20 rounded-full">
+              <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+              </svg>
+              <span className="text-sm font-semibold text-purple-700 dark:text-purple-400">{t('welcome.trust.performance', '7/24 Hızlı Performans')}</span>
+            </div>
+          </div>
+        </div>
+
         {/* Yeni Özellikler - Commitlerden öne çıkanlar */}
-        <div className={`mb-12 transform transition-all duration-1000 delay-650 ${
+        <div id="new-features" className={`mb-12 transform transition-all duration-1000 delay-650 scroll-mt-20 ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
           <h3 className="text-xl sm:text-2xl font-extrabold text-[hsl(var(--foreground))] mb-4 flex items-center gap-2">
@@ -977,6 +1193,257 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
           </span>
         </div>
       </div>
+      
+      {/* Footer */}
+      <footer className="bg-white/10 dark:bg-gray-900/30 backdrop-blur-xl border-t border-white/20 dark:border-gray-700/50 mt-32">
+        <div className="max-w-7xl mx-auto px-4 py-16">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            {/* Brand & Description */}
+            <div className="col-span-1 md:col-span-2">
+              <div className="flex items-center gap-3 mb-6">
+                <Logo className="w-14 h-14" />
+                <div>
+                  <h3 className="text-2xl font-bold bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] bg-clip-text text-transparent">
+                    EchoDay
+                  </h3>
+                  <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('footer.tagline', 'Echo of Your Day')}</p>
+                </div>
+              </div>
+              <p className="text-[hsl(var(--muted-foreground))] mb-6 max-w-md">
+                {t('footer.description', 'AI destekli görev yönetimi ve günlük planlama asistanınız. Sesli komutlarla hayatınızı organize edin, PDF\'lerden otomatik görev çıkarın.')}
+              </p>
+              
+              {/* Contact Info */}
+              <div className="space-y-4">
+                <h4 className="font-semibold text-[hsl(var(--foreground))] mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-[hsl(var(--primary))]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  {t('footer.contactTitle', 'İletişim Bilgileri')}
+                </h4>
+                
+                {/* Email */}
+                <a href="mailto:support@echoday.com" className="flex items-start gap-3 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors group">
+                  <div className="flex-shrink-0 p-2.5 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/20 group-hover:from-blue-500/30 group-hover:to-blue-600/30 transition-all">
+                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[hsl(var(--muted-foreground))] opacity-70 mb-0.5">{t('footer.email', 'E-posta')}</div>
+                    <div className="font-medium">support@echoday.com</div>
+                  </div>
+                </a>
+                
+                {/* Phone */}
+                <a href="tel:+905555555555" className="flex items-start gap-3 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors group">
+                  <div className="flex-shrink-0 p-2.5 rounded-lg bg-gradient-to-br from-green-500/20 to-green-600/20 group-hover:from-green-500/30 group-hover:to-green-600/30 transition-all">
+                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[hsl(var(--muted-foreground))] opacity-70 mb-0.5">{t('footer.phone', 'Telefon')}</div>
+                    <div className="font-medium">+90 555 555 55 55</div>
+                  </div>
+                </a>
+                
+                {/* Address */}
+                <div className="flex items-start gap-3 text-[hsl(var(--muted-foreground))]">
+                  <div className="flex-shrink-0 p-2.5 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/20">
+                    <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="text-xs text-[hsl(var(--muted-foreground))] opacity-70 mb-0.5">{t('footer.location', 'Adres')}</div>
+                    <div className="font-medium">{t('footer.address', 'İstanbul, Türkiye')}</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Social Links */}
+              <div className="flex items-center gap-3 mt-6">
+                <a href="https://github.com/echoday" className="p-2.5 rounded-lg bg-white/10 dark:bg-gray-800/30 hover:bg-[hsl(var(--primary))]/20 transition-all hover:scale-110">
+                  <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  </svg>
+                </a>
+                <a href="https://twitter.com/echoday" className="p-2.5 rounded-lg bg-white/10 dark:bg-gray-800/30 hover:bg-[hsl(var(--primary))]/20 transition-all hover:scale-110">
+                  <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                  </svg>
+                </a>
+                <a href="https://discord.gg/echoday" className="p-2.5 rounded-lg bg-white/10 dark:bg-gray-800/30 hover:bg-[hsl(var(--primary))]/20 transition-all hover:scale-110">
+                  <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
+                  </svg>
+                </a>
+                <a href="https://linkedin.com/company/echoday" className="p-2.5 rounded-lg bg-white/10 dark:bg-gray-800/30 hover:bg-[hsl(var(--primary))]/20 transition-all hover:scale-110">
+                  <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                  </svg>
+                </a>
+                <a href="https://instagram.com/echoday" className="p-2.5 rounded-lg bg-white/10 dark:bg-gray-800/30 hover:bg-[hsl(var(--primary))]/20 transition-all hover:scale-110">
+                  <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM5.838 12a6.162 6.162 0 1112.324 0 6.162 6.162 0 01-12.324 0zM12 16a4 4 0 110-8 4 4 0 010 8zm4.965-10.405a1.44 1.44 0 112.881.001 1.44 1.44 0 01-2.881-.001z"/>
+                  </svg>
+                </a>
+              </div>
+            </div>
+            
+            {/* Quick Links */}
+            <div>
+              <h3 className="font-bold text-[hsl(var(--foreground))] mb-6">{t('footer.quickLinks', 'Hızlı Bağlantılar')}</h3>
+              <ul className="space-y-3">
+                <li>
+                  <button onClick={() => navigate('/')} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.home', 'Ana Sayfa')}
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => {
+                    const element = document.getElementById('new-features');
+                    if (element) {
+                      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                  }} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.features', 'Özellikler')}
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => navigate('/pricing')} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.pricing', 'Fiyatlandırma')}
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => navigate('/faq')} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.faq', 'SSS')}
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => navigate('/app')} className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.app', 'Uygulamayı Başlat')}
+                  </button>
+                </li>
+                <li>
+                  <a href="https://github.com/echoday/docs" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.docs', 'Dokümantasyon')}
+                  </a>
+                </li>
+              </ul>
+            </div>
+            
+            {/* Support & Legal */}
+            <div>
+              <h3 className="font-bold text-[hsl(var(--foreground))] mb-6">{t('footer.support', 'Destek & Yasal')}</h3>
+              <ul className="space-y-3">
+                <li>
+                  <a href="mailto:support@echoday.com" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.contact', 'İletişim')}
+                  </a>
+                </li>
+                <li>
+                  <a href="/privacy" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.privacy', 'Gizlilik Politikası')}
+                  </a>
+                </li>
+                <li>
+                  <a href="/terms" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.terms', 'Kullanım Koşulları')}
+                  </a>
+                </li>
+                <li>
+                  <a href="/cookies" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.cookies', 'Çerez Politikası')}
+                  </a>
+                </li>
+                <li>
+                  <a href="/sitemap" className="text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--primary))] transition-colors flex items-center gap-2 group">
+                    <svg className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    {t('footer.sitemap', 'Site Haritası')}
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          {/* Newsletter Section */}
+          <div className="mt-12 pt-8 border-t border-white/10 dark:border-gray-700/30">
+            <div className="max-w-2xl mx-auto text-center">
+              <h3 className="text-xl font-bold text-[hsl(var(--foreground))] mb-2">
+                {t('footer.newsletter.title', 'Yeniliklerden Haberdar Olun!')}
+              </h3>
+              <p className="text-[hsl(var(--muted-foreground))] mb-6">
+                {t('footer.newsletter.desc', 'Yeni özellikler ve güncellemelerden ilk siz haberdar olun.')}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+                <input
+                  type="email"
+                  placeholder={t('footer.newsletter.placeholder', 'E-posta adresiniz')}
+                  className="flex-1 px-4 py-3 rounded-xl bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 text-[hsl(var(--foreground))] placeholder:text-[hsl(var(--muted-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]"
+                />
+                <button className="px-6 py-3 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                  {t('footer.newsletter.button', 'Abone Ol')}
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Bottom Bar */}
+          <div className="mt-12 pt-8 border-t border-white/10 dark:border-gray-700/30 text-center">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <p className="text-sm text-[hsl(var(--muted-foreground))]">
+                © 2024 EchoDay. {t('footer.rights', 'Tüm hakları saklıdır.')}
+              </p>
+              <div className="flex items-center gap-6">
+                <span className="text-sm text-[hsl(var(--muted-foreground))]">
+                  {t('footer.madeWith', 'Made with')} ❤️ {t('footer.in', 'in')} İstanbul
+                </span>
+                <div className="flex items-center gap-2">
+                  <img src="/turkey-flag.svg" alt="Turkey" className="w-5 h-5" />
+                  <span className="text-sm text-[hsl(var(--muted-foreground))]">
+                    {t('footer.country', 'Türkiye')}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

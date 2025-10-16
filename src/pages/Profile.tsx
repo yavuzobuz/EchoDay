@@ -23,23 +23,13 @@ interface ProfileProps {
   setFollowSystemTheme: (v: boolean) => void;
 }
 
-const accentColors: { name: AccentColor, className: string }[] = [
-    { name: 'blue', className: 'bg-blue-500' },
-    { name: 'green', className: 'bg-green-500' },
-    { name: 'red', className: 'bg-red-500' },
-];
-
-
 const Profile: React.FC<ProfileProps> = ({ 
-  theme, setTheme, accentColor, setAccentColor, 
-  apiKey, setApiKey,
-  assistantName, setAssistantName,
-  onNavigateBack,
-  followSystemTheme,
-  setFollowSystemTheme
+  theme, accentColor, 
+  assistantName,
+  onNavigateBack
 }) => {
   const { user, signOut } = useAuth();
-  const { t, lang, setLang, isAutoDetected, browserLanguageInfo, enableAutoDetection } = useI18n();
+  const { t, lang } = useI18n();
   const navigate = useNavigate();
   const userId = user?.id || 'guest';
   

@@ -18,6 +18,7 @@ const Messages = lazy(() => import('./pages/Messages'));
 const Email = lazy(() => import('./pages/Email'));
 import GmailCallback from './components/auth/GmailCallback';
 const Pricing = lazy(() => import('./pages/Pricing'));
+const FAQ = lazy(() => import('./pages/FAQ'));
 
 // Admin pages - lazy load to reduce main bundle
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
@@ -171,6 +172,7 @@ function AppContent() {
         <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/faq" element={<FAQ />} />
         <Route
           path="/welcome"
           element={
