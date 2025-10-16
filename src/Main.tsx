@@ -68,14 +68,9 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const { user } = useAuth();
     
     // Create consistent userId across platforms for data sync
-    const [deviceId] = useLocalStorage<string>('device_id', (() => {
-        const id = uuidv4();
-        console.log('[Main] Generated new device ID:', id);
-        return id;
-    })());
+    const [deviceId] = useLocalStorage<string>('device_id', uuidv4());
     
     const userId = user?.id || deviceId; // Use authenticated user ID or consistent device ID
-    console.log('[Main] Using userId for storage:', userId);
     
     // User-specific localStorage keys
     const [todos, setTodos] = useLocalStorage<Todo[]>(`todos_${userId}`, []);
@@ -1202,10 +1197,9 @@ const timer = setTimeout(async () => {
                     const { supabase, upsertTodos } = await import('./services/supabaseClient');
                     if (supabase) {
                         await upsertTodos(userId, newTodos);
-                        console.log('[Main] Synced', newTodos.length, 'new todos to Supabase');
                     }
                 } catch (error) {
-                    console.error('[Main] Failed to sync new todos:', error);
+                    console.error('[Main] Failed to sync todos:', error);
                 }
             }
         })();
@@ -1220,11 +1214,9 @@ const timer = setTimeout(async () => {
                 const { supabase, fetchAll } = await import('./services/supabaseClient');
                 if (!supabase) return;
                 
-                console.log('[Main] Fetching data for user:', userId);
                 const remote = await fetchAll(userId);
                 
                 if (remote.todos.length || remote.notes.length) {
-                    console.log('[Main] Merging remote data with local state');
                     
                     // Improved merge: only add truly new items (not present locally)
                     const currentTodoIds = new Set(todos.map(t => t.id));
@@ -1234,12 +1226,10 @@ const timer = setTimeout(async () => {
                     const newRemoteNotes = remote.notes.filter((rn: any) => !currentNoteIds.has(rn.id));
                     
                     if (newRemoteTodos.length > 0) {
-                        console.log(`[Main] Adding ${newRemoteTodos.length} new remote todos`);
                         setTodos(prev => [...prev, ...newRemoteTodos]);
                     }
                     
                     if (newRemoteNotes.length > 0) {
-                        console.log(`[Main] Adding ${newRemoteNotes.length} new remote notes`);
                         setNotes(prev => [...prev, ...newRemoteNotes]);
                     }
                 }

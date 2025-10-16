@@ -37,10 +37,15 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToProfile, onNavigateToHome }
         </button>
         {onNavigateToHome && (
           <button 
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               console.log('[Header] Home butonu tıklandı');
               try { debugLog('HOME butonuna tıklandı'); } catch {}
-              onNavigateToHome();
+              // Capacitor için doğrudan hash navigation
+              window.location.hash = '#/welcome';
+              // Fallback: prop callback
+              try { onNavigateToHome(); } catch {}
             }}
             className="p-2 sm:p-2.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
             aria-label="Ana Sayfa"
@@ -52,10 +57,15 @@ const Header: React.FC<HeaderProps> = ({ onNavigateToProfile, onNavigateToHome }
           </button>
         )}
           <button 
-            onClick={() => {
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
               console.log('[Header] Profil butonu tıklandı');
               try { debugLog('PROFIL butonuna tıklandı'); } catch {}
-              onNavigateToProfile();
+              // Capacitor için doğrudan hash navigation
+              window.location.hash = '#/profile';
+              // Fallback: prop callback
+              try { onNavigateToProfile(); } catch {}
             }}
             className="p-2 sm:p-2.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
             aria-label="Profil ve Ayarlar"

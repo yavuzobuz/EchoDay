@@ -1,14 +1,22 @@
-// Simple in-app debug overlay for mobile where console is not accessible
-// Usage:
-//  import { debugLog, debugSetHeader } from '../utils/debugOverlay';
-//  debugSetHeader('Router: HashRouter (android)');
-//  debugLog('Profile clicked -> /profile');
+// Debug overlay disabled
+// To enable for mobile debugging:
+// - Set localStorage.setItem('debug-overlay-enabled', 'true')
+// - Reload the app
+
+const isDebugEnabled = () => {
+  try {
+    return typeof localStorage !== 'undefined' && localStorage.getItem('debug-overlay-enabled') === 'true';
+  } catch {
+    return false;
+  }
+};
 
 let overlay: HTMLDivElement | null = null;
 let headerEl: HTMLDivElement | null = null;
 let listEl: HTMLUListElement | null = null;
 
 function ensureOverlay() {
+  if (!isDebugEnabled()) return; // Only create overlay if explicitly enabled
   if (typeof document === 'undefined') return;
   if (overlay) return;
   overlay = document.createElement('div');
@@ -51,6 +59,7 @@ function ensureOverlay() {
 }
 
 export function debugSetHeader(text: string) {
+  if (!isDebugEnabled()) return; // Disabled by default
   try {
     ensureOverlay();
     if (headerEl) headerEl.textContent = text;
@@ -58,6 +67,7 @@ export function debugSetHeader(text: string) {
 }
 
 export function debugLog(text: string) {
+  if (!isDebugEnabled()) return; // Disabled by default
   try {
     ensureOverlay();
     if (!listEl) return;

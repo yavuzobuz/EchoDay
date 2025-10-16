@@ -17,12 +17,12 @@ export default defineConfig({
   ],
   base: './', // Relative paths for Electron file:// protocol
   server: {
-    host: '0.0.0.0',
+    host: 'localhost',
     port: 5173,
     // Completely disable HMR and websockets for mobile
     hmr: process.env.MOBILE_BUILD === 'true' ? false : {
       port: 5174,
-      host: '0.0.0.0'
+      host: 'localhost'
     },
     // Disable file watching for mobile to prevent any websocket connections
     watch: process.env.MOBILE_BUILD === 'true' ? null : undefined,

@@ -21,6 +21,7 @@ const Logo: React.FC<LogoProps> = ({ className, alt = 'EchoDay logo' }) => {
       className={className}
       decoding="async"
       loading="eager"
+      style={{ contentVisibility: 'auto' }}
     />
   );
 };

@@ -170,15 +170,6 @@ export const useSpeechRecognition = (
       
       // Handle specific error cases
       if (event.error === 'not-allowed') {
-        const debugInfo = {
-          error: 'not-allowed',
-          hasPermissionsAPI: !!navigator.permissions,
-          url: window.location.href,
-          isSecure: window.isSecureContext,
-          protocol: window.location.protocol,
-          userAgent: navigator.userAgent.substring(0, 50) + '...'
-        };
-        
         // Check actual permission state
         if (navigator.permissions) {
           navigator.permissions.query({name: 'microphone'}).then(result => {
@@ -484,9 +475,6 @@ export const useSpeechRecognition = (
   }, [isListening, hasSupport, isWeb, setupRecognitionHandlers]);
 
   const stopListening = useCallback(async () => {
-    // isListening durumunu ref üzerinden okuyarak callback sabit kalır
-    const currentlyListening = isListening;
-    
     // Eğer zaten durduruluyorsa, tekrar çağırma
     if (isStoppingRef.current) {
       return;

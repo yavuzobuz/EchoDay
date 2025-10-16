@@ -39,7 +39,7 @@ const Feature: React.FC<{ icon: React.ReactNode; title: string; children: React.
 const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFirstRun = false, onFinishOnboarding }) => {
   const { t, lang, setLang } = useI18n();
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoaded] = useState(true); // Instantly visible
   const [currentScene, setCurrentScene] = useState(0);
   const scenes = 4; // Total scenes
   
@@ -75,8 +75,6 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
   
 
   useEffect(() => {
-    setIsLoaded(true);
-    
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
     };
@@ -167,9 +165,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
         </div>
         
         {/* Logo with pulse animation - BÜYÜTÜLDÜ */}
-        <div className={`inline-block p-8 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-3xl mb-8 glow-primary transform transition-all duration-1000 ${
-          isLoaded ? 'scale-100 opacity-100 rotate-0' : 'scale-0 opacity-0 rotate-180'
-        }`}>
+        <div className="inline-block p-8 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-3xl mb-8 glow-primary transform scale-100 opacity-100 rotate-0 transition-all duration-300">
           <Logo className="w-32 h-32 animate-pulse" />
         </div>
         

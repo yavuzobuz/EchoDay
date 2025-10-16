@@ -1,7 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, HashRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
-import { debugLog, debugSetHeader } from './utils/debugOverlay';
 import useLocalStorage from './hooks/useLocalStorage';
 import { useSettingsStorage } from './hooks/useSettingsStorage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -12,6 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 const Welcome = lazy(() => import('./pages/Welcome'));
 import Main from './Main';
 const Profile = lazy(() => import('./pages/Profile'));
+const Settings = lazy(() => import('./pages/Settings'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Messages = lazy(() => import('./pages/Messages'));
@@ -193,12 +193,10 @@ function AppContent() {
                 assistantName={assistantName}
                 onNavigateToProfile={() => {
                   console.log('[App] Profile butonuna tıklandı, /profile yapılıyor');
-                  try { debugLog('NAV → /profile'); } catch {}
                   navigate('/profile');
                 }}
                 onNavigateToHome={() => {
                   console.log('[App] Home butonuna tıklandı, /welcome yapılıyor');
-                  try { debugLog('NAV → /welcome'); } catch {}
                   navigate('/welcome');
                 }}
               />
@@ -230,6 +228,25 @@ function AppContent() {
           }
         />
         <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings
+                theme={theme}
+                setTheme={setTheme}
+                accentColor={accentColor}
+                setAccentColor={setAccentColor}
+                apiKey={apiKey}
+                setApiKey={setApiKey}
+                assistantName={assistantName}
+                setAssistantName={setAssistantName}
+                followSystemTheme={followSystemTheme}
+                setFollowSystemTheme={setFollowSystemTheme}
+              />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/messages"
           element={
             <ProtectedRoute>
@@ -252,6 +269,10 @@ function AppContent() {
         <Route
           path="/pricing"
           element={<Pricing />}
+        />
+        <Route
+          path="/auth"
+          element={<Navigate to="/login" replace />}
         />
         
         {/* Admin Routes */}
@@ -325,8 +346,6 @@ const App: React.FC = () => {
   const Router: React.ComponentType<React.PropsWithChildren<{}>> = (isElectron || isCapacitor) ? (HashRouter as any) : (BrowserRouter as any);
   const routerType = (isElectron || isCapacitor) ? 'HashRouter' : 'BrowserRouter';
   console.log('[App] Router modu:', { isElectron, isCapacitor, platform: Capacitor.getPlatform(), routerType });
-  try { debugSetHeader(`Router: ${routerType} • Platform: ${Capacitor.getPlatform()}`); } catch {}
-  try { debugLog('App başladı'); } catch {}
   return (
     <ErrorBoundary>
       <Router>

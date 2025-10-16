@@ -124,7 +124,16 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
         {/* Profile */}
         <button
-          onClick={() => { console.log('[BottomNav] Profil butonu tıklandı'); try { debugLog('BOTTOMNAV → PROFIL'); } catch {}; onShowProfile(); }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('[BottomNav] Profil butonu tıklandı');
+            try { debugLog('BOTTOMNAV → PROFIL'); } catch {}
+            // Capacitor için doğrudan hash navigation
+            window.location.hash = '#/profile';
+            // Fallback: prop callback
+            try { onShowProfile(); } catch {}
+          }}
           className="flex flex-col items-center justify-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
         >
           <svg

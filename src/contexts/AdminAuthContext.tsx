@@ -28,15 +28,11 @@ function AdminAuthProviderContent({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const checkAdminAccess = async (): Promise<boolean> => {
-    const isDevelopment = import.meta.env.DEV;
-    if (isDevelopment) console.log('[AdminAuthContext] checkAdminAccess called for user:', user?.id);
     if (!user) {
-      if (isDevelopment) console.log('[AdminAuthContext] No user, returning false');
       return false;
     }
 
     try {
-      if (isDevelopment) console.log('[AdminAuthContext] Checking admin access for user:', user.email);
 
       // 1) Öncelik: profiles.role alanını kontrol et
       const { data: profile, error: profileError } = await supabase
@@ -61,17 +57,11 @@ function AdminAuthProviderContent({ children }: { children: React.ReactNode }) {
           ? envAllow.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
           : ['admin@echoday.com', 'yavuz@echoday.com'];
         allowlistMatch = adminEmails.includes(user.email.toLowerCase());
-        if (isDevelopment) console.log('[AdminAuthContext] Allowlist match:', allowlistMatch);
       }
 
       const isUserAdmin = hasAdminRole || allowlistMatch;
-      if (isDevelopment) {
-        console.log('[AdminAuthContext] hasAdminRole:', hasAdminRole, 'isUserAdmin:', isUserAdmin);
-      }
 
       if (isUserAdmin) {
-        if (isDevelopment) console.log('[AdminAuthContext] User is admin, setting adminUser...');
-
         setAdminUser({
           id: user.id,
           email: user.email || '',
@@ -79,11 +69,9 @@ function AdminAuthProviderContent({ children }: { children: React.ReactNode }) {
           full_name: (profile as any)?.display_name,
           avatar_url: (profile as any)?.avatar_url,
         });
-        if (isDevelopment) console.log('[AdminAuthContext] Admin access GRANTED');
         return true;
       }
 
-      if (isDevelopment) console.log('[AdminAuthContext] User is not admin');
       setAdminUser(null);
       return false;
     } catch (error) {
@@ -95,17 +83,13 @@ function AdminAuthProviderContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const initAdminAuth = async () => {
-      const isDevelopment = import.meta.env.DEV;
-      if (isDevelopment) console.log('[AdminAuthContext] initAdminAuth - user:', user?.id);
       setLoading(true);
       if (user) {
         await checkAdminAccess();
       } else {
-        if (isDevelopment) console.log('[AdminAuthContext] No user, clearing admin user');
         setAdminUser(null);
       }
       setLoading(false);
-      if (isDevelopment) console.log('[AdminAuthContext] initAdminAuth complete, loading:', false);
     };
 
     initAdminAuth();
@@ -113,10 +97,6 @@ function AdminAuthProviderContent({ children }: { children: React.ReactNode }) {
 
   const isAdmin = adminUser?.role === 'admin' || adminUser?.role === 'super_admin';
   const isSuperAdmin = adminUser?.role === 'super_admin';
-
-  if (import.meta.env.DEV) {
-    console.log('[AdminAuthContext] Current state - adminUser:', adminUser?.email, 'role:', adminUser?.role, 'isAdmin:', isAdmin, 'loading:', loading);
-  }
 
   return (
     <AdminAuthContext.Provider

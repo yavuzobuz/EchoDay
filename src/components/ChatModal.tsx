@@ -68,13 +68,14 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
   }, [chatHistory, isLoading]);
   
   // Modal kapatıldığında cleanup yap
+  const wasOpenRef = useRef(isOpen);
+  
   useEffect(() => {
-      if (!isOpen) {
+      // Modal yeni kapatıldıysa (true -> false)
+      if (wasOpenRef.current && !isOpen) {
           console.log('[ChatModal] Modal kapanıyor, mikrofon ve TTS durduruluyor...');
-          // Mikrofonu ZORLA durdur (state bakmadan)
-          console.log('[ChatModal] Mikrofon durduruluyor (zorla)...');
           
-          // Birden çok kez çağrılmayı önlemek için bir flag kullan
+          // Cleanup işlemlerini sırayla yap
           const cleanup = async () => {
             try {
               await stopListening();
@@ -82,8 +83,8 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
               console.warn('[ChatModal] Mikrofon durdurulurken hata:', error);
             }
             
+            // TTS cancel fonksiyonunu direkt çağır
             if (tts.isSpeaking) {
-              console.log('[ChatModal] TTS konuşuyor, iptal ediliyor...');
               tts.cancel();
             }
             setUserInput('');
@@ -95,6 +96,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
           
           cleanup();
       }
+      
+      // Mevcut state'i kaydet
+      wasOpenRef.current = isOpen;
   }, [isOpen, stopListening, tts]);
   
   const handleSpeakMessage = useCallback((text: string, index: number) => {
