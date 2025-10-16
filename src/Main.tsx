@@ -118,7 +118,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     // Filter and search todos
     const visibleTodos = React.useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
-        let list = todos.filter(t => !t.isDeleted);
+        let list = todos.filter(t => !t.isDeleted && !t.isArchived);
         
         // Status filter
         if (taskStatusFilter === 'active') list = list.filter(t => !t.completed);
@@ -1916,7 +1916,16 @@ const timer = setTimeout(async () => {
             <LocationPromptModal isOpen={isLocationPromptOpen} onClose={() => setIsLocationPromptOpen(false)} onSubmit={handleLocationSubmit} destination={todoForDirections?.aiMetadata?.destination || ''} />
             <SuggestionsModal isOpen={isSuggestionsModalOpen} onClose={() => setIsSuggestionsModalOpen(false)} briefing={dailyBriefing} />
             <NotepadAiModal isOpen={isNotepadAiModalOpen} onClose={() => setIsNotepadAiModalOpen(false)} onSubmit={handleAnalyzeNotes} notes={notes} />
-            <ArchiveModal isOpen={isArchiveModalOpen} onClose={() => setIsArchiveModalOpen(false)} currentTodos={todos} currentNotes={notes} />
+            <ArchiveModal 
+                isOpen={isArchiveModalOpen} 
+                onClose={() => setIsArchiveModalOpen(false)} 
+                currentTodos={todos} 
+                currentNotes={notes}
+                onAfterArchive={(archivedTodoIds: string[], _archivedNoteIds: string[]) => {
+                    // Mark as archived and hide from main list
+                    setTodos(prev => prev.map(t => archivedTodoIds.includes(t.id) ? { ...t, isArchived: true } : t));
+                }}
+            />
             <ShareModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} item={shareItem} type={shareType} />
             
             {/* New AI Features Modals */}

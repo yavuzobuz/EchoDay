@@ -11,6 +11,7 @@ interface ArchiveModalProps {
   onClose: () => void;
   currentTodos: Todo[];
   currentNotes?: Note[]; // Optional for backward compatibility
+  onAfterArchive?: (archivedTodoIds: string[], archivedNoteIds: string[]) => void;
 }
 
 type ArchiveView = 'search' | 'stats' | 'reports';
@@ -45,7 +46,7 @@ const BarChart: React.FC<{ data: DashboardStats['last7Days'] }> = ({ data }) => 
   );
 };
 
-const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTodos, currentNotes = [] }) => {
+const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTodos, currentNotes = [], onAfterArchive }) => {
   const { t } = useI18n();
   const { user } = useAuth();
   const userId = user?.id || 'guest';
@@ -225,6 +226,11 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
       setIsLoading(true);
       await archiveService.archiveItems(completedTodos, notesToArchive, userId);
       
+      // Notify parent to hide archived items from main list
+      try {
+        onAfterArchive?.(completedTodos.map(t => t.id), (notesToArchive || []).map(n => n.id));
+      } catch {}
+      
       const successMessage = completedTodos.length > 0 && notesToArchive.length > 0
         ? t('archive.messages.successBoth', `${completedTodos.length} tasks and ${notesToArchive.length} notes successfully archived!`).replace('{tasks}', String(completedTodos.length)).replace('{notes}', String(notesToArchive.length))
         : completedTodos.length > 0
@@ -258,6 +264,12 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
     try {
       setIsLoading(true);
       const archivedCount = await archiveService.autoArchiveCompletedTasks(currentTodos, userId);
+      
+      // Inform parent which items were archived (by looking up completed ones)
+      try {
+        const archivedIds = currentTodos.filter(t => t.completed).map(t => t.id);
+        onAfterArchive?.(archivedIds, []);
+      } catch {}
       
       if (archivedCount > 0) {
         setNotification({
