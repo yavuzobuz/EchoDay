@@ -226,8 +226,20 @@ function createWindow() {
   mainWindow.webContents.on('unresponsive', () => {
     log('[WebContents] unresponsive');
   });
+  // Console-message handler - EPIPE hatasını önlemek için güvenli wrapper
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    log('[Renderer]', { level, message, line, sourceId });
+    try {
+      log('[Renderer]', { level, message, line, sourceId });
+    } catch (err) {
+      // EPIPE veya diğer stream hatalarını sessizce yoksay
+      // Sadece dosyaya kaydet
+      try {
+        const logLine = `[${new Date().toISOString()}] [Renderer] level=${level} msg=${message} line=${line}\n`;
+        fs.appendFileSync(logFile, logLine);
+      } catch {
+        // Dosya yazma da başarısız, tamamen sessiz
+      }
+    }
   });
 
   // Handle permission requests for media devices
