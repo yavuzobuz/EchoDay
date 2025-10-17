@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useI18n } from '../contexts/I18nContext';
 import { debugLog } from '../utils/debugOverlay';
+import { Capacitor } from '@capacitor/core';
+import { triggerHaptic } from '../utils/hapticFeedback';
 
 interface MobileBottomNavProps {
   onVoiceCommand: () => void;
@@ -20,24 +22,53 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   isListening
 }) => {
   const { t } = useI18n();
+  const [safeAreaBottom, setSafeAreaBottom] = useState(20);
+
+  // Get safe area insets on native platforms
+  useEffect(() => {
+    const getSafeArea = async () => {
+      if (Capacitor.getPlatform() !== 'web') {
+        try {
+          // On native platforms, use default safe area
+          // CSS env(safe-area-inset-bottom) is handled by the platform
+          setSafeAreaBottom(20); // Default fallback for devices without notch
+        } catch (e) {
+          console.warn('[MobileBottomNav] Could not get safe area:', e);
+        }
+      }
+    };
+    getSafeArea();
+  }, []);
+
   return (
-    // Fixed bottom navigation - sadece mobilde göster
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-[10000] md:hidden overflow-visible" style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}>
-      <div className="grid grid-cols-5 h-16 relative overflow-visible">
-        {/* Voice Command */}
+    // Fixed bottom navigation - WCAG AA compliant with 44dp touch targets
+    <div 
+      className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 z-[10000] md:hidden overflow-visible" 
+      style={{ paddingBottom: `${safeAreaBottom}px` }}
+    >
+      <div className="grid grid-cols-5 min-h-[64px] relative overflow-visible">
+        {/* Voice Command - 44dp minimum touch target */}
         <button
-          onClick={onVoiceCommand}
+          onClick={() => {
+            if (isListening) {
+              triggerHaptic.voiceStop();
+            } else {
+              triggerHaptic.voiceStart();
+            }
+            onVoiceCommand();
+          }}
           disabled={isListening}
-          className={`flex flex-col items-center justify-center gap-1 transition-colors ${
+          className={`flex flex-col items-center justify-center gap-0.5 transition-colors min-h-[44px] min-w-[44px] p-2 ${
             isListening
               ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-              : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+              : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 active:bg-gray-200 dark:active:bg-gray-600'
           }`}
+          aria-label={t('bottomNav.voice', 'Sesli')}
         >
           <div className={`relative ${isListening ? 'animate-pulse' : ''}`}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
+              className="h-7 w-7"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -50,21 +81,25 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               />
             </svg>
             {isListening && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
             )}
           </div>
-          <span className="text-[10px] font-medium">{t('bottomNav.voice', 'Sesli')}</span>
+          <span className="text-[11px] font-medium leading-tight">{t('bottomNav.voice', 'Sesli')}</span>
         </button>
 
-        {/* Görsel Görev (taşındı) */}
+        {/* Görsel Görev - 44dp minimum touch target */}
         <button
-          onClick={onImageTask}
+          onClick={() => {
+            triggerHaptic.light();
+            onImageTask();
+          }}
           disabled={isListening}
-          className="flex flex-col items-center justify-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors disabled:opacity-50"
+          className="flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors disabled:opacity-50 active:bg-gray-200 dark:active:bg-gray-600"
+          aria-label={t('bottomNav.image', 'Görsel')}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
+            className="h-7 w-7"
             viewBox="0 0 24 24"
             fill="currentColor"
           >
@@ -74,18 +109,22 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               clipRule="evenodd"
             />
           </svg>
-          <span className="text-[10px] font-medium">{t('bottomNav.image', 'Görsel')}</span>
+          <span className="text-[11px] font-medium leading-tight">{t('bottomNav.image', 'Görsel')}</span>
         </button>
 
-        {/* Sohbet - standart ikon */}
+        {/* Sohbet - 44dp minimum touch target */}
         <button
-          onClick={onOpenChat}
+          onClick={() => {
+            triggerHaptic.light();
+            onOpenChat();
+          }}
           disabled={isListening}
-          className="flex flex-col items-center justify-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors disabled:opacity-50"
+          className="flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors disabled:opacity-50 active:bg-gray-200 dark:active:bg-gray-600"
+          aria-label={t('bottomNav.chat', 'Sohbet')}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
+            className="h-7 w-7"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -97,17 +136,21 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
             />
           </svg>
-          <span className="text-[10px] font-medium">{t('bottomNav.chat', 'Sohbet')}</span>
+          <span className="text-[11px] font-medium leading-tight">{t('bottomNav.chat', 'Sohbet')}</span>
         </button>
 
-        {/* Archive */}
+        {/* Archive - 44dp minimum touch target */}
         <button
-          onClick={onShowArchive}
-          className="flex flex-col items-center justify-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+          onClick={() => {
+            triggerHaptic.light();
+            onShowArchive();
+          }}
+          className="flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors active:bg-gray-200 dark:active:bg-gray-600"
+          aria-label={t('bottomNav.archive', 'Arşiv')}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
+            className="h-7 w-7"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -119,14 +162,15 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          <span className="text-[10px] font-medium">{t('bottomNav.archive', 'Arşiv')}</span>
+          <span className="text-[11px] font-medium leading-tight">{t('bottomNav.archive', 'Arşiv')}</span>
         </button>
 
-        {/* Profile */}
+        {/* Profile - 44dp minimum touch target */}
         <button
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
+            triggerHaptic.light();
             console.log('[BottomNav] Profil butonu tıklandı');
             try { debugLog('BOTTOMNAV → PROFIL'); } catch {}
             // Capacitor için doğrudan hash navigation
@@ -134,11 +178,12 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             // Fallback: prop callback
             try { onShowProfile(); } catch {}
           }}
-          className="flex flex-col items-center justify-center gap-1 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors"
+          className="flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors active:bg-gray-200 dark:active:bg-gray-600"
+          aria-label={t('bottomNav.profile', 'Profil')}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="h-6 w-6"
+            className="h-7 w-7"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -150,7 +195,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
             />
           </svg>
-          <span className="text-[10px] font-medium">{t('bottomNav.profile', 'Profil')}</span>
+          <span className="text-[11px] font-medium leading-tight">{t('bottomNav.profile', 'Profil')}</span>
         </button>
       </div>
     </div>

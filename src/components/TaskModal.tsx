@@ -195,8 +195,10 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
               placeholder={isListening ? t('taskModal.listening','Dinleniyor...') : t('taskModal.placeholder','Görevinizi yazın veya mikrofon ile söyleyin...')}
               className="w-full px-4 py-3 pr-12 rounded-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-600)]/50 text-sm"
             />
+            {/* Emoji shortcut button */}
             <button 
               type="button"
+              onClick={() => setDescription(prev => prev + ' 😀')}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -218,23 +220,40 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
           ) : hasSupport ? (
             <button 
               type="button"
-              onClick={async () => {
+              onClick={async (e) => {
+                e.preventDefault();
                 console.log('[TaskModal] Mic toggle click', { isListening, hasSupport });
                 try {
                   if (isListening) {
+                    console.log('[TaskModal] Stopping listening...');
                     await stopListening();
                   } else {
-                    await checkAndRequestPermission?.();
+                    console.log('[TaskModal] Starting listening...');
+                    if (checkAndRequestPermission) {
+                      await checkAndRequestPermission();
+                    }
                     await startListening();
                   }
-                } catch {}
+                } catch (error) {
+                  console.error('[TaskModal] Mic toggle error:', error);
+                }
               }}
-              className="p-3 rounded-full bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] active:scale-95 transition-all shadow-lg hover:shadow-xl"
-              title={t('taskModal.mic.start','Mikrofonu aç/kapat')}
+              className={`p-3 rounded-full transition-all shadow-lg hover:shadow-xl active:scale-95 ${
+                isListening 
+                  ? 'bg-red-600 hover:bg-red-700' 
+                  : 'bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)]'
+              }`}
+              title={isListening ? t('taskModal.mic.stop', 'Mikrofonu durdur') : t('taskModal.mic.start','Mikrofonu başlat')}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
-              </svg>
+              {isListening ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 000 2h4a1 1 0 100-2H8z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 715 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                </svg>
+              )}
             </button>
           ) : (
             <button 

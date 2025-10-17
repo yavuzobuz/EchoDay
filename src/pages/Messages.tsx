@@ -233,6 +233,10 @@ const MessagesPage: React.FC = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<number | null>(null);
+  
+  // Location-based task states
+  const [showLocationTask, setShowLocationTask] = useState(false);
+  const [taskWithLocation, setTaskWithLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const myId = user?.id || null;
 
@@ -876,36 +880,73 @@ const MessagesPage: React.FC = () => {
 
             {/* Message Input */}
             {!isRecording ? (
-              <form onSubmit={handleSendText} className="p-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex items-center gap-3">
-                <button 
-                  type="button" 
-                  onClick={() => fileInputRef.current?.click()} 
-                  className="p-2.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" 
-                  title={t('messages.attachFile','Dosya ekle')}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                  </svg>
-                </button>
-                <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
+              <form onSubmit={handleSendText} className="space-y-2 p-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
+                {/* Location Task Indicator */}
+                {taskWithLocation && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600 dark:text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-xs text-blue-700 dark:text-blue-300">📍 Konum tabanlı görev: {taskWithLocation.lat.toFixed(4)}, {taskWithLocation.lng.toFixed(4)}</span>
+                    <button 
+                      type="button"
+                      onClick={() => setTaskWithLocation(null)}
+                      className="ml-auto text-blue-500 hover:text-blue-700 dark:hover:text-blue-300 text-xs font-medium"
+                    >
+                      ✕ Sil
+                    </button>
+                  </div>
+                )}
                 
-                <div className="flex-1 relative">
-                  <input
-                    type="text"
-                    value={newText}
-                    onChange={(e) => setNewText(e.target.value)}
-                    placeholder={t('messages.typeMessage','Bir mesaj yazın')}
-                    className="w-full px-4 py-3 pr-12 rounded-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-600)]/50 text-sm"
-                  />
+                <div className="flex items-center gap-3">
                   <button 
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    type="button" 
+                    onClick={() => fileInputRef.current?.click()} 
+                    className="p-2.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors" 
+                    title={t('messages.attachFile','Dosya ekle')}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                     </svg>
                   </button>
-                </div>
+                  <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
+                  
+                  <button 
+                    type="button"
+                    onClick={async () => {
+                      const coords = await getCurrentCoords();
+                      if (coords) setTaskWithLocation(coords);
+                    }}
+                    className={`p-2.5 rounded-full transition-colors ${
+                      taskWithLocation 
+                        ? 'bg-blue-200 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-300'
+                        : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
+                    }`}
+                    title={t('messages.addLocation','Konum tabanlı görev ekle')}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+                  
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={newText}
+                      onChange={(e) => setNewText(e.target.value)}
+                      placeholder={t('messages.typeMessage','Bir mesaj yazın')}
+                      className="w-full px-4 py-3 pr-12 rounded-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-[var(--accent-color-600)]/50 text-sm"
+                    />
+                    <button 
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+                  </div>
                 
                 {newText.trim() ? (
                   <button 

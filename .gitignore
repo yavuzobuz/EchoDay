@@ -41,3 +41,6 @@ release-package/
 *.deb
 *.rpm
 *.msi
+,env  
+.env.download  
+android/echoday-release-key.keystore 

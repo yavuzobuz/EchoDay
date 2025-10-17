@@ -173,11 +173,16 @@ select {
 /* Better touch targets */
 @media (pointer: coarse) {
   button,
-  a,
-  input[type="checkbox"],
-  input[type="radio"] {
+  a {
     min-height: 44px;
     min-width: 44px;
+  }
+  
+  /* Checkbox ve radio için daha makul boyut */
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 20px;
+    min-width: 20px;
   }
 }
 
@@ -185,8 +190,8 @@ select {
 @media (pointer: coarse) {
   .touch-compact input[type="checkbox"],
   .touch-compact input[type="radio"] {
-    min-height: 20px;
-    min-width: 20px;
+    min-height: 16px;
+    min-width: 16px;
   }
 }
 

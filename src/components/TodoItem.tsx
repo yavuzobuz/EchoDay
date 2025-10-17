@@ -143,7 +143,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
   };
 
   return (
-    <div className={`group bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-lg hover:-translate-y-0.5 transition-transform transition-shadow duration-200 border-l-4 ${conflictClass} ${todo.completed ? 'opacity-60 saturate-50' : ''}`}>
+    <div className={`group bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200 border-l-4 ${conflictClass} ${todo.completed ? 'opacity-60 saturate-50' : ''}`}>
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
           <input

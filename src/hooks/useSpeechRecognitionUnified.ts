@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Capacitor, PluginListenerHandle } from '@capacitor/core';
 import { useElectronSpeechRecognition } from './useElectronSpeechRecognition';
 import { speechRecognitionManager } from './speechRecognitionManager';
+import debugLogger from '../utils/debugLogger';
 
 // Web Speech API types
 interface WebSpeechRecognition {
@@ -63,17 +64,17 @@ export const useSpeechRecognition = (
     } else {
       // Mobil platformlarda Capacitor desteğini kontrol et
       import('@capacitor-community/speech-recognition').then(({ SpeechRecognition }) => {
-        console.log('[SpeechRecognition] Checking availability on mobile...');
+        debugLogger.speech('SpeechRecognition', 'Checking availability on mobile...');
         SpeechRecognition.available()
           .then(result => {
-            console.log('[SpeechRecognition] Availability result:', result);
+            debugLogger.speech('SpeechRecognition', 'Availability result', { data: result });
             setHasSupport(result.available);
             if (!result.available) {
-              console.warn('[SpeechRecognition] Speech recognition not available on this device');
+              debugLogger.warn('SpeechRecognition', 'Speech recognition not available on this device');
             }
           })
           .catch((error) => {
-            console.error('[SpeechRecognition] Availability check failed:', error);
+            debugLogger.error('SpeechRecognition', 'Availability check failed', { error });
             setHasSupport(false);
           });
       }).catch((error) => {
@@ -125,6 +126,9 @@ export const useSpeechRecognition = (
         .map((result) => result.transcript)
         .join('');
       
+      debugLogger.speech('SpeechRecognition', 'Recognition result', { 
+        data: { transcript: currentTranscript, resultsLength: event.results.length }
+      });
       setTranscript(currentTranscript);
 
       if (stopOnSilence && continuous) {
@@ -168,13 +172,27 @@ export const useSpeechRecognition = (
           if (match && match.index !== undefined) {
             const command = currentTranscript.substring(0, match.index).trim();
             cleanedTranscriptRef.current = command;
-            rec.stop();
+            // Immediately send raw transcript (with stop word) so caller can decide how to handle it
+            if (!transcriptReadyCalledRef.current && currentTranscript) {
+              transcriptReadyCalledRef.current = true;
+              try { onTranscriptReadyRef.current(currentTranscript); } catch {}
+            }
+            setIsListening(false);
+            if (!isStoppingRef.current) {
+              isStoppingRef.current = true;
+              try { rec.stop(); } catch {}
+              setTimeout(() => { isStoppingRef.current = false; }, 300);
+            }
           }
         }
       }
     };
 
     rec.onerror = (event: any) => {
+      debugLogger.error('SpeechRecognition', `Recognition error: ${event.error}`, { 
+        error: event,
+        data: { errorType: event.error, message: event.message }
+      });
       setIsListening(false);
       
       // Handle specific error cases
@@ -387,6 +405,16 @@ export const useSpeechRecognition = (
         // Event dinleyicileri ekle (partial ve final sonuçlar)
         const listeners: PluginListenerHandle[] = [];
 
+        const safeAddListener = async (eventName: string, cb: (data: any) => void) => {
+          try {
+            const h = await SpeechRecognition.addListener(eventName as any, cb as any);
+            listeners.push(h);
+            console.log(`[SpeechRecognition] Listener registered: ${eventName}`);
+          } catch (e) {
+            console.warn(`[SpeechRecognition] Failed to register listener '${eventName}':`, e);
+          }
+        };
+
         const extractText = (data: any): string => {
           console.log('[SpeechRecognition] Raw event data:', JSON.stringify(data));
           
@@ -454,7 +482,7 @@ export const useSpeechRecognition = (
         };
 
         // Partial results - update live text and optionally stop on keywords
-        listeners.push(await SpeechRecognition.addListener('partialResults', (data: any) => {
+        await safeAddListener('partialResults', (data: any) => {
           console.log('[SpeechRecognition] partialResults event received');
           const text = extractText(data);
           console.log('[SpeechRecognition] Partial result:', text);
@@ -477,11 +505,26 @@ export const useSpeechRecognition = (
               });
             }
           }
-        }));
-        // Not: Plugin 'finalResults' eventi sağlamıyor; final metni listeningState 'stopped' olduğunda işliyoruz.
+        });
+
+        // Final results (pluginlerde bazı versiyonlarda 'result' olabiliyor)
+        await safeAddListener('result', (data: any) => {
+          console.log('[SpeechRecognition] result event received');
+          const text = extractText(data);
+          if (text) {
+            finalTranscriptRef.current = text;
+            const cleaned = shouldStopOnKeywords(text).cleaned || text;
+            if (!transcriptReadyCalledRef.current && cleaned.trim()) {
+              transcriptReadyCalledRef.current = true;
+              onTranscriptReadyRef.current(cleaned.trim());
+            }
+            setIsListening(false);
+            cleanedTranscriptRef.current = null;
+          }
+        });
 
         // Listening state - sadece state güncellemesi için
-        listeners.push(await SpeechRecognition.addListener('listeningState', (data: any) => {
+        await safeAddListener('listeningState', (data: any) => {
           console.log('[SpeechRecognition] listeningState event:', JSON.stringify(data));
           if (data?.status === 'stopped' && !isStoppingRef.current) {
             console.log('[SpeechRecognition] Recognition stopped');
@@ -493,7 +536,12 @@ export const useSpeechRecognition = (
             }
             cleanedTranscriptRef.current = null;
           }
-        }));
+        });
+        // Ek hata dinleyicisi (bazı sürümlerde mevcut)
+        await safeAddListener('error', (data: any) => {
+          console.error('[SpeechRecognition] error event:', data);
+        });
+
         // Not: Plugin ayrı bir 'error' eventi sağlamıyor; start/stop hatalarını catch bloklarında ele alıyoruz.
 
         mobileListenersRef.current = listeners;
@@ -511,7 +559,7 @@ export const useSpeechRecognition = (
             language: 'tr-TR',
             partialResults: true,
             popup: false, // Kendi UI'mızı kullanıyoruz
-          });
+          } as any);
           console.log('[SpeechRecognition] Speech recognition started successfully!');
           console.log('[SpeechRecognition] Listeners registered:', listeners.length);
         } catch (startError) {

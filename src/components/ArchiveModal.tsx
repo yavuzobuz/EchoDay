@@ -817,59 +817,67 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                 ℹ️ {t('archive.viewingAll', 'Viewing all archive')}
               </div>
             )}
-            <div className="flex gap-2 ml-auto w-full sm:w-auto justify-end items-center">
-              {/* Content view */}
-              <select value={contentView} onChange={e=>setContentView(e.target.value as any)} className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded">
-                <option value="all">{t('archive.view.all','Tümü')}</option>
-                <option value="tasks">{t('archive.view.tasks','Görevler')}</option>
-                <option value="notes">{t('archive.view.notes','Notlar')}</option>
-              </select>
-              {/* Sort */}
-              <select value={sortOrder} onChange={e=>setSortOrder(e.target.value as any)} className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded">
-                <option value="desc">{t('archive.sort.newest','Yeniden eskiye')}</option>
-                <option value="asc">{t('archive.sort.oldest','Eskiden yeniye')}</option>
-              </select>
-              {/* Auto-archive toggle */}
-              <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">
-                <input type="checkbox" checked={autoArchiveEnabled} onChange={()=>setAutoArchiveEnabled(!autoArchiveEnabled)} />
-                {t('archive.auto.daily','Gün sonunda otomatik arşivle')}
+            <div className="flex flex-col sm:flex-row gap-2 ml-auto w-full sm:w-auto justify-end items-start sm:items-center flex-wrap">
+              {/* Mobile: Filters dropdown section */}
+              <div className="w-full sm:w-auto flex gap-2 items-center flex-wrap">
+                {/* Content view */}
+                <select value={contentView} onChange={e=>setContentView(e.target.value as any)} className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded text-gray-900 dark:text-white">
+                  <option value="all">{t('archive.view.all','Tümü')}</option>
+                  <option value="tasks">{t('archive.view.tasks','Görevler')}</option>
+                  <option value="notes">{t('archive.view.notes','Notlar')}</option>
+                </select>
+                {/* Sort */}
+                <select value={sortOrder} onChange={e=>setSortOrder(e.target.value as any)} className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 rounded text-gray-900 dark:text-white">
+                  <option value="desc">{t('archive.sort.newest','Yeniden eskiye')}</option>
+                  <option value="asc">{t('archive.sort.oldest','Eskiden yeniye')}</option>
+                </select>
+              </div>
+              
+              {/* Mobile: Auto-archive toggle - full width on mobile */}
+              <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300 w-full sm:w-auto">
+                <input type="checkbox" checked={autoArchiveEnabled} onChange={()=>setAutoArchiveEnabled(!autoArchiveEnabled)} className="w-4 h-4" />
+                <span className="truncate">{t('archive.auto.daily','Gün sonunda otomatik arşivle')}</span>
               </label>
-              {/* Restore mode */}
-              {!restoreMode ? (
-                <button onClick={()=>{ setRestoreMode(true); setDeleteMode(false); }} className="px-2 sm:px-3 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-xs sm:text-sm font-medium whitespace-nowrap text-left">{t('archive.restoreMode','Geri Yükleme')}</button>
-              ) : (
-                <>
-                  <button onClick={handleRestoreSelected} disabled={(selectedTodoIds.length + selectedNoteIds.length)===0} className="px-2 sm:px-3 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs sm:text-sm font-medium whitespace-nowrap text-left">{t('archive.restoreSelected','Seçilenleri Geri Yükle')} ({selectedTodoIds.length + selectedNoteIds.length})</button>
-                  <button onClick={()=>{ setRestoreMode(false); setSelectedTodoIds([]); setSelectedNoteIds([]); }} className="px-2 sm:px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-xs sm:text-sm font-medium whitespace-nowrap text-left">{t('common.cancel','Cancel')}</button>
-                </>
-              )}
-              {/* Delete mode */}
-              {!deleteMode ? (
-                <button 
-                  onClick={toggleDeleteMode}
-                  className="px-2 sm:px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs sm:text-sm font-medium flex items-center gap-1 whitespace-nowrap text-left"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                  {t('common.delete','Delete')}
-                </button>
-              ) : (
-                <>
-                  <button 
-                    onClick={handleDeleteSelected}
-                    disabled={(selectedTodoIds.length + selectedNoteIds.length) === 0}
-                    className="px-2 sm:px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs sm:text-sm font-medium whitespace-nowrap text-left"
-                  >
-                    <span className="hidden sm:inline">{t('archive.deleteSelected','Delete Selected')} ({selectedTodoIds.length + selectedNoteIds.length})</span>
-                    <span className="sm:hidden">{t('common.delete','Delete')} ({selectedTodoIds.length + selectedNoteIds.length})</span>
-                  </button>
+              
+              {/* Action buttons */}
+              <div className="w-full sm:w-auto flex gap-1 flex-wrap justify-end">
+                {/* Restore mode */}
+                {!restoreMode ? (
+                  <button onClick={()=>{ setRestoreMode(true); setDeleteMode(false); }} className="px-2 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-xs font-medium whitespace-nowrap">{t('archive.restoreMode','Geri Yükle')}</button>
+                ) : (
+                  <>
+                    <button onClick={handleRestoreSelected} disabled={(selectedTodoIds.length + selectedNoteIds.length)===0} className="px-2 py-1 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs font-medium whitespace-nowrap">{t('archive.restoreSelected','Geri Yükle')} ({selectedTodoIds.length + selectedNoteIds.length})</button>
+                    <button onClick={()=>{ setRestoreMode(false); setSelectedTodoIds([]); setSelectedNoteIds([]); }} className="px-2 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-xs font-medium whitespace-nowrap">{t('common.cancel','İptal')}</button>
+                  </>
+                )}
+                
+                {/* Delete mode */}
+                {!deleteMode ? (
                   <button 
                     onClick={toggleDeleteMode}
-                    className="px-2 sm:px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-xs sm:text-sm font-medium whitespace-nowrap text-left"
+                    className="px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-medium flex items-center gap-1 whitespace-nowrap"
                   >
-                    {t('common.cancel','Cancel')}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                    {t('common.delete','Sil')}
                   </button>
-                </>
-              )}
+                ) : (
+                  <>
+                    <button 
+                      onClick={handleDeleteSelected}
+                      disabled={(selectedTodoIds.length + selectedNoteIds.length) === 0}
+                      className="px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-xs font-medium whitespace-nowrap"
+                    >
+                      {t('common.delete','Sil')} ({selectedTodoIds.length + selectedNoteIds.length})
+                    </button>
+                    <button 
+                      onClick={toggleDeleteMode}
+                      className="px-2 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 text-xs font-medium whitespace-nowrap"
+                    >
+                      {t('common.cancel','İptal')}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
       </div>

@@ -44,12 +44,12 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: true, // Development için true
+    webContentsDebuggingEnabled: false, // Production için false
     buildOptions: {
-      keystorePath: undefined,
-      keystoreAlias: undefined,
-      keystoreAliasPassword: undefined,
-      keystorePassword: undefined,
+      keystorePath: 'echoday-release-key.keystore',
+      keystoreAlias: 'echoday',
+      keystoreAliasPassword: 'echoday123',
+      keystorePassword: 'echoday123',
       releaseType: 'APK'
     }
   },

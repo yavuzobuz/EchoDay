@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, lazy } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import debugLogger from './utils/debugLogger';
 
 import Header from './components/Header';
 import { useI18n } from './contexts/I18nContext';
@@ -29,7 +30,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 
 import useLocalStorage from './hooks/useLocalStorage';
 import { useToast } from './hooks/useToast';
-import { useSpeechRecognition } from './hooks/useSpeechRecognitionUnified';
+import { useNativeSpeechRecognition } from './hooks/useNativeSpeechRecognition';
 import { useGeoReminders } from './hooks/useGeoReminders';
 import { geminiService } from './services/geminiService';
 import { pdfService } from './services/pdfService';
@@ -44,7 +45,7 @@ import { useAuth } from './contexts/AuthContext';
 // import { taskTemplatesService } from './services/taskTemplatesService';
 
 // FIX: Import the new AnalyzedTaskData type.
-import { Todo, Priority, ChatMessage, Note, DailyBriefing, AnalyzedTaskData, UserContext, ProactiveSuggestion, ReminderConfig, ReminderType } from './types';
+import { Todo, Priority, ChatMessage, Note, DailyBriefing, AnalyzedTaskData, UserContext, ProactiveSuggestion, ReminderConfig, ReminderType, GeoReminder } from './types';
 import { AccentColor } from './App';
 
 interface MainProps {
@@ -66,6 +67,21 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     const location = useLocation();
     // Get authenticated user
     const { user } = useAuth();
+    
+    // Initialize debug logging
+    useEffect(() => {
+        debugLogger.info('Main', 'Application initialized', {
+            data: {
+                theme,
+                accentColor,
+                hasApiKey: !!apiKey,
+                assistantName,
+                userId: user?.id,
+                platform: navigator.userAgent
+            }
+        });
+        debugLogger.logMemory('Main');
+    }, []);
     
     // Create consistent userId across platforms for data sync
     const [deviceId] = useLocalStorage<string>('device_id', uuidv4());
@@ -220,15 +236,20 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
     // );
     
     // --- Main Command Recognition (after wake word) ---
-    const mainCommandListener = useSpeechRecognition(
+    const mainCommandListener = useNativeSpeechRecognition(
         (command) => {
             if (command) {
                 handleAddTask(command);
+                // Stop listening after successful task addition
+                setTimeout(() => {
+                    mainCommandListener.stopListening();
+                }, 100);
             }
         },
         { 
             continuous: true,  // Allow longer speech input
-            stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'kayıt', 'ekle', 'oluştur', 'ok']
+            stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'kayıt', 'ekle', 'oluştur', 'ok'],
+            language: 'tr-TR'
         }
     );
     
@@ -260,7 +281,7 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
 
 
     // --- Task Management ---
-    const handleAddTask = useCallback(async (description: string, imageBase64?: string, imageMimeType?: string) => {
+    const handleAddTask = useCallback(async (description: string, imageBase64?: string, imageMimeType?: string, extra?: { locationReminder?: GeoReminder }) => {
         if (!checkApiKey()) return;
         setIsLoading(true);
         setLoadingMessage(t('main.addTask.analyzing', 'Göreviniz analiz ediliyor...'));
@@ -325,12 +346,16 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                         })
                     },
                     reminders: reminders,
+                    ...(extra?.locationReminder ? { locationReminder: extra.locationReminder } : {}),
                 };
                 setTodos(prev => [newTodo, ...prev]);
                 
+                // Check if location was extracted
+                const hasLocation = location && location.trim().length > 0;
+                
                 // Show success message with reminder info if applicable
                 let successMsg = t('main.addTask.success', 'Yeni görev eklendi!');
-                console.log('[Main] Checking reminder status:', { hasReminders: !!reminders, hasDatetime: !!datetime });
+                console.log('[Main] Checking reminder status:', { hasReminders: !!reminders, hasDatetime: !!datetime, hasLocation });
                 if (reminders && reminders.length > 0) {
                     const mins = reminderMinutesBefore || 0;
                     if (mins >= 1440) {
@@ -343,6 +368,14 @@ const Main: React.FC<MainProps> = ({ theme, setTheme, accentColor, setAccentColo
                         successMsg += ` ${t('main.reminder.prefix', 'Hatırlatma:')} ${mins} ${t('unit.minute', 'dakika')} ${t('common.before', 'önce')}`;
                     }
                     setNotification({ message: successMsg, type: 'success' });
+                } else if (hasLocation) {
+                    // Task has location reminder - show location prompt
+                    console.log('[Main] Task has location - opening location prompt');
+                    setNotification({ message: successMsg + ` 📍 Konum hatırlatıcısı kurulacak mı?`, type: 'success' });
+                    setLastAddedTaskId(newTodo.id);
+                    setTodoForDirections(newTodo);
+                    // For location reminder, user can use the geo modal
+                    setIsLocationPromptOpen(true);
                 } else if (datetime && !reminders) {
                     // Task has datetime but no reminder - ask if user wants to add one
                     console.log('[Main] Task has datetime but no reminder - asking user');
@@ -1404,7 +1437,10 @@ const timer = setTimeout(async () => {
             
             {/* Mobile Bottom Navigation */}
             <MobileBottomNav
-                onVoiceCommand={() => { if(checkApiKey()) setIsTaskModalOpen(true); }}
+                onVoiceCommand={() => { 
+                    // Open Task Modal (voice + text + geo fields)
+                    setIsTaskModalOpen(true);
+                }}
                 onOpenChat={handleOpenChat}
                 onImageTask={() => { if(checkApiKey()) setIsImageTaskModalOpen(true); }}
                 onShowArchive={() => setIsArchiveModalOpen(true)}
@@ -1428,7 +1464,10 @@ const timer = setTimeout(async () => {
             <main className="container mx-auto p-3 sm:p-4 md:p-6 lg:p-8 pb-24 md:pb-8 safe-area-bottom">
                 {showInfoBanner && <InfoBanner assistantName={assistantName} onClose={() => setShowInfoBanner(false)} />}
                 <ActionBar
-                    onSimpleVoiceCommand={() => { if(checkApiKey()) setIsTaskModalOpen(true); }}
+                    onSimpleVoiceCommand={() => { 
+                        // Open Task Modal (voice + text + geo fields)
+                        setIsTaskModalOpen(true);
+                    }}
                     onOpenChat={handleOpenChat}
                     onImageTask={() => { if(checkApiKey()) setIsImageTaskModalOpen(true); }}
                     isListening={mainCommandListener.isListening}

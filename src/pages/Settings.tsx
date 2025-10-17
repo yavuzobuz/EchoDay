@@ -8,6 +8,7 @@ import { mailService } from '../services/mailService';
 import { EmailAccount } from '../types/mail';
 import MailConnectModal from '../components/MailConnectModal';
 import { AIProvider, AI_PROVIDERS } from '../types/ai';
+import debugLogger from '../utils/debugLogger';
 
 interface SettingsProps {
   theme: 'light' | 'dark';
@@ -69,6 +70,11 @@ const Settings: React.FC<SettingsProps> = ({
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
+  
+  // Debug mode state
+  const [debugMode, setDebugMode] = useState(localStorage.getItem('debug-mode') === 'true');
+  const [diagnosticResults, setDiagnosticResults] = useState<any>(null);
+  const [isRunningDiagnostics, setIsRunningDiagnostics] = useState(false);
 
   const handleSaveProviderKey = (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,6 +193,94 @@ const Settings: React.FC<SettingsProps> = ({
   useEffect(() => {
     loadEmailAccounts();
   }, []);
+  
+  const toggleDebugMode = () => {
+    const newDebugMode = !debugMode;
+    setDebugMode(newDebugMode);
+    debugLogger.toggleDebugMode();
+    setNotification(newDebugMode ? '🐛 Debug mode açıldı' : 'Debug mode kapandı');
+    setTimeout(() => setNotification(null), 3000);
+  };
+  
+  const runDiagnostics = async () => {
+    setIsRunningDiagnostics(true);
+    debugLogger.info('Settings', 'Starting diagnostics...');
+    
+    const results: any = {
+      platform: {
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language,
+        online: navigator.onLine,
+        protocol: window.location.protocol,
+        isSecure: window.isSecureContext
+      },
+      permissions: {},
+      webSpeech: {
+        recognition: false,
+        synthesis: false,
+        voices: []
+      },
+      mediaDevices: {
+        hasSupport: false,
+        devices: []
+      }
+    };
+    
+    // Check permissions
+    if (navigator.permissions) {
+      try {
+        const micPerm = await navigator.permissions.query({name: 'microphone'});
+        results.permissions.microphone = micPerm.state;
+      } catch (e) {
+        results.permissions.microphone = 'error: ' + (e as Error).message;
+      }
+    }
+    
+    // Check Web Speech API
+    results.webSpeech.recognition = !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    results.webSpeech.synthesis = !!window.speechSynthesis;
+    
+    if (results.webSpeech.synthesis) {
+      try {
+        const voices = window.speechSynthesis.getVoices();
+        results.webSpeech.voices = voices.map(v => ({ name: v.name, lang: v.lang }));
+      } catch (e) {
+        results.webSpeech.voicesError = (e as Error).message;
+      }
+    }
+    
+    // Check media devices
+    if (navigator.mediaDevices) {
+      results.mediaDevices.hasSupport = true;
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        results.mediaDevices.devices = devices.map(d => ({
+          kind: d.kind,
+          label: d.label || 'Unnamed',
+          deviceId: d.deviceId ? 'present' : 'missing'
+        }));
+      } catch (e) {
+        results.mediaDevices.error = (e as Error).message;
+      }
+    }
+    
+    // Test microphone access
+    try {
+      debugLogger.info('Settings', 'Testing microphone access...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      results.microphoneAccess = 'granted';
+      stream.getTracks().forEach(track => track.stop());
+      debugLogger.success('Settings', 'Microphone access successful');
+    } catch (e) {
+      results.microphoneAccess = 'denied: ' + (e as Error).name;
+      debugLogger.error('Settings', 'Microphone access failed', { error: e });
+    }
+    
+    setDiagnosticResults(results);
+    setIsRunningDiagnostics(false);
+    debugLogger.info('Settings', 'Diagnostics complete', { data: results });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 dark:text-gray-100 transition-colors duration-300 dark:bg-gradient-to-br dark:from-[hsl(var(--gradient-from))] dark:via-[hsl(var(--gradient-via))] dark:to-[hsl(var(--gradient-to))]">
@@ -621,6 +715,128 @@ const Settings: React.FC<SettingsProps> = ({
               onChange={(e) => localStorage.setItem(`daily-summary-time_${user?.id}`, e.target.value || '08:00')}
               className="px-3 py-1 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />
+          </div>
+        </div>
+
+        {/* Debug Mode Section */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">
+            🔧 Geliştirici Araçları
+          </h2>
+          
+          <div className="space-y-4">
+            {/* Debug Mode Toggle */}
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="font-semibold text-lg block">Debug Mode</label>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Detaylı logları konsola yazar</p>
+              </div>
+              <button
+                onClick={toggleDebugMode}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  debugMode ? 'bg-green-600' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    debugMode ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            
+            {/* Export Logs Button */}
+            {debugMode && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    (window as any).exportLogs();
+                    setNotification('💾 Loglar indirildi');
+                    setTimeout(() => setNotification(null), 2000);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  💾 Logları İndir
+                </button>
+                <button
+                  onClick={() => {
+                    (window as any).clearLogs();
+                    setNotification('🗑️ Loglar temizlendi');
+                    setTimeout(() => setNotification(null), 2000);
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
+                >
+                  🗑️ Logları Temizle
+                </button>
+              </div>
+            )}
+            
+            {/* Diagnostics */}
+            <div className="pt-4 border-t dark:border-gray-700">
+              <h3 className="font-semibold mb-2">🔬 Sistem Tanılama</h3>
+              <button
+                onClick={runDiagnostics}
+                disabled={isRunningDiagnostics}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+              >
+                {isRunningDiagnostics ? '🔄 Tarama yapılıyor...' : '🎯 Tanılama Başlat'}
+              </button>
+              
+              {diagnosticResults && (
+                <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-lg space-y-3 text-sm">
+                  {/* Platform Info */}
+                  <div>
+                    <h4 className="font-bold mb-1">📱 Platform</h4>
+                    <div className="text-xs space-y-1 text-gray-600 dark:text-gray-300">
+                      <p>Protocol: <span className={diagnosticResults.platform.isSecure ? 'text-green-600' : 'text-red-600'}>{diagnosticResults.platform.protocol}</span></p>
+                      <p>Güvenli: <span className={diagnosticResults.platform.isSecure ? 'text-green-600' : 'text-red-600'}>{diagnosticResults.platform.isSecure ? '✓' : '✗'}</span></p>
+                      <p>Dil: {diagnosticResults.platform.language}</p>
+                      <p>Online: {diagnosticResults.platform.online ? '✓' : '✗'}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Permissions */}
+                  <div>
+                    <h4 className="font-bold mb-1">🔐 İzinler</h4>
+                    <div className="text-xs space-y-1 text-gray-600 dark:text-gray-300">
+                      <p>Mikrofon: <span className={diagnosticResults.permissions.microphone === 'granted' ? 'text-green-600' : 'text-orange-600'}>{diagnosticResults.permissions.microphone || 'Bilinmiyor'}</span></p>
+                      <p>Mikrofon Erişim Testi: <span className={diagnosticResults.microphoneAccess === 'granted' ? 'text-green-600' : 'text-red-600'}>{diagnosticResults.microphoneAccess}</span></p>
+                    </div>
+                  </div>
+                  
+                  {/* Web Speech API */}
+                  <div>
+                    <h4 className="font-bold mb-1">🎤 Web Speech API</h4>
+                    <div className="text-xs space-y-1 text-gray-600 dark:text-gray-300">
+                      <p>Konuşma Tanıma: <span className={diagnosticResults.webSpeech.recognition ? 'text-green-600' : 'text-red-600'}>{diagnosticResults.webSpeech.recognition ? '✓ Destekleniyor' : '✗ Desteklenmiyor'}</span></p>
+                      <p>Konuşma Sentezi: <span className={diagnosticResults.webSpeech.synthesis ? 'text-green-600' : 'text-red-600'}>{diagnosticResults.webSpeech.synthesis ? '✓ Destekleniyor' : '✗ Desteklenmiyor'}</span></p>
+                      <p>Sesler: {diagnosticResults.webSpeech.voices.length} adet</p>
+                    </div>
+                  </div>
+                  
+                  {/* Media Devices */}
+                  <div>
+                    <h4 className="font-bold mb-1">📹 Medya Cihazları</h4>
+                    <div className="text-xs space-y-1 text-gray-600 dark:text-gray-300">
+                      <p>API Desteği: {diagnosticResults.mediaDevices.hasSupport ? '✓' : '✗'}</p>
+                      {diagnosticResults.mediaDevices.devices && (
+                        <div>
+                          <p>Cihazlar:</p>
+                          <ul className="ml-4">
+                            {diagnosticResults.mediaDevices.devices.filter((d: any) => d.kind === 'audioinput').map((d: any, i: number) => (
+                              <li key={i}>🎤 {d.label}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {diagnosticResults.mediaDevices.error && (
+                        <p className="text-red-600">Hata: {diagnosticResults.mediaDevices.error}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

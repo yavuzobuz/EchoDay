@@ -146,7 +146,6 @@ const Pricing: React.FC = () => {
     
     try {
       // Supabase'e kaydetmeye çalış (RLS/konfig hatalarında fallback yapacağız)
-      let supaOk = false;
       try {
         const { error } = await supabase.from('subscriptions').insert({
           user_id: user.id,
@@ -159,7 +158,6 @@ const Pricing: React.FC = () => {
           metadata: { transaction_id: result.transactionId }
         });
         if (error) throw error;
-        supaOk = true;
       } catch (e) {
         console.warn('[Pricing] Supabase insert failed, falling back to local demo subscription:', e);
       }

@@ -7,6 +7,27 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AdminAuthProvider, useAdminAuth } from './contexts/AdminAuthContext';
 import { I18nProvider } from './contexts/I18nContext';
 import ErrorBoundary from './components/ErrorBoundary';
+import { initializeMobileWebSpeech, applyWebSpeechPolyfills, diagnoseWebSpeech } from './utils/webSpeechFix';
+
+// Initialize Web Speech API fixes for mobile
+if (typeof window !== 'undefined') {
+  // Apply polyfills first
+  applyWebSpeechPolyfills();
+  
+  // Initialize mobile-specific fixes
+  initializeMobileWebSpeech();
+  
+  // Run diagnostics in development
+  if (process.env.NODE_ENV === 'development') {
+    diagnoseWebSpeech().then(diagnostic => {
+      console.log('[WebSpeech Diagnostic]', diagnostic);
+      if (diagnostic.recommendedFixes.length > 0) {
+        console.warn('[WebSpeech] Issues found:', diagnostic.recommendedFixes);
+      }
+    });
+  }
+}
+
 // Load AI provider test utilities in development
 if (process.env.NODE_ENV === 'development') {
   import('./utils/testAIProviders').catch(() => {});

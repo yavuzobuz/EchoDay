@@ -66,41 +66,43 @@ const FAQ: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-[hsl(var(--gradient-from))] via-[hsl(var(--gradient-via))] to-[hsl(var(--gradient-to))]">
       {/* Header Navigation - Glassmorphic */}
-      <header className="sticky top-0 z-50 px-4 py-4 bg-white/10 dark:bg-gray-900/30 backdrop-blur-xl border-b border-white/20 dark:border-gray-700/50">
+      <header className="sticky top-0 z-50 px-3 sm:px-4 py-3 sm:py-4 bg-white/10 dark:bg-gray-900/30 backdrop-blur-xl border-b border-white/20 dark:border-gray-700/50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <button
             onClick={() => navigate('/')}
-            className="group flex items-center gap-3 px-4 py-2 rounded-xl bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
+            className="group flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-2 rounded-xl bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
           >
-            <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 sm:w-5 h-4 sm:h-5 text-gray-700 dark:text-gray-300 group-hover:-translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
-            <span className="font-semibold text-gray-700 dark:text-gray-300">{t('faq.back', 'Ana Sayfa')}</span>
+            <span className="hidden sm:block font-semibold text-gray-700 dark:text-gray-300">{t('faq.back', 'Ana Sayfa')}</span>
+            <span className="sm:hidden font-semibold text-gray-700 dark:text-gray-300 text-sm">Geri</span>
           </button>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Contact Button */}
             <a
               href="mailto:support@echoday.com"
-              className="group flex items-center gap-2 px-4 py-2.5 bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl rounded-xl border border-white/20 dark:border-gray-700/50 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
+              className="group flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-2.5 bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl rounded-xl border border-white/20 dark:border-gray-700/50 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
             >
-              <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 sm:w-5 h-4 sm:h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              <span className="font-semibold text-gray-700 dark:text-gray-300">{t('faq.contact', 'İletişim')}</span>
+              <span className="hidden sm:block font-semibold text-gray-700 dark:text-gray-300">{t('faq.contact', 'İletişim')}</span>
             </a>
             
             {/* Start Button */}
             <button
               onClick={() => navigate('/app')}
-              className="group relative px-5 py-2.5 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white rounded-xl font-semibold shadow-lg shadow-[hsl(var(--primary))]/25 hover:shadow-xl hover:shadow-[hsl(var(--primary))]/30 transition-all duration-300 hover:scale-105"
+              className="group relative px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white rounded-xl font-semibold shadow-lg shadow-[hsl(var(--primary))]/25 hover:shadow-xl hover:shadow-[hsl(var(--primary))]/30 transition-all duration-300 hover:scale-105"
             >
               <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
-              <span className="relative flex items-center gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <span className="relative flex items-center gap-1 sm:gap-2">
+                <svg className="w-4 sm:w-5 h-4 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
-                {t('faq.startNow', 'Hemen Başla')}
+                <span className="hidden sm:block">{t('faq.startNow', 'Hemen Başla')}</span>
+                <span className="sm:hidden text-sm">Başla</span>
               </span>
             </button>
           </div>
@@ -110,14 +112,14 @@ const FAQ: React.FC = () => {
       <main className="flex-grow p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
           {/* Hero Section */}
-          <div className="text-center mb-12 mt-8">
-            <div className="inline-block p-6 bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl rounded-3xl mb-6">
-              <Logo className="w-20 h-20" />
+          <div className="text-center mb-8 sm:mb-12 mt-4 sm:mt-8 px-4">
+            <div className="inline-block p-4 sm:p-6 bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl rounded-2xl sm:rounded-3xl mb-4 sm:mb-6">
+              <Logo className="w-12 sm:w-16 lg:w-20 h-12 sm:h-16 lg:h-20" />
             </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black mb-4 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-black mb-3 sm:mb-4 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] bg-clip-text text-transparent leading-tight">
               {t('faq.title', 'Sıkça Sorulan Sorular')}
             </h1>
-            <p className="text-lg text-[hsl(var(--muted-foreground))] max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg text-[hsl(var(--muted-foreground))] max-w-2xl mx-auto leading-relaxed">
               {t('faq.subtitle', 'EchoDay hakkında merak ettiğiniz her şey')}
             </p>
           </div>
@@ -134,25 +136,25 @@ const FAQ: React.FC = () => {
                 
                 <button
                   onClick={() => toggleAccordion(index)}
-                  className="relative w-full px-6 py-5 flex items-center justify-between text-left hover:bg-white/50 dark:hover:bg-gray-700/30 transition-colors"
+                  className="relative w-full px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between text-left hover:bg-white/50 dark:hover:bg-gray-700/30 transition-colors"
                 >
-                  <div className="flex items-start gap-4">
+                  <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
                     {/* Question Number Badge */}
-                    <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--accent))] flex items-center justify-center text-white font-bold text-sm shadow-lg">
+                    <div className="flex-shrink-0 w-7 sm:w-8 h-7 sm:h-8 rounded-lg bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--accent))] flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-lg">
                       {index + 1}
                     </div>
-                    <h3 className="font-semibold text-[hsl(var(--foreground))] text-lg pr-4">
+                    <h3 className="font-semibold text-[hsl(var(--foreground))] text-base sm:text-lg pr-2 sm:pr-4 leading-snug">
                       {faq.question}
                     </h3>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                     {openIndex === index && (
-                      <span className="text-xs px-2 py-1 bg-green-500/20 text-green-600 dark:text-green-400 rounded-full font-semibold">
+                      <span className="hidden sm:inline text-xs px-2 py-1 bg-green-500/20 text-green-600 dark:text-green-400 rounded-full font-semibold">
                         {t('faq.open', 'Açık')}
                       </span>
                     )}
                     <svg
-                      className={`w-6 h-6 text-[hsl(var(--primary))] transition-all duration-300 ${
+                      className={`w-5 sm:w-6 h-5 sm:h-6 text-[hsl(var(--primary))] transition-all duration-300 ${
                         openIndex === index ? 'rotate-180 scale-110' : ''
                       }`}
                       fill="none"
@@ -167,8 +169,8 @@ const FAQ: React.FC = () => {
                 <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
                   openIndex === index ? 'max-h-96' : 'max-h-0'
                 }`}>
-                  <div className="px-6 pb-5 pt-2 border-t border-[hsl(var(--border))]/50">
-                    <p className="text-[hsl(var(--muted-foreground))] whitespace-pre-wrap leading-relaxed pl-12">
+                  <div className="px-4 sm:px-6 pb-4 sm:pb-5 pt-2 border-t border-[hsl(var(--border))]/50">
+                    <p className="text-[hsl(var(--muted-foreground))] whitespace-pre-wrap leading-relaxed pl-8 sm:pl-12 text-sm sm:text-base">
                       {faq.answer}
                     </p>
                   </div>
@@ -178,42 +180,42 @@ const FAQ: React.FC = () => {
           </div>
 
           {/* CTA Section with Gradient Background */}
-          <div className="mt-16 relative overflow-hidden">
+          <div className="mt-12 sm:mt-16 relative overflow-hidden px-4">
             <div className="absolute inset-0 bg-gradient-to-r from-[hsl(var(--primary))]/10 via-[hsl(var(--accent))]/10 to-[hsl(var(--primary))]/10 blur-3xl" />
-            <div className="relative text-center bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-12 border border-[hsl(var(--border))] shadow-2xl">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--accent))] mb-6">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="relative text-center bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-12 border border-[hsl(var(--border))] shadow-2xl">
+              <div className="inline-flex items-center justify-center w-12 sm:w-16 h-12 sm:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--accent))] mb-4 sm:mb-6">
+                <svg className="w-6 sm:w-8 h-6 sm:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-3xl font-bold text-[hsl(var(--foreground))] mb-4">
+              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[hsl(var(--foreground))] mb-3 sm:mb-4">
                 {t('faq.cta.title', 'Başka sorunuz mu var?')}
               </h2>
-              <p className="text-lg text-[hsl(var(--muted-foreground))] mb-8 max-w-2xl mx-auto">
+              <p className="text-sm sm:text-base lg:text-lg text-[hsl(var(--muted-foreground))] mb-6 sm:mb-8 max-w-2xl mx-auto leading-relaxed">
                 {t('faq.cta.desc', 'Destek ekibimiz size yardımcı olmaktan mutluluk duyar.')}
               </p>
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
                 <button
                   onClick={() => navigate('/app')}
-                  className="group relative px-8 py-4 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white rounded-xl font-semibold shadow-lg shadow-[hsl(var(--primary))]/25 hover:shadow-xl hover:shadow-[hsl(var(--primary))]/30 transition-all duration-300 hover:scale-105"
+                  className="group relative w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white rounded-xl font-semibold shadow-lg shadow-[hsl(var(--primary))]/25 hover:shadow-xl hover:shadow-[hsl(var(--primary))]/30 transition-all duration-300 hover:scale-105"
                 >
                   <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
-                  <span className="relative flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="relative flex items-center justify-center gap-2">
+                    <svg className="w-4 sm:w-5 h-4 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    {t('faq.cta.tryNow', 'Hemen Deneyin')}
+                    <span className="text-sm sm:text-base">{t('faq.cta.tryNow', 'Hemen Deneyin')}</span>
                   </span>
                 </button>
                 <a
                   href="mailto:support@echoday.com"
-                  className="group px-8 py-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl text-[hsl(var(--foreground))] rounded-xl font-semibold border-2 border-[hsl(var(--border))] hover:border-[hsl(var(--primary))] shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
+                  className="group w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl text-[hsl(var(--foreground))] rounded-xl font-semibold border-2 border-[hsl(var(--border))] hover:border-[hsl(var(--primary))] shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105"
                 >
-                  <span className="flex items-center gap-2">
-                    <svg className="w-5 h-5 text-[hsl(var(--primary))]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="w-4 sm:w-5 h-4 sm:h-5 text-[hsl(var(--primary))]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    {t('faq.cta.contact', 'İletişime Geçin')}
+                    <span className="text-sm sm:text-base">{t('faq.cta.contact', 'İletişime Geçin')}</span>
                   </span>
                 </a>
               </div>

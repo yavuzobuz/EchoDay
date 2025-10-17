@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.smarttodo.assistant"
+    namespace "com.echoday.assistant"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.smarttodo.assistant"
+        applicationId "com.echoday.assistant"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -18,8 +18,13 @@ android {
     }
     buildTypes {
         release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            debuggable true
         }
     }
 }
