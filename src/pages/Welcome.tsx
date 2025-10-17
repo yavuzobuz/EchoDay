@@ -21,7 +21,7 @@ const Feature: React.FC<{ icon: React.ReactNode; title: string; children: React.
   
   return (
     <div 
-      className={`group feature-card text-center h-full ${
+      className={`group feature-card text-center h-full snap-center w-[90vw] sm:w-auto flex-shrink-0 ${
         isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
       }`}
       style={{ transitionDelay: `${delay}ms` }}
@@ -41,7 +41,11 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isLoaded] = useState(true); // Instantly visible
   const [currentScene, setCurrentScene] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const scenes = 4; // Total scenes
+  // Mobile static preview scenes (no animation)
+  const [mobilePreviewScene, setMobilePreviewScene] = useState(0);
+  const mobileScenes = 4;
   
   // Routing and auth
   const navigate = useNavigate();
@@ -83,14 +87,28 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Auto scene change - Every 5 seconds
+  // Auto scene change - Every 5 seconds (desktop only)
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentScene((prev) => (prev + 1) % scenes);
-    }, 5000); // 5000ms = 5 seconds
-
-    return () => clearInterval(interval);
+    // Only animate scenes on screens >= 768px to avoid unnecessary work on mobile
+    if (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches) {
+      const interval = setInterval(() => {
+        setCurrentScene((prev) => (prev + 1) % scenes);
+      }, 5000); // 5000ms = 5 seconds
+      return () => clearInterval(interval);
+    }
+    return;
   }, [scenes]);
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      const original = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = original;
+      };
+    }
+  }, [mobileMenuOpen]);
 
   const nextScene = () => {
     setCurrentScene((prev) => (prev + 1) % scenes);
@@ -112,7 +130,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
   };
   
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[hsl(var(--gradient-from))] via-[hsl(var(--gradient-via))] to-[hsl(var(--gradient-to))] text-[hsl(var(--foreground))] p-4 sm:p-6 lg:p-8 transition-colors duration-300 overflow-x-hidden relative">
+    <div className="min-h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[hsl(var(--gradient-from))] via-[hsl(var(--gradient-via))] to-[hsl(var(--gradient-to))] text-[hsl(var(--foreground))] p-4 sm:p-6 lg:p-8 pb-28 md:pb-8 transition-colors duration-300 overflow-x-hidden relative">
       {/* Animated Background Gradient */}
       <div 
         className="absolute inset-0 opacity-30 dark:opacity-20 pointer-events-none"
@@ -122,7 +140,7 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
       />
       
       {/* Floating Particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="hidden sm:block absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(20)].map((_, i) => (
           <div
             key={i}
@@ -145,8 +163,8 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
             <div className="flex items-center gap-8">
               {/* Mini Logo */}
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl flex items-center justify-center shadow-lg border border-white/20 dark:border-gray-700/50">
-                  <Logo className="w-6 h-6" />
+                <div className="w-11 h-11 md:w-10 md:h-10 rounded-xl bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl flex items-center justify-center shadow-lg border border-white/20 dark:border-gray-700/50">
+                  <Logo className="w-8 h-8 md:w-6 md:h-6" />
                 </div>
                 <span className="hidden sm:block text-lg font-bold bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] bg-clip-text text-transparent">EchoDay</span>
               </div>
@@ -198,56 +216,173 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                 </button>
               </nav>
               
-              {/* Mobile Menu Button */}
-              <button className="md:hidden p-2 rounded-lg bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50">
-                <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
             </div>
             
             {/* Right side - Action Buttons */}
             <div className="flex items-center gap-3">
-              {/* Language Switcher */}
-              <button
-                onClick={() => setLang(lang === 'tr' ? 'en' : 'tr')}
-                className="group flex items-center gap-2 px-4 py-2.5 bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl rounded-xl border border-white/20 dark:border-gray-700/50 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
-                title={lang === 'tr' ? 'Switch to English' : 'Türkçe\'ye geç'}
-              >
-                <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-[hsl(var(--primary))] transition-colors" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7 2a1 1 0 011 1v1h3a1 1 0 110 2H9.578a18.87 18.87 0 01-1.724 4.78c.29.354.596.696.914 1.026a1 1 0 11-1.44 1.389c-.188-.196-.373-.396-.554-.6a19.098 19.098 0 01-3.107 3.567 1 1 0 01-1.334-1.49 17.087 17.087 0 003.13-3.733 18.992 18.992 0 01-1.487-2.494 1 1 0 111.79-.89c.234.47.489.928.764 1.372.417-.934.752-1.913.997-2.927H3a1 1 0 110-2h3V3a1 1 0 011-1zm6 6a1 1 0 01.894.553l2.991 5.982a.869.869 0 01.02.037l.99 1.98a1 1 0 11-1.79.895L15.383 16h-4.764l-.724 1.447a1 1 0 11-1.788-.894l.99-1.98.019-.038 2.99-5.982A1 1 0 0113 8zm-1.382 6h2.764L13 11.236 11.618 14z" clipRule="evenodd" />
-                </svg>
-                <span className="font-semibold text-gray-700 dark:text-gray-300">
-                  {lang === 'tr' ? 'EN' : 'TR'}
-                </span>
-              </button>
-              
-              {/* Pricing Button with Glow Effect */}
-              <button
-                onClick={() => navigate('/pricing')}
-                className="group relative px-5 py-2.5 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white rounded-xl font-semibold shadow-lg shadow-[hsl(var(--primary))]/25 hover:shadow-xl hover:shadow-[hsl(var(--primary))]/30 transition-all duration-300 hover:scale-105"
-              >
-                <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
-                <span className="relative flex items-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              {/* Desktop actions */}
+              <div className="hidden md:flex items-center gap-3">
+                {/* Language Switcher */}
+                <button
+                  onClick={() => setLang(lang === 'tr' ? 'en' : 'tr')}
+                  className="group flex items-center gap-2 px-4 py-2.5 bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl rounded-xl border border-white/20 dark:border-gray-700/50 hover:bg-white/20 dark:hover:bg-white/10 transition-all duration-300"
+                  title={lang === 'tr' ? 'Switch to English' : 'Türkçe\'ye geç'}
+                >
+                  <svg className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-[hsl(var(--primary))] transition-colors" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M7 2a1 1 0 011 1v1h3a1 1 0 110 2H9.578a18.87 18.87 0 01-1.724 4.78c.29.354.596.696.914 1.026a1 1 0 11-1.44 1.389c-.188-.196-.373-.396-.554-.6a19.098 19.098 0 01-3.107 3.567 1 1 0 01-1.334-1.49 17.087 17.087 0 003.13-3.733 18.992 18.992 0 01-1.487-2.494 1 1 0 111.79-.89c.234.47.489.928.764 1.372.417-.934.752-1.913.997-2.927H3a1 1 0 110-2h3V3a1 1 0 011-1zm6 6a1 1 0 01.894.553l2.991 5.982a.869.869 0 01.02.037l.99 1.98a1 1 0 11-1.79.895L15.383 16h-4.764l-.724 1.447a1 1 0 11-1.788-.894l.99-1.98.019-.038 2.99-5.982A1 1 0 0113 8zm-1.382 6h2.764L13 11.236 11.618 14z" clipRule="evenodd" />
                   </svg>
-                  <span className="hidden sm:inline">{t('welcome.pricing', 'Fiyatlandırma')}</span>
-                  <span className="sm:hidden">Pro</span>
-                </span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300">
+                    {lang === 'tr' ? 'EN' : 'TR'}
+                  </span>
+                </button>
+                
+                {/* Pricing Button with Glow Effect */}
+                <button
+                  onClick={() => navigate('/pricing')}
+                  className="group relative px-5 py-2.5 bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white rounded-xl font-semibold shadow-lg shadow-[hsl(var(--primary))]/25 hover:shadow-xl hover:shadow-[hsl(var(--primary))]/30 transition-all duration-300 hover:scale-105"
+                >
+                  <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] blur-lg opacity-70 group-hover:opacity-100 transition-opacity" />
+                  <span className="relative flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="hidden sm:inline">{t('welcome.pricing', 'Fiyatlandırma')}</span>
+                    <span className="sm:hidden">Pro</span>
+                  </span>
+                </button>
+              </div>
+
+              {/* Mobile Menu Button (right aligned) */}
+              <button
+                onClick={() => setMobileMenuOpen((o) => !o)}
+                aria-label="Menüyü aç/kapat"
+                aria-expanded={mobileMenuOpen}
+                className="md:hidden p-2 rounded-lg bg-white/10 dark:bg-gray-800/30 backdrop-blur-xl border border-white/20 dark:border-gray-700/50 active:scale-95 transition"
+              >
+                {mobileMenuOpen ? (
+                  <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 text-gray-700 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>
         </div>
         
+        {/* Mobile Menu Overlay + Panel (only on small screens) */}
+        {mobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-[55] bg-black/40 backdrop-blur-sm md:hidden animate-fade-in"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            {/* Panel */}
+            <div className="md:hidden fixed top-16 inset-x-0 z-[60] px-4">
+              <div className="max-w-7xl mx-auto animate-fade-in">
+                {/* Gradient border wrapper */}
+                <div className="p-[1px] rounded-2xl bg-gradient-to-r from-[hsl(var(--primary))]/40 to-[hsl(var(--accent))]/40 shadow-2xl">
+                  <div className="relative overflow-hidden bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-gray-700/50">
+                    {/* Glow ring */}
+                    <div className="pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-r from-[hsl(var(--primary))]/10 to-[hsl(var(--accent))]/10" />
+                    {/* Handle */}
+                    <div className="flex justify-center pt-3">
+                      <div className="h-1.5 w-10 rounded-full bg-black/10 dark:bg-white/20" />
+                    </div>
+                    <div className="p-2 pb-3 space-y-1">
+                      <button
+                        onClick={() => {
+                          const el = document.getElementById('new-features');
+                          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[hsl(var(--foreground))] hover:bg-white/60 dark:hover:bg-white/5 active:scale-[0.99] transition shadow-sm"
+                      >
+                        <svg className="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span className="font-medium">{t('welcome.nav.features', 'Özellikler')}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' });
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[hsl(var(--foreground))] hover:bg-white/60 dark:hover:bg-white/5 active:scale-[0.99] transition shadow-sm"
+                      >
+                        <svg className="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium">{t('welcome.nav.about', 'Hakkında')}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          navigate('/faq');
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[hsl(var(--foreground))] hover:bg-white/60 dark:hover:bg-white/5 active:scale-[0.99] transition shadow-sm"
+                      >
+                        <svg className="w-5 h-5 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium">{t('welcome.nav.faq', 'SSS')}</span>
+                      </button>
+
+                      <div className="my-2 h-px bg-white/40 dark:bg-gray-700/60" />
+
+                      <button
+                        onClick={() => {
+                          navigate('/pricing');
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white font-semibold shadow-md active:scale-[0.99]"
+                      >
+                        <span className="flex items-center gap-2">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {t('welcome.pricing', 'Fiyatlandırma')}
+                        </span>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setLang(lang === 'tr' ? 'en' : 'tr');
+                          setMobileMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[hsl(var(--foreground))] hover:bg-white/60 dark:hover:bg-white/5 active:scale-[0.99] transition shadow-sm"
+                      >
+                        <svg className="w-5 h-5 opacity-70" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M7 2a1 1 0 011 1v1h3a1 1 0 110 2H9.578a18.87 18.87 0 01-1.724 4.78c.29.354.596.696.914 1.026a1 1 0 11-1.44 1.389c-.188-.196-.373-.396-.554-.6a19.098 19.098 0 01-3.107 3.567 1 1 0 01-1.334-1.49 17.087 17.087 0 003.13-3.733 18.992 18.992 0 01-1.487-2.494 1 1 0 111.79-.89c.234.47.489.928.764 1.372.417-.934.752-1.913.997-2.927H3a1 1 0 110-2h3V3a1 1 0 011-1zm6 6a1 1 0 01.894.553l2.991 5.982a.869.869 0 01.02.037l.99 1.98a1 1 0 11-1.79.895L15.383 16h-4.764l-.724 1.447a1 1 0 11-1.788-.894l.99-1.98.019-.038 2.99-5.982A1 1 0 0113 8zm-1.382 6h2.764L13 11.236 11.618 14z" clipRule="evenodd" />
+                        </svg>
+                        <span className="font-medium">{lang === 'tr' ? 'EN' : 'TR'}</span>
+                      </button>
+                    </div>
+                    <div className="pb-3 pb-safe" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+        
+        {/* Spacer to offset fixed header on mobile */}
+        <div className="mt-16 md:hidden" />
+        
         {/* Logo with pulse animation - BÜYÜTÜLDÜ - Preloaded */}
-        <div className="inline-block p-8 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-3xl mb-8 mt-20 glow-primary transform scale-100 opacity-100 rotate-0 transition-all duration-300">
+        <div className="hidden md:inline-block p-8 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-3xl mb-8 mt-20 glow-primary transform scale-100 opacity-100 rotate-0 transition-all duration-300">
           <img 
             src="/app-icon.png" 
             alt="EchoDay logo" 
             className="w-32 h-32 animate-pulse"
             loading="eager"
-            fetchPriority="high"
             decoding="async"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -300,8 +435,8 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
           {t('welcome.heroDescription','Boost your productivity with AI-powered voice commands, smart suggestions, and powerful analysis features.')}
         </p>
 
-        {/* Features Grid with stagger animation */}
-        <div id="features" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-16 scroll-mt-20">
+        {/* Features - Vertical on mobile, grid on desktop */}
+        <div id="features" className="grid grid-cols-1 gap-4 mb-16 scroll-mt-20 sm:grid-cols-2 lg:grid-cols-5 sm:px-0">
           <Feature
             icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>}
             title={t('welcome.feature1.title','Voice Management')}
@@ -339,86 +474,83 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
           </Feature>
         </div>
         
-        {/* App Preview Mockup - 3 SAHNE */}
-        <div className={`mb-16 transform transition-all duration-1000 delay-500 ${
+        {/* App Preview Mockup - Mobile Responsive */}
+        <div className={`mb-16 transform transition-all duration-1000 delay-500 w-full ${
           isLoaded ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
         }`}>
-            <div className="relative max-w-6xl mx-auto w-full overflow-hidden">
-            {/* Navigation Arrows */}
-            <button 
-              onClick={prevScene}
-              className="hidden lg:block absolute left-0 top-1/2 -translate-y-1/2 -translate-x-16 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
-              aria-label={t('welcome.scenes.prev', 'Önceki sahne')}
-            >
-              <svg className="w-6 h-6 text-[hsl(var(--foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-            </button>
-            <button 
-              onClick={nextScene}
-              className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-16 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
-              aria-label={t('welcome.scenes.next', 'Sonraki sahne')}
-            >
-              <svg className="w-6 h-6 text-[hsl(var(--foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
-            {/* Modern App Window - Resimdeki gibi */}
-            <div className="bg-[hsl(var(--card))] rounded-2xl shadow-2xl overflow-hidden border border-[hsl(var(--border))]">
-              {/* Window Header - macOS tarzı */}
-              <div className="bg-[hsl(var(--background))] px-4 py-3 flex items-center gap-3 border-b border-[hsl(var(--border))]">
-                <div className="flex gap-2">
-                  <div className="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
-                  <div className="w-3 h-3 rounded-full bg-[#febc2e]"></div>
-                  <div className="w-3 h-3 rounded-full bg-[#28c840]"></div>
-                </div>
-                <div className="flex-1 flex items-center justify-center">
-                  <div className="flex items-center gap-2 text-[hsl(var(--muted-foreground))] text-sm font-medium">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                    </svg>
-                    EchoDay
+          <div className="relative w-full">
+            {/* Desktop: Full mockup with arrows */}
+            <div className="hidden md:block relative max-w-6xl mx-auto">
+              {/* Navigation Arrows */}
+              <button 
+                onClick={prevScene}
+                className="absolute -left-16 top-1/2 -translate-y-1/2 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
+                aria-label={t('welcome.scenes.prev', 'Önceki sahne')}
+              >
+                <svg className="w-6 h-6 text-[hsl(var(--foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <button 
+                onClick={nextScene}
+                className="absolute -right-16 top-1/2 -translate-y-1/2 p-3 bg-[hsl(var(--card))] hover:bg-[hsl(var(--muted))] rounded-full shadow-lg transition-colors z-10"
+                aria-label={t('welcome.scenes.next', 'Sonraki sahne')}
+              >
+                <svg className="w-6 h-6 text-[hsl(var(--foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+              </button>
+              
+              {/* Mockup Window */}
+              <div className="bg-[hsl(var(--card))] rounded-2xl shadow-2xl overflow-hidden border border-[hsl(var(--border))]">
+                {/* Header */}
+                <div className="bg-[hsl(var(--background))] px-4 py-3 flex items-center gap-3 border-b border-[hsl(var(--border))]">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 rounded-full bg-[#ff5f57]"></div>
+                    <div className="w-3 h-3 rounded-full bg-[#febc2e]"></div>
+                    <div className="w-3 h-3 rounded-full bg-[#28c840]"></div>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center">
+                    <span className="text-[hsl(var(--muted-foreground))] text-sm font-medium">EchoDay</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
-                  <svg className="w-5 h-5 text-[hsl(var(--muted-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                </div>
-              </div>
-              
-              {/* App Content - Sahneler */}
-              <div className="p-6 space-y-6 min-h-[600px]">
+                
+                {/* Content */}
+                <div className="p-4 sm:p-6 space-y-4 min-h-[400px] sm:min-h-[600px]">
                 {/* SAHNE 1: Ana Ekran */}
                 {currentScene === 0 && (
                   <>
                 {/* Top Action Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4">
                   {/* Sesli Görev Ekle Card */}
-                  <div className="bg-[hsl(var(--muted))] rounded-xl p-6 flex flex-col items-center justify-center gap-3 hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
-                    <div className="w-14 h-14 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center">
-                      <svg className="w-7 h-7 text-[hsl(var(--primary-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                  <div className="bg-[hsl(var(--muted))] rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 flex flex-col items-center justify-center gap-2 sm:gap-3 hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
+                    <div className="w-10 sm:w-12 md:w-14 h-10 sm:h-12 md:h-14 rounded-full bg-[hsl(var(--primary))] flex items-center justify-center">
+                      <svg className="w-5 sm:w-6 md:w-7 h-5 sm:h-6 md:h-7 text-[hsl(var(--primary-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
                     </div>
                     <div className="text-center">
-                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">{t('welcome.mockup.voiceTask','Voice Task')}</h3>
-                      <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.voiceTaskDesc','Add quickly with voice command')}</p>
+                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-0.5 sm:mb-1 text-sm sm:text-base">{t('welcome.mockup.voiceTask','Voice Task')}</h3>
+                      <p className="text-xs sm:text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.voiceTaskDesc','Add quickly with voice command')}</p>
                     </div>
                   </div>
 
                   {/* AI Sohbet Card */}
-                  <div className="bg-[hsl(var(--muted))] rounded-xl p-6 flex flex-col items-center justify-center gap-3 hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
-                    <div className="w-14 h-14 rounded-full bg-[hsl(var(--accent))] flex items-center justify-center">
-                      <svg className="w-7 h-7 text-[hsl(var(--accent-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
+                  <div className="bg-[hsl(var(--muted))] rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 flex flex-col items-center justify-center gap-2 sm:gap-3 hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
+                    <div className="w-10 sm:w-12 md:w-14 h-10 sm:h-12 md:h-14 rounded-full bg-[hsl(var(--accent))] flex items-center justify-center">
+                      <svg className="w-5 sm:w-6 md:w-7 h-5 sm:h-6 md:h-7 text-[hsl(var(--accent-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
                     </div>
                     <div className="text-center">
-                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">{t('welcome.mockup.aiChat','AI Chat')}</h3>
-                      <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.aiChatDesc','Chat with your assistant.')}</p>
+                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-0.5 sm:mb-1 text-sm sm:text-base">{t('welcome.mockup.aiChat','AI Chat')}</h3>
+                      <p className="text-xs sm:text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.aiChatDesc','Chat with your assistant.')}</p>
                     </div>
                   </div>
 
                   {/* Resimle Card */}
-                  <div className="bg-[hsl(var(--muted))] rounded-xl p-6 flex flex-col items-center justify-center gap-3 hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
-                    <div className="w-14 h-14 rounded-full bg-[hsl(var(--destructive))] flex items-center justify-center">
-                      <svg className="w-7 h-7 text-[hsl(var(--destructive-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  <div className="bg-[hsl(var(--muted))] rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-6 flex flex-col items-center justify-center gap-2 sm:gap-3 hover:bg-[hsl(var(--muted)_/_0.8)] transition-colors">
+                    <div className="w-10 sm:w-12 md:w-14 h-10 sm:h-12 md:h-14 rounded-full bg-[hsl(var(--destructive))] flex items-center justify-center">
+                      <svg className="w-5 sm:w-6 md:w-7 h-5 sm:h-6 md:h-7 text-[hsl(var(--destructive-foreground))]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                     </div>
                     <div className="text-center">
-                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-1">{t('welcome.mockup.fromImage','From Image')}</h3>
-                      <p className="text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.fromImageDesc','Create task from photo automatically')}</p>
+                      <h3 className="font-bold text-[hsl(var(--foreground))] mb-0.5 sm:mb-1 text-sm sm:text-base">{t('welcome.mockup.fromImage','From Image')}</h3>
+                      <p className="text-xs sm:text-sm text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.fromImageDesc','Create task from photo automatically')}</p>
                     </div>
                   </div>
                 </div>
@@ -751,13 +883,161 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
                     </div>
                   </div>
                 </div>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* Mobile: Light Preview (shown only on small screens) */}
+            <div className="md:hidden relative max-w-md mx-auto mb-32" style={{ marginBottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)' }}>
+              {/* Scene 0: My Tasks (light) */}
+              {mobilePreviewScene === 0 && (
+                <div className="p-4 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-2xl border border-[hsl(var(--border))] shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--accent))] flex items-center justify-center text-white">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>
+                      </div>
+                      <span className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('welcome.mockup.myTasks','My Tasks')}</span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.today','Today')}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-3 p-3 bg-[hsl(var(--muted))] rounded-xl">
+                      <div className="mt-0.5 w-4 h-4 rounded border border-[hsl(var(--border))] bg-[hsl(var(--background))]" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-[hsl(var(--foreground))] truncate">
+                          {t('welcome.feature2.title','Smart Analysis')} • {t('welcome.feature3.title','Task from Image')}
+                        </div>
+                        <div className="text-xs text-[hsl(var(--muted-foreground))] mt-0.5 truncate">
+                          {t('welcome.feature2.desc','AI automatically extracts details like date, priority, and location.')}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[hsl(var(--background))] border border-[hsl(var(--border))]">
+                      <svg className="w-4 h-4 text-[hsl(var(--primary))]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14a3 3 0 003-3V7a3 3 0 10-6 0v4a3 3 0 003 3z"/></svg>
+                      <span className="text-[10px] font-medium text-[hsl(var(--foreground))]">{t('welcome.feature1.title','Voice Management')}</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[hsl(var(--background))] border border-[hsl(var(--border))]">
+                      <svg className="w-4 h-4 text-[hsl(var(--accent))]" fill="currentColor" viewBox="0 0 20 20"><path d="M13 7H7v6h6V7z" /><path fillRule="evenodd" d="M7 2a1 1 0 012 0v1h2V2a1 1 0 112 0v1h2a2 2 0 012 2v2h1a1 1 0 110 2h-1v2h1a1 1 0 110 2h-1v2a2 2 0 01-2 2h-2v1a1 1 0 11-2 0v-1H9v1a1 1 0 11-2 0v-1H5a2 2 0 01-2-2v-2H2a1 1 0 110-2h1V9H2a1 1 0 010-2h1V5a2 2 0 012-2h2V2z" clipRule="evenodd" /></svg>
+                      <span className="text-[10px] font-medium text-[hsl(var(--foreground))]">AI</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1 p-2 rounded-lg bg-[hsl(var(--background))] border border-[hsl(var(--border))]">
+                      <svg className="w-4 h-4 text-pink-600" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
+                      <span className="text-[10px] font-medium text-[hsl(var(--foreground))]">{t('welcome.badge.fast','Fast')}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Scene 1: PDF Analysis */}
+              {mobilePreviewScene === 1 && (
+                <div className="p-4 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-2xl border border-[hsl(var(--border))] shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M7 2h8l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm8 7h5l-5-5v5z"/></svg>
+                      </div>
+                      <span className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('welcome.mockup.pdfAnalysis','PDF Analysis')}</span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500 text-white">{t('welcome.mockup.new','NEW!')}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="p-3 rounded-lg bg-white/50 dark:bg-black/20 text-sm">
+                      <div className="font-semibold text-[hsl(var(--foreground))] mb-0.5">• {t('welcome.mockup.taskExtracted','Task Extracted')}</div>
+                      <div className="text-[10px] text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.pdfDesc','Meeting invitation, invoices, meeting notes... AI will analyze automatically!')}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/50 dark:bg-black/20 text-sm">
+                      <div className="font-semibold text-[hsl(var(--foreground))] mb-0.5">• {t('welcome.mockup.noteAdded','Note Added')}</div>
+                      <div className="text-[10px] text-[hsl(var(--muted-foreground))]">{t('welcome.mockup.multilingualSupport','Multilingual Support: PDF can be in Turkish, English, German, or another language - AI responds in the same language!')}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Scene 2: AI Assistant Chat */}
+              {mobilePreviewScene === 2 && (
+                <div className="p-4 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-2xl border border-[hsl(var(--border))] shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold text-[hsl(var(--foreground))]">🤖 {t('welcome.mockup.aiAssistant','AI Assistant')}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]">{t('welcome.badge.voice','Voice')}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex justify-end">
+                      <div className="bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] rounded-2xl rounded-tr-sm px-3 py-2 max-w-[80%] text-xs">
+                        {t('welcome.mockup.typePlaceholder','Type your message...')}
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <div className="w-7 h-7 rounded-full bg-[hsl(var(--accent))] flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-[hsl(var(--accent-foreground))]" fill="currentColor" viewBox="0 0 20 20"><path d="M13 7H7v6h6V7z" /></svg>
+                      </div>
+                      <div className="bg-[hsl(var(--muted))] rounded-2xl rounded-tl-sm px-3 py-2 max-w-[80%] text-xs text-[hsl(var(--foreground))]">
+                        {t('welcome.feature.realTimeVoice.desc','Keyword listening and instant AI transcription for fluent conversation')}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Scene 3: Location Reminder */}
+              {mobilePreviewScene === 3 && (
+                <div className="p-4 bg-[hsl(var(--card))]/80 backdrop-blur-lg rounded-2xl border border-[hsl(var(--border))] shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-rose-500 text-white flex items-center justify-center">
+                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9a2 2 0 110-4 2 2 0 010 4z"/></svg>
+                      </div>
+                      <span className="text-sm font-semibold text-[hsl(var(--foreground))]">{t('welcome.feature.locationReminder.title','Location Reminder + Directions')}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex items-center gap-2 p-3 rounded-xl bg-[hsl(var(--muted))]">
+                      <svg className="w-4 h-4 text-rose-600" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 00-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 00-7-7zm0 9a2 2 0 110-4 2 2 0 010 4z"/></svg>
+                      <div className="flex-1">
+                        <div className="font-semibold text-[hsl(var(--foreground))]">{t('welcome.mockup.myTasks','My Tasks')} → {t('welcome.feature.locationReminder.title','Location Reminder')}</div>
+                        <div className="text-[hsl(var(--muted-foreground))]">{t('welcome.feature.locationReminder.desc','Location-based triggers and AI routing')}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Mobile scene indicators */}
+              <div className="flex justify-center gap-2 mt-3">
+                {[0, 1, 2, 3].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setMobilePreviewScene(s)}
+                    className={`h-2 rounded-full transition-all ${mobilePreviewScene === s ? 'bg-[hsl(var(--primary))] w-7' : 'bg-[hsl(var(--muted))] w-2'}`}
+                    aria-label={t('welcome.scenes.indicator', 'Sahne {number}').replace('{number}', (s + 1).toString())}
+                  />
+                ))}
+              </div>
+
+              {/* Mobile CTA buttons (directly below indicators) */}
+              {!mobileMenuOpen && (
+                <div className="mt-4">
+                  <div className="p-[1px] rounded-2xl bg-gradient-to-r from-[hsl(var(--primary))]/40 to-[hsl(var(--accent))]/40 shadow-2xl">
+                    <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl border border-white/20 dark:border-gray-700/50 px-3 py-3 flex items-center gap-2">
+                      <button onClick={handleQuickStart} className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-white font-semibold shadow active:scale-[0.99]">
+                        {t('welcome.getStartedButton', 'Hemen Başla')}
+                      </button>
+                      <a href={primaryDownloadHref} className="px-4 py-2.5 rounded-xl bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] border border-[hsl(var(--border))] font-semibold active:scale-[0.99]">
+                        {t('welcome.download', 'İndir')}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             
-            {/* Scene Indicator Dots */}
-            <div className="flex justify-center gap-2 mt-6">
+            {/* Scene Indicator Dots (hidden on mobile) */}
+            <div className="hidden md:flex justify-center gap-2 mt-6">
               {[0, 1, 2, 3].map((scene) => (
                 <button
                   key={scene}
