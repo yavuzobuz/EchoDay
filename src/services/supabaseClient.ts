@@ -57,21 +57,102 @@ if (isElectron && typeof navigator !== 'undefined' && !navigator.locks) {
   };
 }
 
-// Configure Supabase client safely (avoid runtime crash if env missing on Vercel)
-export const supabase = hasValidConfig ? createClient(rawUrl as string, rawKey as string, {
-  auth: {
-    storageKey: 'supabase-auth',
-    storage: window.localStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false
-  },
-  global: {
-    headers: {
-      'Accept': 'application/json'
+// Debug mobile environment
+if (typeof window !== 'undefined') {
+  console.log('[Supabase Debug] Environment check:', {
+    hasAndroidEnv: !!(window as any).androidEnv,
+    androidEnv: (window as any).androidEnv || 'not found',
+    rawUrl,
+    rawKeyLength: rawKey?.length || 0,
+    hasValidConfig,
+    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+  });
+}
+
+// Global supabase instance (will be set after env loads)
+let _supabaseInstance: any = null;
+
+// Initialize immediately if config available
+if (hasValidConfig) {
+  _supabaseInstance = createClient(rawUrl as string, rawKey as string, {
+    auth: {
+      storageKey: 'supabase-auth',
+      storage: window.localStorage,
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: false
+    },
+    global: {
+      headers: {
+        'Accept': 'application/json'
+      }
     }
+  });
+  console.log('[Supabase] Initialized immediately with import.meta.env');
+}
+
+// For mobile: Initialize after android-env.js loads
+if (typeof window !== 'undefined' && !_supabaseInstance) {
+  // Check periodically for androidEnv
+  let attempts = 0;
+  const checkInterval = setInterval(() => {
+    attempts++;
+    
+    if ((window as any).androidEnv) {
+      clearInterval(checkInterval);
+      
+      console.log('[Supabase] androidEnv detected, initializing...');
+      const mobileUrl = (window as any).androidEnv.VITE_SUPABASE_URL;
+      const mobileKey = (window as any).androidEnv.VITE_SUPABASE_ANON_KEY;
+      
+      if (isValidHttpUrl(mobileUrl) && mobileKey && mobileKey.length > 10) {
+        _supabaseInstance = createClient(mobileUrl, mobileKey, {
+          auth: {
+            storageKey: 'supabase-auth',
+            storage: window.localStorage,
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: false
+          },
+          global: {
+            headers: {
+              'Accept': 'application/json'
+            }
+          }
+        });
+        
+        console.log('[Supabase] Mobile initialization successful!', {
+          url: mobileUrl,
+          keyLength: mobileKey.length
+        });
+        
+        // Notify app that supabase is ready
+        window.dispatchEvent(new CustomEvent('supabase-ready'));
+        
+        // Update window reference
+        (window as any).__supabase = _supabaseInstance;
+      } else {
+        console.error('[Supabase] Invalid mobile config:', { mobileUrl, keyLength: mobileKey?.length });
+      }
+    } else if (attempts > 50) {
+      // Stop after 5 seconds (50 * 100ms)
+      clearInterval(checkInterval);
+      console.error('[Supabase] androidEnv not found after 5 seconds');
+    }
+  }, 100);
+}
+
+// Export as const with Proxy for dynamic getter
+export const supabase = new Proxy({} as any, {
+  get(_target, prop) {
+    const instance = _supabaseInstance || (window as any).__supabase;
+    if (!instance) {
+      console.warn('[Supabase] Not initialized yet');
+      return undefined;
+    }
+    return instance[prop];
   }
-}) : (console.warn('[Supabase] Not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for web builds'), null as any);
+});
 
 // Dev helper: expose Supabase client for quick console testing (safe for dev)
 try {

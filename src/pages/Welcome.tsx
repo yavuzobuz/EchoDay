@@ -45,7 +45,6 @@ const Welcome: React.FC<WelcomeProps> = ({ onGetStarted, onNavigateToAuth, isFir
   const scenes = 4; // Total scenes
   // Mobile static preview scenes (no animation)
   const [mobilePreviewScene, setMobilePreviewScene] = useState(0);
-  const mobileScenes = 4;
   
   // Routing and auth
   const navigate = useNavigate();

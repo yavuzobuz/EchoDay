@@ -71,7 +71,10 @@ copy "android\app\build\outputs\apk\debug\app-debug.apk" ".\EchoDay-debug.apk"
 npm run android:build
 
 # Sadece APK (web app zaten build'liyse)
-cd android && .\gradlew assembleDebug
+# macOS/Linux
+cd android && ./gradlew assembleDebug
+# Windows
+cd android && .\gradlew.bat assembleDebug
 ```
 
 ### Release APK (Production)
@@ -87,7 +90,7 @@ cd android && .\gradlew assembleRelease
 - **Mobile**: Capacitor v6.2.1  
 - **Build Tool**: Gradle 8.5
 - **Android API**: Level 34
-- **Java**: 1.8.0_451
+- **Java**: 17.x (required by AGP 8)
 
 ### Plugin'ler
 - Speech Recognition (Ses tanıma)

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Sesli Asistan</string>
-    <string name="title_activity_main">Sesli Asistan</string>
-    <string name="package_name">com.smarttodo.assistant</string>
-    <string name="custom_url_scheme">com.smarttodo.assistant</string>
+    <string name="app_name">EchoDay</string>
+    <string name="title_activity_main">EchoDay</string>
+    <string name="package_name">com.echoday.assistant</string>
+    <string name="custom_url_scheme">com.echoday.assistant</string>
 </resources>

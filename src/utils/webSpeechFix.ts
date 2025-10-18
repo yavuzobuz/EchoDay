@@ -202,35 +202,38 @@ export function initializeMobileWebSpeech() {
   
   // Handle audio context for mobile browsers
   let audioContextInitialized = false;
+  let audioContext: AudioContext | null = null;
+  
   const initAudioContext = () => {
     if (audioContextInitialized) return;
     
     try {
       const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
       if (AudioContext) {
-        const context = new AudioContext();
-        if (context.state === 'suspended') {
-          context.resume().then(() => {
-            console.log('[AudioContext] Successfully resumed after user gesture');
+        // Only create AudioContext after user gesture to prevent autoplay violations
+        if (!audioContext) {
+          audioContext = new AudioContext();
+        }
+        
+        if (audioContext && audioContext.state === 'suspended') {
+          audioContext.resume().then(() => {
+            // Sessiz log - autoplay policy normal davranış
             audioContextInitialized = true;
           }).catch(() => {
-            // Sessiz hata - autoplay policy normal davranış
-            console.warn('[AudioContext] Resume deferred until user interaction');
+            // Completely silent - this is expected browser behavior
           });
-        } else if (context.state === 'running') {
-          console.log('[AudioContext] Already running');
+        } else if (audioContext && audioContext.state === 'running') {
           audioContextInitialized = true;
         }
       }
     } catch (error) {
-      // Sessiz hata - autoplay policy normal davranış  
-      console.warn('[AudioContext] Initialization deferred until user interaction');
+      // Completely silent - autoplay policy is expected behavior
     }
   };
   
   // Initialize on user interaction
-  document.addEventListener('click', initAudioContext, { once: true });
-  document.addEventListener('touchstart', initAudioContext, { once: true });
+  document.addEventListener('click', initAudioContext, { once: true, passive: true });
+  document.addEventListener('touchstart', initAudioContext, { once: true, passive: true });
 }
 
 // Polyfill for missing Web Speech API features

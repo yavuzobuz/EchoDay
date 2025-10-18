@@ -52,10 +52,14 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
   const [editText, setEditText] = useState(todo.text);
   const [showReminderBadge, setShowReminderBadge] = useState(false);
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
-  const [reminderLoading, setReminderLoading] = useState(false);
   const [isGeoModalOpen, setIsGeoModalOpen] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const { isSpeaking, speak, cancel, hasSupport } = useTextToSpeech();
+  
+  // Debug: Log when modal state changes
+  useEffect(() => {
+    console.log('⚡ isReminderModalOpen changed to:', isReminderModalOpen, 'for task:', todo.id);
+  }, [isReminderModalOpen, todo.id]);
 
   // Uzun ve bozuk satır sonlarını tek satıra normalize et (PDF/OCR kaynaklı \n sorunları)
   const displayedText = useMemo(() => {
@@ -143,7 +147,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
   };
 
   return (
-    <div className={`group bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200 border-l-4 ${conflictClass} ${todo.completed ? 'opacity-60 saturate-50' : ''}`}>
+    <div id={`todo-${todo.id}`} className={`group bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200 border-l-4 ${conflictClass} ${todo.completed ? 'opacity-60 saturate-50' : ''}`}>
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-2 sm:gap-3 flex-1 min-w-0">
           <input
@@ -170,31 +174,20 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                 <div className="flex items-center gap-1.5">
                   {onUpdateReminders && (
                     <button 
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         console.log('🔔 Reminder button clicked for task:', todo.id);
-                        setReminderLoading(true);
-                        setTimeout(() => {
-                          setIsReminderModalOpen(true);
-                          setReminderLoading(false);
-                        }, 100);
+                        console.log('🔔 Current modal state:', isReminderModalOpen);
+                        setIsReminderModalOpen(true);
+                        console.log('🔔 Modal should now be open');
                       }}
-                      disabled={reminderLoading}
-                      className={`p-1 rounded-full transition-colors ${
-                        reminderLoading 
-                          ? 'text-gray-300 bg-gray-100 cursor-wait' 
-                          : 'text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50'
-                      }`} 
-                      aria-label={reminderLoading ? 'Yükleniyor...' : t('todoItem.aria.setReminder','Hatırlatma ayarla')}
+                      className="p-1 rounded-full transition-colors text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" 
+                      aria-label={t('todoItem.aria.setReminder','Hatırlatma ayarla')}
                     >
-                      {reminderLoading ? (
-                        <svg className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                        </svg>
-                      )}
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                      </svg>
                     </button>
                   )}
                   {onUpdateGeoReminder && (
@@ -234,6 +227,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                     </button>
                   )}
                   <button 
+                    data-edit-button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -321,31 +315,20 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                   <div className="flex items-center gap-1 touch-manipulation">
                   {onUpdateReminders && (
                     <button 
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         console.log('🔔 Mobile reminder button clicked for task:', todo.id);
-                        setReminderLoading(true);
-                        setTimeout(() => {
-                          setIsReminderModalOpen(true);
-                          setReminderLoading(false);
-                        }, 100);
+                        console.log('🔔 Current modal state:', isReminderModalOpen);
+                        setIsReminderModalOpen(true);
+                        console.log('🔔 Modal should now be open');
                       }}
-                      disabled={reminderLoading}
-                      className={`p-2 min-h-[44px] min-w-[44px] rounded-full transition-colors ${
-                        reminderLoading 
-                          ? 'text-gray-300 bg-gray-100 cursor-wait' 
-                          : 'text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 active:scale-95'
-                      }`} 
-                      aria-label={reminderLoading ? 'Yükleniyor...' : 'Hatırlatma ayarla'}
+                      className="p-2 min-h-[44px] min-w-[44px] rounded-full transition-colors text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 active:scale-95" 
+                      aria-label="Hatırlatma ayarla"
                     >
-                      {reminderLoading ? (
-                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clipRule="evenodd" />
-                        </svg>
-                      ) : (
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                        </svg>
-                      )}
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                      </svg>
                     </button>
                   )}
                   {hasAIMetadata && (
@@ -359,6 +342,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                     </svg>
                   </button>
                   <button 
+                    data-edit-button
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -533,20 +517,27 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
       )}
       
       {/* Reminder Setup Modal */}
-      {onUpdateReminders && (
-        <ReminderSetupModal
-          isOpen={isReminderModalOpen}
-          onClose={() => setIsReminderModalOpen(false)}
-          taskDateTime={todo.datetime}
-          existingReminders={todo.reminders || []}
-          onSave={(reminders) => {
-            console.log('📋 TodoItem: Saving reminders for task:', todo.id);
-            console.log('📋 TodoItem: New reminders data:', reminders);
-            console.log('📋 TodoItem: Previous reminders:', todo.reminders);
-            onUpdateReminders(todo.id, reminders);
-          }}
-        />
-      )}
+      {(() => {
+        console.log('🔵 TodoItem Render: onUpdateReminders exists?', !!onUpdateReminders);
+        console.log('🔵 TodoItem Render: isReminderModalOpen?', isReminderModalOpen);
+        return onUpdateReminders && (
+          <ReminderSetupModal
+            isOpen={isReminderModalOpen}
+            onClose={() => {
+              console.log('🔴 Closing reminder modal');
+              setIsReminderModalOpen(false);
+            }}
+            taskDateTime={todo.datetime}
+            existingReminders={todo.reminders || []}
+            onSave={(reminders) => {
+              console.log('📋 TodoItem: Saving reminders for task:', todo.id);
+              console.log('📋 TodoItem: New reminders data:', reminders);
+              console.log('📋 TodoItem: Previous reminders:', todo.reminders);
+              onUpdateReminders(todo.id, reminders);
+            }}
+          />
+        );
+      })()}
       {/* GeoReminder Modal */}
       {onUpdateGeoReminder && (
         <GeoReminderModal

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useI18n } from '../contexts/I18nContext';
 
 export interface TTSSettings {
@@ -76,13 +77,20 @@ export const useTextToSpeech = () => {
     });
   }, []);
 
-  const speak = useCallback((text: string, customSettings?: Partial<TTSSettings>) => {
+  const speak = useCallback(async (text: string, customSettings?: Partial<TTSSettings>) => {
     if (!hasSupport || !text) return;
     if (!settings.enabled && !customSettings?.enabled) return;
 
+    const isWeb = Capacitor.getPlatform() === 'web';
+
     // Cancel any ongoing speech
-    if (synth?.speaking) {
+    if (isWeb && synth?.speaking) {
       synth.cancel();
+    } else if (!isWeb) {
+      try {
+        const { TextToSpeech } = await import('@capacitor-community/text-to-speech');
+        await TextToSpeech.stop();
+      } catch (e) {}
     }
 
     // Clean text for better speech
@@ -147,9 +155,78 @@ export const useTextToSpeech = () => {
       utteranceRef.current = null;
     };
 
-    utteranceRef.current = utterance;
-    synth?.speak(utterance);
-  }, [hasSupport, synth, settings, availableVoices]);
+    if (isWeb) {
+      utteranceRef.current = utterance;
+      synth?.speak(utterance);
+    } else {
+      // Mobile: Use native TTS with enhanced error handling
+      try {
+        console.log('[TTS] Attempting to use native TextToSpeech...');
+        const { TextToSpeech } = await import('@capacitor-community/text-to-speech');
+        
+        // Check if TTS is available on device
+        try {
+          console.log('[TTS] Checking TTS availability...');
+          const isSupported = await TextToSpeech.isLanguageSupported({ lang: utterance.lang });
+          console.log('[TTS] Language support check result:', isSupported);
+          
+          if (!isSupported.supported) {
+            console.warn(`[TTS] Language ${utterance.lang} not supported, trying default language`);
+            // Fallback to English if Turkish not supported
+            utterance.lang = 'en-US';
+          }
+        } catch (checkError) {
+          console.warn('[TTS] Language support check failed:', checkError);
+          // Continue with original language
+        }
+        
+        setIsSpeaking(true);
+        
+        console.log('[TTS] Starting native speech with config:', {
+          text: cleanedText.substring(0, 100) + '...',
+          lang: utterance.lang,
+          rate: utterance.rate,
+          pitch: utterance.pitch,
+          volume: utterance.volume
+        });
+        
+        await TextToSpeech.speak({
+          text: cleanedText,
+          lang: utterance.lang,
+          rate: utterance.rate,
+          pitch: utterance.pitch,
+          volume: utterance.volume,
+          category: 'ambient'
+        });
+        
+        console.log('[TTS] Native speech completed successfully');
+        setIsSpeaking(false);
+      } catch (error: any) {
+        console.error('[TTS] Native speech error:', error);
+        console.error('[TTS] Error details:', {
+          message: error.message,
+          code: error.code,
+          name: error.name
+        });
+        
+        // Handle specific TTS errors
+        if (error.message?.includes('not supported') || 
+            error.message?.includes('no TTS engine') ||
+            error.message?.includes('unnamed')) {
+          console.warn('[TTS] TTS engine not available, falling back to silent mode');
+          // Don't show error to user - TTS is optional
+        } else if (error.message?.includes('network') || error.message?.includes('internet')) {
+          console.warn('[TTS] TTS requires internet connection');
+          // Don't show error - TTS is optional
+        } else {
+          console.error('[TTS] Unexpected TTS error:', error.message);
+        }
+        
+        setIsSpeaking(false);
+        // TTS errors should not block app functionality
+      }
+    }
+  }, [hasSupport, synth, settings, availableVoices, lang]);
 
   const pause = useCallback(() => {
     if (!hasSupport || !synth?.speaking) return;

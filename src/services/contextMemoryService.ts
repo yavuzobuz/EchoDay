@@ -3,9 +3,9 @@ import {
   UserContext, 
   TaskPattern, 
   WorkingHoursProfile, 
-  TaskCompletionStats, 
-  Todo 
-} from '../types';
+  TaskCompletionStats
+} from '../types/userContext';
+import { Todo } from '../types/todo';
 
 const STORAGE_KEY = 'user_context';
 const MIN_PATTERN_FREQUENCY = 3; // En az 3 kez tekrar eden görevleri pattern olarak kabul et

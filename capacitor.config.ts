@@ -46,10 +46,8 @@ const config: CapacitorConfig = {
     captureInput: true,
     webContentsDebuggingEnabled: false, // Production için false
     buildOptions: {
-      keystorePath: 'echoday-release-key.keystore',
-      keystoreAlias: 'echoday',
-      keystoreAliasPassword: 'echoday123',
-      keystorePassword: 'echoday123',
+      // Signing bilgileri gradle.properties'den alınır
+      // keystorePath, keystoreAlias, keystorePassword environment variables'dan okunmalı
       releaseType: 'APK'
     }
   },

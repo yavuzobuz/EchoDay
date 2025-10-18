@@ -80,7 +80,7 @@ export async function getUserSubscription(userId: string) {
 
     const { data, error } = await supabase
       .from('subscriptions')
-      .select('*, subscription_plans(*)')
+      .select('*')
       .eq('user_id', userId)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
@@ -131,7 +131,8 @@ export async function getUserLimits(userId: string): Promise<PlanLimits> {
     }
 
     const planType = subscription.plan_type || 'free';
-    const limits = subscription.subscription_plans?.limits || DEFAULT_LIMITS[planType];
+    // Use default limits since we removed the relationship query
+    const limits = DEFAULT_LIMITS[planType] || DEFAULT_LIMITS.free;
     
     return limits as PlanLimits;
   } catch (error) {

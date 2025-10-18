@@ -1,0 +1,198 @@
+═══════════════════════════════════════════════════════════════
+              ECHODAY - ANDROID MİKROFON DEBUG REHBERİ
+═══════════════════════════════════════════════════════════════
+
+Bu rehber mikrofon çökme sorununu test etmek ve debug etmek içindir.
+
+═══════════════════════════════════════════════════════════════
+📱 1. YENİ APK BUILD VE YÜKLEME
+═══════════════════════════════════════════════════════════════
+
+# Terminal'de şu komutu çalıştırın (proje dizininde):
+npm run android:apk:win
+
+# Build tamamlandıktan sonra APK buradadır:
+android\app\build\outputs\apk\debug\app-debug.apk
+
+# Eski uygulamayı kaldırın (önemli!):
+- Telefonda: Ayarlar > Uygulamalar > EchoDay > Kaldır
+
+# Yeni APK'yı yükleyin:
+- APK dosyasını telefona atın ve yükleyin
+- VEYA adb ile: adb install -r android\app\build\outputs\apk\debug\app-debug.apk
+
+
+═══════════════════════════════════════════════════════════════
+🔍 2. CHROME DEVTOOLS'DA LOGLAR
+═══════════════════════════════════════════════════════════════
+
+Şu anda Network panelini görüyorsunuz. Console'a geçin:
+
+1. Chrome DevTools'da "Console" sekmesine tıklayın
+2. Veya klavyeden: Esc tuşuna basın (Console açılır)
+
+Şunları göreceksiniz:
+✅ [EchoDay] MainActivity created - Capacitor initialized
+✅ [EchoDay] Microphone permission status: GRANTED / NOT GRANTED
+✅ [EchoDay] Requesting microphone permission...
+
+
+═══════════════════════════════════════════════════════════════
+🎤 3. MİKROFON TEST SENARYOLARI
+═══════════════════════════════════════════════════════════════
+
+SENARYO 1: İlk Kurulum (İzin İsteme)
+────────────────────────────────────
+1. Uygulamayı ilk kez açın
+2. Mikrofon izni popup'ı gelecek
+3. "İzin Ver" / "Allow" seçeneğini seçin
+4. Console'da şunu görmelisiniz:
+   ✅ [EchoDay] Microphone permission GRANTED by user
+
+5. Mikrofon butonuna basın
+6. Uygulama ÇÖKMEMELI
+7. Console'da:
+   ✅ [SpeechRecognition] Starting mobile (Capacitor) speech recognition...
+   ✅ [SpeechRecognition] Permission granted!
+
+
+SENARYO 2: İzin Reddetme
+────────────────────────
+1. Ayarlar > Uygulamalar > EchoDay > İzinler
+2. Mikrofon iznini KAPAT
+3. Uygulamayı yeniden başlat
+4. Console'da:
+   ❌ [EchoDay] Microphone permission DENIED by user
+
+5. Mikrofon butonuna basın
+6. Uygulama ÇÖKMEMELI
+7. Şu mesajı göreceksiniz:
+   "🚫 Mikrofon izni reddedildi
+   
+   Ayarlar > Uygulamalar > EchoDay > İzinler
+   bölümünden mikrofon iznini açın.
+   
+   Şimdilik klavye ile devam edebilirsiniz."
+
+8. Klavye ile yazabilmeli
+
+
+SENARYO 3: Runtime İzin İsteme
+────────────────────────────────
+1. İzin reddedilmiş durumda
+2. Mikrofon butonuna bas
+3. Sistem otomatik izin popup'ı göstermeli
+4. "İzin Ver" seçin
+5. Mikrofon çalışmaya başlamalı
+
+
+═══════════════════════════════════════════════════════════════
+🐛 4. ADB LOGCAT İLE DETAYLI DEBUG
+═══════════════════════════════════════════════════════════════
+
+Android Studio Platform Tools'u PATH'e ekleyin veya:
+C:\Users\KULLANICI_ADI\AppData\Local\Android\Sdk\platform-tools
+
+# Tüm EchoDay loglarını izle:
+adb logcat -s EchoDay:V
+
+# Hata loglarını izle:
+adb logcat *:E
+
+# Belirli tag'leri izle:
+adb logcat -s EchoDay:V SpeechRecognition:V Capacitor:V
+
+# Logları dosyaya kaydet:
+adb logcat -s EchoDay:V > echoday_logs.txt
+
+
+Beklenen loglar:
+────────────────
+✅ MainActivity created - Capacitor initialized
+✅ Capacitor plugins will be auto-registered
+✅ OfflineSpeech plugin manually registered
+✅ Microphone permission status: GRANTED
+✅ App is ready for speech recognition testing
+
+
+Hata durumunda göreceğiniz:
+───────────────────────────
+❌ Microphone permission DENIED by user
+❌ Speech recognition will NOT work without microphone permission!
+
+
+═══════════════════════════════════════════════════════════════
+⚡ 5. HIZLI TEST KOMUTU
+═══════════════════════════════════════════════════════════════
+
+# Build + Yükle + Log izle (tek komutta):
+npm run android:apk:win; adb install -r android\app\build\outputs\apk\debug\app-debug.apk; adb logcat -s EchoDay:V
+
+
+═══════════════════════════════════════════════════════════════
+🔧 6. SORUN ÇÖZME
+═══════════════════════════════════════════════════════════════
+
+SORUN: Mikrofon butonu görünmüyor
+ÇÖZÜM: Console'da şunu kontrol edin:
+  [SpeechRecognition] Platform detected: android
+  [SpeechRecognition] Speech recognition IS available on device
+
+SORUN: İzin popup'ı gelmiyor
+ÇÖZÜM: 
+  - Uygulamayı tamamen kaldırıp yeniden yükleyin
+  - Ayarlar > Uygulamalar > EchoDay > İzinler > Mikrofon > "Her seferinde sor"
+
+SORUN: Uygulama hala çöküyor
+ÇÖZÜM:
+  - adb logcat *:E komutu ile crash logunu alın
+  - AndroidRuntime: FATAL EXCEPTION satırını arayın
+  - Stack trace'i buraya yapıştırın
+
+SORUN: İzin verdim ama mikrofon çalışmıyor
+ÇÖZÜM:
+  - Telefon ayarlarından mikrofon izni kontrol edin
+  - Başka bir uygulamada mikrofon test edin
+  - Console'da error mesajlarına bakın
+
+
+═══════════════════════════════════════════════════════════════
+📝 7. BAŞARILI TEST SONUCU
+═══════════════════════════════════════════════════════════════
+
+✅ İlk açılışta izin popup'ı geldi
+✅ İzin verildi ve mikrofon çalıştı
+✅ İzin reddedilince uygulama çökmedi
+✅ Klavye alternatifi kullanılabildi
+✅ Console'da hata yok
+✅ Network'te tüm kaynaklar yüklendi (200 OK)
+✅ Scroll performansı iyi
+
+
+═══════════════════════════════════════════════════════════════
+💡 FARKLI ŞEYLERİ TEST EDİN
+═══════════════════════════════════════════════════════════════
+
+1. Mikrofona basıp konuşun - transcript görünmeli
+2. "Tamam" veya "Bitti" deyin - kaydetmeli
+3. Arka plana atıp geri dönün - crash olmamalı
+4. Uçak modunda mikrofona basın - hata mesajı vermeli (çökMEmeli)
+5. Başka bir uygulamada mikrofon kullanırken açın - conflict olmamalı
+
+
+═══════════════════════════════════════════════════════════════
+📞 SORUN RAPORU
+═══════════════════════════════════════════════════════════════
+
+Sorun devam ederse şunları paylaşın:
+
+1. adb logcat çıktısı (özellikle crash anındaki)
+2. Chrome DevTools Console screenshot
+3. Telefon modeli ve Android versiyonu
+4. Hangi adımda hata oluyor
+5. Hata mesajı ne (varsa)
+
+
+═══════════════════════════════════════════════════════════════
+                         SON GÜNCELLEME: 2025-10-18
+═══════════════════════════════════════════════════════════════

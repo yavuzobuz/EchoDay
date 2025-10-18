@@ -19,11 +19,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // İlk yüklemede kullanıcı durumunu kontrol et
     checkUser();
-
-    // Auth state değişikliklerini dinle
+    
+    // Supabase ready event'ini dinle (mobil için)
+    const handleSupabaseReady = () => {
+      console.log('[Auth] Supabase ready event received, reinitializing auth...');
+      checkUser();
+      setupAuthListener();
+    };
+    
+    window.addEventListener('supabase-ready', handleSupabaseReady);
+    
+    // Auth state listener'ını setup et
+    const cleanup = setupAuthListener();
+    
+    return () => {
+      window.removeEventListener('supabase-ready', handleSupabaseReady);
+      cleanup();
+    };
+  }, []);
+  
+  function setupAuthListener() {
     if (!supabase) {
       setLoading(false);
-      return;
+      return () => {};
     }
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -36,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }
 
   async function checkUser() {
     if (!supabase) {

@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react-swc'
 import { resolve } from 'path'
+import fs from 'fs'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -12,6 +14,54 @@ export default defineConfig({
       transformIndexHtml(html) {
         // Remove any crossorigin attributes to avoid file:// CORS issues in Electron
         return html.replace(/\s+crossorigin(=("[^"]*"|'[^']*'|[^\s>]+))?/g, '');
+      },
+    },
+    {
+      name: 'android-env-injector',
+      closeBundle() {
+        // Generate android-env.js after build completes
+        try {
+          const envPath = path.resolve(__dirname, '.env');
+          if (!fs.existsSync(envPath)) return;
+          
+          const envContent = fs.readFileSync(envPath, 'utf8');
+          const envVars: Record<string, string> = {};
+          
+          envContent.split('\n').forEach(line => {
+            line = line.trim();
+            if (line && !line.startsWith('#')) {
+              const [key, ...valueParts] = line.split('=');
+              const value = valueParts.join('=').replace(/^["']|["']$/g, '');
+              if (key && value) {
+                envVars[key.trim()] = value;
+              }
+            }
+          });
+          
+          const androidEnv: Record<string, string> = {};
+          const allowList = new Set([
+            'VITE_SUPABASE_URL',
+            'VITE_SUPABASE_ANON_KEY',
+            'VITE_GEMINI_API_KEY',
+            'VITE_GOOGLE_AI_API_KEY',
+            'VITE_ENABLE_MANUAL_IMAP',
+            'VITE_MAIL_BRIDGE_URL'
+          ]);
+          
+          Object.keys(envVars).forEach(key => {
+            const isSecretLike = /SECRET/i.test(key);
+            if (allowList.has(key) && !isSecretLike) {
+              androidEnv[key] = envVars[key];
+            }
+          });
+          
+          const androidEnvCode = `window.androidEnv = ${JSON.stringify(androidEnv, null, 2)};`;
+          const outputPath = path.resolve(__dirname, 'dist/android-env.js');
+          fs.writeFileSync(outputPath, androidEnvCode);
+          console.log('[vite-plugin] Generated dist/android-env.js');
+        } catch (e) {
+          console.error('[vite-plugin] Failed to generate android-env.js:', e);
+        }
       },
     },
   ],
@@ -34,8 +84,8 @@ export default defineConfig({
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       // CSP for development (less strict) - allow AI providers (Gemini, OpenAI, Anthropic)
       'Content-Security-Policy': process.env.MOBILE_BUILD === 'true' 
-        ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' http://*:* ws://*:* wss://*:* https://generativelanguage.googleapis.com https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://fonts.googleapis.com https://*.supabase.co; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
-        : "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* ws://localhost:* https://generativelanguage.googleapis.com https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://fonts.googleapis.com https://*.supabase.co wss://*.supabase.co; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://r2cdn.perplexity.ai; img-src 'self' data: blob: https:; connect-src 'self' http://*:* ws://*:* wss://*:* https://generativelanguage.googleapis.com https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://fonts.googleapis.com https://*.supabase.co; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        : "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://r2cdn.perplexity.ai; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* ws://localhost:* https://generativelanguage.googleapis.com https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://fonts.googleapis.com https://*.supabase.co wss://*.supabase.co; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     }
   },
   build: {

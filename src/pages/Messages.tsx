@@ -9,6 +9,7 @@ import { presenceService } from '../services/presenceService';
 import { useToast } from '../hooks/useToast';
 import ToastNotification from '../components/ToastNotification';
 import type { Conversation, Message, Profile, Friend } from '../types/chat';
+import { getCurrentCoords } from '../services/locationService';
 
 // Voice Message Player Component
 interface VoiceMessagePlayerProps {
@@ -235,7 +236,6 @@ const MessagesPage: React.FC = () => {
   const recordingTimerRef = useRef<number | null>(null);
   
   // Location-based task states
-  const [showLocationTask, setShowLocationTask] = useState(false);
   const [taskWithLocation, setTaskWithLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const myId = user?.id || null;
@@ -947,7 +947,7 @@ const MessagesPage: React.FC = () => {
                       </svg>
                     </button>
                   </div>
-                
+                </div>
                 {newText.trim() ? (
                   <button 
                     type="submit" 

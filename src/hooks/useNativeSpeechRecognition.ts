@@ -57,6 +57,28 @@ export const useNativeSpeechRecognition = (
   const defaultStopWords = ['tamam', 'bitti', 'bıttı', 'kaydet', 'kayıt', 'ok', 'dur', 'bitir'];
   const stopWords = Array.isArray(stopOnKeywords) ? stopOnKeywords : defaultStopWords;
 
+  // Check permissions safely
+  const checkAndRequestPermissions = useCallback(async () => {
+    if (!isNative) return 'granted';
+    
+    try {
+      const { SpeechRecognition } = await import('@capacitor-community/speech-recognition');
+      
+      // First check current status
+      const currentStatus = await SpeechRecognition.checkPermissions();
+      if (currentStatus.speechRecognition === 'granted') {
+        return 'granted';
+      }
+      
+      // Request if not granted
+      const requestResult = await SpeechRecognition.requestPermissions();
+      return requestResult.speechRecognition === 'granted' ? 'granted' : 'denied';
+    } catch (error) {
+      console.warn('[NativeSpeech] Permission check failed:', error);
+      return 'denied';
+    }
+  }, [isNative]);
+
   // Initialize speech recognition support
   useEffect(() => {
     const initializeSpeechSupport = async () => {
@@ -65,16 +87,16 @@ export const useNativeSpeechRecognition = (
           // Native Capacitor approach
           const { SpeechRecognition } = await import('@capacitor-community/speech-recognition');
           
-          // Check availability
+          // Check availability first
           const availabilityResult = await SpeechRecognition.available();
           setHasSupport(availabilityResult.available);
           
           if (availabilityResult.available) {
-            // Check permissions
-            const permissionResult = await SpeechRecognition.requestPermissions();
-            setPermissionStatus(permissionResult.speechRecognition === 'granted' ? 'granted' : 'denied');
+            // Check permissions without requesting yet
+            const permissionStatus = await checkAndRequestPermissions();
+            setPermissionStatus(permissionStatus);
             debugLogger.speech('NativeSpeech', 'Native speech initialized', { 
-              data: { available: true, permission: permissionResult.speechRecognition } 
+              data: { available: true, permission: permissionStatus } 
             });
           }
         } else {
@@ -84,17 +106,29 @@ export const useNativeSpeechRecognition = (
           
           if (WebSpeechRecognitionAPI) {
             setHasSupport(true);
-            setPermissionStatus('unknown'); // Will be determined on first use
-            debugLogger.speech('NativeSpeech', 'Web Speech API detected');
+            setPermissionStatus('granted'); // Web Speech API doesn't need explicit permission request
+            debugLogger.speech('NativeSpeech', 'Web Speech API detected and ready');
           } else {
             setHasSupport(false);
-            setError('Speech recognition not supported in this browser');
+            setError('Tarayıcınız sesli komut özelliğini desteklemiyor');
           }
         }
       } catch (error) {
         console.error('[NativeSpeech] Initialization failed:', error);
         setHasSupport(false);
-        setError(`Speech recognition initialization failed: ${error}`);
+        
+        // More specific error messages for Turkish users
+        let errorMessage = 'Sesli asistan başlatılamadı';
+        if (error instanceof Error) {
+          if (error.message.includes('permission')) {
+            errorMessage = 'Mikrofon izni verilmedi. Lütfen uygulama ayarlarından mikrofon iznini aktifleştirin.';
+          } else if (error.message.includes('not available') || error.message.includes('not supported')) {
+            errorMessage = 'Bu cihazda sesli asistan desteklenmiyor.';
+          } else {
+            errorMessage = `Sesli asistan hatası: ${error.message}`;
+          }
+        }
+        setError(errorMessage);
       }
     };
 
@@ -128,29 +162,16 @@ export const useNativeSpeechRecognition = (
     setTranscript(newTranscript);
     currentTranscriptRef.current = newTranscript;
 
-    if (stopOnSilence && continuous && !isFinal) {
-      // Reset silence timer
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-      }
+    // Only check for stop words on final results to prevent premature stopping
+    if (isFinal) {
+      const { shouldStop, cleanedText } = checkStopWords(newTranscript);
       
-      silenceTimerRef.current = window.setTimeout(() => {
-        debugLogger.speech('NativeSpeech', 'Stopping due to silence');
-        stopListening();
-      }, 1500);
-    }
-
-    // Check for stop words
-    const { shouldStop, cleanedText } = checkStopWords(newTranscript);
-    
-    if (shouldStop || isFinal) {
       debugLogger.speech('NativeSpeech', 'Final transcript', { data: { text: cleanedText, reason: shouldStop ? 'stopword' : 'final' } });
       onTranscriptReady(cleanedText);
-      if (shouldStop) {
-        stopListening();
-      }
+      
+      // Note: Actual stopping will be handled by the caller or recognition end event
     }
-  }, [stopOnSilence, continuous, checkStopWords, onTranscriptReady]);
+  }, [checkStopWords, onTranscriptReady]);
 
   // Native speech recognition
   const startNativeRecognition = useCallback(async () => {
@@ -165,7 +186,45 @@ export const useNativeSpeechRecognition = (
       // Add listeners
       const partialListener = await SpeechRecognition.addListener('partialResults', (data: { matches: string[] }) => {
         const transcript = data.matches[0] || '';
-        handleTranscriptUpdate(transcript, false);
+        
+        // Update the transcript for UI display
+        setTranscript(transcript);
+        currentTranscriptRef.current = transcript;
+        
+        // Check for stop words in partial results
+        const { shouldStop, cleanedText } = checkStopWords(transcript);
+        
+        if (shouldStop) {
+          // Stop word detected - stop recognition immediately
+          debugLogger.speech('NativeSpeech', 'Stop word detected in partial result', { data: { cleanedText } });
+          
+          // Update with cleaned text
+          currentTranscriptRef.current = cleanedText;
+          
+          // Stop the recognition
+          SpeechRecognition.stop().catch(err => {
+            console.warn('[NativeSpeech] Stop on keyword error:', err);
+          });
+          
+          return;
+        }
+        
+        // Optional: Auto-stop on silence detection for partial results
+        if (stopOnSilence && continuous) {
+          // Reset silence timer on each new partial result
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+          
+          silenceTimerRef.current = window.setTimeout(async () => {
+            debugLogger.speech('NativeSpeech', 'Stopping due to silence (partial)');
+            try {
+              await SpeechRecognition.stop();
+            } catch (err) {
+              console.warn('[NativeSpeech] Auto-stop error:', err);
+            }
+          }, 2000); // 2 seconds of silence
+        }
       });
 
       const stateListener = await SpeechRecognition.addListener('listeningState', (data: { status: 'started' | 'stopped' }) => {
@@ -200,15 +259,34 @@ export const useNativeSpeechRecognition = (
 
     } catch (error) {
       console.error('[NativeSpeech] Native recognition failed:', error);
-      setError(`Native speech recognition failed: ${error}`);
+      
+      // More specific error messages for Turkish users
+      let errorMessage = 'Sesli tanıma başlatılamadı';
+      if (error instanceof Error) {
+        if (error.message.includes('permission')) {
+          errorMessage = 'Mikrofon izni reddedildi. Lütfen uygulama ayarlarından mikrofon iznini aktifleştirin.';
+        } else if (error.message.includes('not available')) {
+          errorMessage = 'Sesli tanıma servisi kullanılamıyor. Cihazınızda Google uygulamasının güncel olduğundan emin olun.';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'İnternet bağlantısı gerekli. Lütfen bağlantınızı kontrol edin.';
+        } else {
+          errorMessage = `Sesli tanıma hatası: ${error.message}`;
+        }
+      }
+      
+      setError(errorMessage);
       setIsListening(false);
       
       // Fallback to web speech API if on hybrid platform
       if (platform === 'web') {
-        await startWebRecognition();
+        try {
+          await startWebRecognition();
+        } catch (webError) {
+          console.error('[NativeSpeech] Web fallback also failed:', webError);
+        }
       }
     }
-  }, [language, handleTranscriptUpdate, platform]);
+  }, [language, handleTranscriptUpdate, platform, stopOnSilence, continuous, checkStopWords]);
 
   // Web speech recognition fallback
   const startWebRecognition = useCallback(async () => {
@@ -233,8 +311,58 @@ export const useNativeSpeechRecognition = (
           .map((result: any) => result.transcript)
           .join('');
         
-        const isFinal = event.results[event.results.length - 1]?.isFinal;
-        handleTranscriptUpdate(transcript, isFinal);
+        // Update transcript
+        setTranscript(transcript);
+        currentTranscriptRef.current = transcript;
+        
+        // Check for stop words
+        const { shouldStop, cleanedText } = checkStopWords(transcript);
+        
+        if (shouldStop) {
+          // Stop word detected - stop recognition immediately
+          debugLogger.speech('NativeSpeech', 'Stop word detected in web result', { data: { cleanedText } });
+          
+          // Update with cleaned text
+          currentTranscriptRef.current = cleanedText;
+          
+          // Stop the recognition
+          if (recognitionRef.current) {
+            try {
+              recognitionRef.current.stop();
+            } catch (err) {
+              console.warn('[NativeSpeech] Stop on keyword error:', err);
+            }
+          }
+          
+          return;
+        }
+        
+        // Check if the last result is final
+        const lastResult = event.results[event.results.length - 1];
+        const isFinal = lastResult?.isFinal === true;
+        
+        if (isFinal) {
+          handleTranscriptUpdate(transcript, true);
+        }
+        
+        // Optional: Auto-stop on silence detection for web recognition
+        if (stopOnSilence && continuous && !isFinal) {
+          // Reset silence timer on each new result
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+          
+          silenceTimerRef.current = window.setTimeout(() => {
+            debugLogger.speech('NativeSpeech', 'Stopping due to silence (web)');
+            try {
+              if (recognitionRef.current) {
+                recognitionRef.current.stop();
+              }
+            } catch (err) {
+              console.warn('[NativeSpeech] Auto-stop error:', err);
+            }
+          }, 2000); // 2 seconds of silence
+        }
       };
 
       recognition.onerror = (event: any) => {
@@ -270,21 +398,43 @@ export const useNativeSpeechRecognition = (
       setError(`Web speech recognition failed: ${error}`);
       setIsListening(false);
     }
-  }, [continuous, language, handleTranscriptUpdate]);
+  }, [continuous, language, handleTranscriptUpdate, stopOnSilence, checkStopWords]);
 
-  // Start listening
+  // Show permission denied modal with text input fallback
+  const showPermissionDeniedModal = useCallback(() => {
+    const event = new CustomEvent('showTextInputModal', {
+      detail: {
+        title: 'Mikrofon İzni Gerekli',
+        message: 'Sesli girdi için mikrofon izni gerekiyor. Alternatif olarak yazarak da görev ekleyebilirsiniz.',
+        showTextInput: true
+      }
+    });
+    window.dispatchEvent(event);
+  }, []);
+
+  // Start listening with safe permission check
   const startListening = useCallback(async () => {
     if (isListening || !hasSupport) return;
 
     setError(null);
     isStoppingRef.current = false;
 
+    // Check permissions before starting (especially for Android)
     if (isNative) {
+      const permissionStatus = await checkAndRequestPermissions();
+      setPermissionStatus(permissionStatus);
+      
+      if (permissionStatus !== 'granted') {
+        setError('Mikrofon izni verilmedi. Klavye ile yazarak görev ekleyebilirsiniz.');
+        showPermissionDeniedModal();
+        return;
+      }
+      
       await startNativeRecognition();
     } else {
       await startWebRecognition();
     }
-  }, [isListening, hasSupport, isNative, startNativeRecognition, startWebRecognition]);
+  }, [isListening, hasSupport, isNative, checkAndRequestPermissions, startNativeRecognition, startWebRecognition, showPermissionDeniedModal]);
 
   // Stop listening
   const stopListening = useCallback(async () => {

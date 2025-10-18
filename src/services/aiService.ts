@@ -136,8 +136,22 @@ export class AIService {
       systemInstruction: systemMessage?.content || options.systemPrompt,
     });
 
+    // Gemini requires chat history to start with 'user' role
+    const historyMessages = chatMessages.slice(0, -1);
+    let filteredHistory = historyMessages;
+    
+    // If first message is assistant/model, skip it to ensure we start with 'user'
+    if (historyMessages.length > 0 && historyMessages[0].role === 'assistant') {
+      filteredHistory = historyMessages.slice(1);
+    }
+    
+    // If we still don't have messages or first message is still not 'user', use empty history
+    if (filteredHistory.length === 0 || filteredHistory[0].role !== 'user') {
+      filteredHistory = [];
+    }
+
     const chat = model.startChat({
-      history: chatMessages.slice(0, -1).map(msg => ({
+      history: filteredHistory.map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: msg.content }]
       }))

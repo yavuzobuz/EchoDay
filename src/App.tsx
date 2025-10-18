@@ -41,7 +41,9 @@ const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Messages = lazy(() => import('./pages/Messages'));
 const Email = lazy(() => import('./pages/Email'));
+const Webhooks = lazy(() => import('./pages/Webhooks'));
 import GmailCallback from './components/auth/GmailCallback';
+import OutlookCallback from './components/auth/OutlookCallback';
 const Pricing = lazy(() => import('./pages/Pricing'));
 const FAQ = lazy(() => import('./pages/FAQ'));
 
@@ -290,8 +292,20 @@ function AppContent() {
           }
         />
         <Route
+          path="/webhook"
+          element={
+            <ProtectedRoute>
+              <Webhooks />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/auth/gmail/callback"
           element={<GmailCallback />}
+        />
+        <Route
+          path="/auth/outlook/callback"
+          element={<OutlookCallback />}
         />
         <Route
           path="/pricing"

@@ -89,3 +89,26 @@
 # Remove unused resources
 -dontwarn javax.annotation.**
 -dontwarn org.codehaus.mojo.animal_sniffer.*
+
+# Supabase SDK
+-keep class io.supabase.** { *; }
+-keep class io.github.jan.supabase.** { *; }
+-dontwarn io.supabase.**
+-dontwarn io.github.jan.supabase.**
+
+# Google Generative AI
+-keep class com.google.ai.** { *; }
+-keep class com.google.generativeai.** { *; }
+-dontwarn com.google.ai.**
+-dontwarn com.google.generativeai.**
+
+# Kotlin Coroutines (used by Supabase)
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-dontwarn kotlinx.coroutines.**
+
+# OkHttp (used by networking)
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class okhttp3.** { *; }
+-keep class okio.** { *; }

@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChatMessage, Note } from '../types';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognitionUnified';
+import { useNativeSpeechRecognition } from '../hooks/useNativeSpeechRecognition';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { pdfService } from '../services/pdfService';
 import { useI18n } from '../contexts/I18nContext';
@@ -27,41 +27,41 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
   const [selectedPdfFile, setSelectedPdfFile] = useState<File | null>(null);
   const [pdfError, setPdfError] = useState<string>('');
   const pdfInputRef = useRef<HTMLInputElement>(null);
-  const [isElectron] = useState(() => {
-    return !!(window as any).isElectron || !!(window as any).electronAPI;
-  });
   const { t } = useI18n();
   
   // Voice mode state
   const [isVoiceModeActive, setIsVoiceModeActive] = useState(false);
   const [lastAIMessageIndex, setLastAIMessageIndex] = useState(-1);
 
-  const handleTranscriptReady = useCallback((transcript: string) => {
-    const cleanedTranscript = transcript.trim();
-    if (cleanedTranscript) {
-      console.log('[ChatModal] Transcript ready, sending:', cleanedTranscript);
-      onSendMessage(cleanedTranscript);
-      // Input alanını temizle
-      setUserInput('');
+  const {
+    isListening,
+    startListening,
+    stopListening,
+    hasSupport,
+    transcript: speechTranscript
+  } = useNativeSpeechRecognition(
+    (finalTranscript: string) => {
+      console.log('[ChatModal] Final transcript received:', finalTranscript);
+      if (finalTranscript.trim()) {
+        onSendMessage(finalTranscript.trim());
+        setUserInput('');
+      }
+    },
+    {
+      stopOnKeywords: ['tamam', 'bitti', 'ok', 'oldu', 'kaydet', 'oluştur', 'gönder'],
+      continuous: true,
+      stopOnSilence: true // Kullanıcı konuşmayı bitirdiğinde 2 saniye sessizlikten sonra durdur
     }
-  }, [onSendMessage]);
-
-  const speechRecognitionOptions = useMemo(() => ({
-    stopOnKeywords: ['tamam', 'bitti', 'ok', 'oldu', 'kaydet', 'oluştur', 'gönder'],
-    continuous: true,
-  }), []);
-
-  const { isListening, transcript, startListening, stopListening, hasSupport, checkAndRequestPermission } = useSpeechRecognition(
-    handleTranscriptReady,
-    speechRecognitionOptions
   );
   
-  // Dinleme sırasında canlı yazma (kullanıcı görsün)
+  // Speech transcript'i input'a aktar
   useEffect(() => {
-    if (isListening && transcript) {
-      setUserInput(transcript);
+    if (speechTranscript && isListening) {
+      setUserInput(speechTranscript);
     }
-  }, [isListening, transcript]);
+  }, [speechTranscript, isListening]);
+  
+  
   
   const tts = useTextToSpeech();
   const [speakingMessageIndex, setSpeakingMessageIndex] = useState<number | null>(null);
@@ -462,13 +462,21 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
 
         <div className="sticky bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-3 pb-20 sm:pb-3">
           <div className="space-y-3">
-            {isListening && isElectron && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  💡 {t('chat.voice.hintLabel', 'İpucu')}: {t('chat.voice.hintPrefix', 'Konuşmanızı bitirmek için')} <strong>"{t('chat.voice.keyword.ok', 'tamam')}"</strong>, <strong>"{t('chat.voice.keyword.done', 'bitti')}"</strong>, <strong>"{t('chat.voice.keyword.save', 'kaydet')}"</strong> {t('common.or', 'veya')} <strong>"{t('chat.voice.keyword.send', 'gönder')}"</strong> {t('chat.voice.hintSuffix', 'deyin.')}
+            {/* Enhanced Speech Recognition Status */}
+            {isListening && (
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  🎤 <strong>Dinliyor...</strong> 🌐 Online Mod
+                </p>
+                <p className="text-xs mt-1 text-blue-600 dark:text-blue-400">
+                  🌐 Google sunucularını kullanıyor
+                </p>
+                <p className="text-xs mt-1 text-blue-600 dark:text-blue-400">
+                  💡 {t('chat.voice.hintLabel', 'İpucu')}: <strong>"tamam"</strong>, <strong>"bitti"</strong>, <strong>"kaydet"</strong> {t('common.or', 'veya')} <strong>"gönder"</strong> {t('chat.voice.hintSuffix', 'deyin.')}
                 </p>
               </div>
             )}
+            
             
             {selectedPdfFile && (
               <div className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
@@ -582,27 +590,40 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
                 ) : hasSupport ? (
                   <button
                     type="button"
-                    onClick={() => {
-                      console.log('[ChatModal] Mikrofon butonu tıklandı, mevcut durum:', isListening);
-                      if (isListening) {
-                        console.log('[ChatModal] Mikrofon durduruluyor...');
-                        stopListening();
-                      } else {
-                        console.log('[ChatModal] Mikrofon başlatılıyor...');
-                        checkAndRequestPermission?.().then(() => startListening());
+                    onClick={async () => {
+                      console.log('[ChatModal] 🎤 Mikrofon durumu:', { hasSupport, isListening });
+                      try {
+                        if (isListening) {
+                          console.log('[ChatModal] Mikrofon durduruluyor...');
+                          await stopListening();
+                        } else {
+                          console.log('[ChatModal] Mikrofon başlatılıyor...');
+                          await startListening();
+                        }
+                      } catch (error) {
+                        console.error('[ChatModal] Mikrofon toggle hatası:', error);
                       }
                     }}
-                    className={`p-3 rounded-full transition-all duration-200 ${
+                    className={`p-3 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl active:scale-95 ${
                       isListening 
-                        ? 'bg-red-500 hover:bg-red-600 text-white shadow-lg scale-110' 
-                        : 'bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] text-white shadow-md'
+                        ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
+                        : 'bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] text-white'
                     }`}
                     disabled={isLoading}
                     title={isListening ? t('common.stopRecording', 'Kaydı Durdur') : t('common.startRecording', 'Ses Kaydı Başlat')}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    </svg>
+                    {isListening ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 7.5A2.25 2.25 0 017.5 5.25h9a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9z" />
+                      </svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 10v2a7 7 0 01-14 0v-2" />
+                        <line x1="12" y1="19" x2="12" y2="23" />
+                        <line x1="8" y1="23" x2="16" y2="23" />
+                      </svg>
+                    )}
                   </button>
                 ) : (
                   <button

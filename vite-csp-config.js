@@ -30,6 +30,7 @@ export const cspConfig = {
       'ws://localhost:*',
       'https://generativelanguage.googleapis.com',
       'https://*.googleapis.com',
+      'https://accounts.google.com',
       'https://fonts.googleapis.com',
       'https://*.supabase.co',
       'wss://*.supabase.co'

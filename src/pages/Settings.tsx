@@ -7,6 +7,7 @@ import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { mailService } from '../services/mailService';
 import { EmailAccount } from '../types/mail';
 import MailConnectModal from '../components/MailConnectModal';
+import UserProfileModal from '../../components/UserProfileModal';
 import { AIProvider, AI_PROVIDERS } from '../types/ai';
 import debugLogger from '../utils/debugLogger';
 
@@ -70,6 +71,9 @@ const Settings: React.FC<SettingsProps> = ({
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [accountError, setAccountError] = useState<string | null>(null);
+  
+  // User Profile Modal
+  const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
   
   // Debug mode state
   const [debugMode, setDebugMode] = useState(localStorage.getItem('debug-mode') === 'true');
@@ -360,6 +364,31 @@ const Settings: React.FC<SettingsProps> = ({
                 />
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* User Profile */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-6">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">
+            {t('profile.userProfile', 'Kullanıcı Profili')}
+          </h2>
+          
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <label className="font-semibold text-lg">{t('profile.personalSettings', 'Kişisel Ayarlar')}</label>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {t('profile.personalSettingsDesc', 'Tercihlerinizi, alışkanlıklarınızı ve hedeflerinizi yönetin')}
+              </p>
+            </div>
+            <button
+              onClick={() => setIsUserProfileModalOpen(true)}
+              className="px-4 py-2 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] transition-colors flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              {t('profile.editProfile', 'Profili Düzenle')}
+            </button>
           </div>
         </div>
 
@@ -851,6 +880,16 @@ const Settings: React.FC<SettingsProps> = ({
             await loadEmailAccounts();
             setNotification(t('profile.mailConnectSuccess'));
             setTimeout(() => setNotification(null), 3000);
+          }}
+        />
+
+        {/* User Profile Modal */}
+        <UserProfileModal
+          isOpen={isUserProfileModalOpen}
+          onClose={() => setIsUserProfileModalOpen(false)}
+          onSave={(profile) => {
+            console.log('Profile saved:', profile);
+            setIsUserProfileModalOpen(false);
           }}
         />
         </div>

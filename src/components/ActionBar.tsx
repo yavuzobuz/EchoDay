@@ -6,9 +6,10 @@ interface ActionBarProps {
   onOpenChat: () => void;
   onImageTask: () => void;
   isListening: boolean;
+  hasVoiceSupport?: boolean;
 }
 
-const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat, onImageTask, isListening }) => {
+const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat, onImageTask, isListening, hasVoiceSupport = true }) => {
   const { t } = useI18n();
   // Mobil için minimum 44x44px touch area (Apple HIG standardı)
   const buttonBaseStyle = "flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl sm:rounded-lg transition-all duration-300 active:scale-95 sm:hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-900 h-full min-h-[100px] sm:min-h-[120px] touch-manipulation";
@@ -20,10 +21,12 @@ const ActionBar: React.FC<ActionBarProps> = ({ onSimpleVoiceCommand, onOpenChat,
         {/* Simple Voice Command Button */}
         <button
           onClick={onSimpleVoiceCommand}
-          disabled={isListening}
+          disabled={isListening || !hasVoiceSupport}
           className={`
             ${buttonBaseStyle} 
-            ${isListening ? 'bg-red-200 dark:bg-red-900/50 cursor-not-allowed' : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}
+            ${isListening ? 'bg-red-200 dark:bg-red-900/50 cursor-not-allowed' : 
+              !hasVoiceSupport ? 'bg-gray-300 dark:bg-gray-800 cursor-not-allowed opacity-50' :
+              'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'}
           `}
         >
           <div className={`relative flex items-center justify-center h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 rounded-full ${isListening ? 'bg-red-500' : 'bg-[var(--accent-color-600)]'} text-white shadow-lg`}>

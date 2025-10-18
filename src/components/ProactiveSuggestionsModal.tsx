@@ -27,27 +27,27 @@ const ProactiveSuggestionsModal: React.FC<ProactiveSuggestionsModalProps> = ({
 
   const getColorForPriority = (priority: ProactiveSuggestion['priority']) => {
     switch (priority) {
-      case 'high': return 'from-red-500 to-orange-500';
+      case 'high': return 'from-[hsl(var(--destructive))] to-red-500';
       case 'medium': return 'from-yellow-500 to-amber-500';
-      case 'low': return 'from-blue-500 to-cyan-500';
-      default: return 'from-gray-500 to-gray-600';
+      case 'low': return 'from-[hsl(var(--primary))] to-[hsl(var(--accent))]';
+      default: return 'from-[hsl(var(--muted))] to-[hsl(var(--muted-foreground))]';
     }
   };
 
   const getBorderColorForPriority = (priority: ProactiveSuggestion['priority']) => {
     switch (priority) {
-      case 'high': return 'border-red-300 dark:border-red-700';
-      case 'medium': return 'border-yellow-300 dark:border-yellow-700';
-      case 'low': return 'border-blue-300 dark:border-blue-700';
-      default: return 'border-gray-300 dark:border-gray-700';
+      case 'high': return 'border-[hsl(var(--destructive))]';
+      case 'medium': return 'border-yellow-500';
+      case 'low': return 'border-[hsl(var(--primary))]';
+      default: return 'border-[hsl(var(--border))]';
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="bg-[hsl(var(--card))] text-[hsl(var(--card-foreground))] rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col border border-[hsl(var(--border))]">
         {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white p-6">
+        <div className="bg-gradient-to-r from-[hsl(var(--primary))] to-[hsl(var(--accent))] text-[hsl(var(--primary-foreground))] p-6">
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold flex items-center">
@@ -60,7 +60,7 @@ const ProactiveSuggestionsModal: React.FC<ProactiveSuggestionsModalProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="text-white hover:bg-white hover:bg-opacity-20 rounded-lg p-2 transition-colors"
+              className="text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary-foreground))] hover:bg-opacity-20 rounded-lg p-2 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -74,10 +74,10 @@ const ProactiveSuggestionsModal: React.FC<ProactiveSuggestionsModalProps> = ({
           {suggestions.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-6xl mb-4">🎉</div>
-              <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              <h3 className="text-xl font-semibold text-[hsl(var(--foreground))] mb-2">
                 Harika Gidiyorsunuz!
               </h3>
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className="text-[hsl(var(--muted-foreground))]">
                 Şu anda hiç öneriniz yok. Her şey yolunda görünüyor!
               </p>
             </div>
@@ -86,21 +86,21 @@ const ProactiveSuggestionsModal: React.FC<ProactiveSuggestionsModalProps> = ({
               {suggestions.map((suggestion) => (
                 <div
                   key={suggestion.id}
-                  className={`border-2 ${getBorderColorForPriority(suggestion.priority)} rounded-lg p-4 bg-white dark:bg-gray-900 shadow-sm hover:shadow-md transition-shadow`}
+                  className={`border-2 ${getBorderColorForPriority(suggestion.priority)} rounded-lg p-4 bg-[hsl(var(--card))] shadow-sm hover:shadow-md transition-shadow`}
                 >
                   {/* Header */}
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-start space-x-3 flex-1">
                       <span className="text-3xl">{getIconForType(suggestion.type)}</span>
                       <div className="flex-1">
-                        <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
+                        <h3 className="font-semibold text-[hsl(var(--card-foreground))] text-lg">
                           {suggestion.title}
                         </h3>
                         <div className="flex items-center space-x-2 mt-1">
                           <span className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-gradient-to-r ${getColorForPriority(suggestion.priority)} text-white`}>
                             {suggestion.priority === 'high' ? '🔥 Yüksek' : suggestion.priority === 'medium' ? '⚡ Orta' : '📌 Düşük'}
                           </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                          <span className="text-xs text-[hsl(var(--muted-foreground))]">
                             {suggestion.type === 'task' ? 'Görev Önerisi' :
                              suggestion.type === 'reminder' ? 'Hatırlatma' :
                              suggestion.type === 'optimization' ? 'Optimizasyon' :
@@ -112,13 +112,13 @@ const ProactiveSuggestionsModal: React.FC<ProactiveSuggestionsModalProps> = ({
                   </div>
 
                   {/* Description */}
-                  <p className="text-gray-700 dark:text-gray-300 mb-4 ml-12">
+                  <p className="text-[hsl(var(--card-foreground))] mb-4 ml-12">
                     {suggestion.description}
                   </p>
 
                   {/* Actions */}
                   <div className="flex items-center justify-between ml-12">
-                    <div className="text-xs text-gray-400 dark:text-gray-500">
+                    <div className="text-xs text-[hsl(var(--muted-foreground))]">
                       {new Date(suggestion.createdAt).toLocaleTimeString('tr-TR', {
                         hour: '2-digit',
                         minute: '2-digit'
@@ -135,7 +135,7 @@ const ProactiveSuggestionsModal: React.FC<ProactiveSuggestionsModalProps> = ({
                       )}
                       <button
                         onClick={() => onDismissSuggestion(suggestion.id)}
-                        className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        className="px-4 py-2 bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] text-sm font-medium rounded-lg hover:bg-[hsl(var(--secondary))]/80 transition-colors"
                       >
                         Kapat
                       </button>
@@ -149,14 +149,14 @@ const ProactiveSuggestionsModal: React.FC<ProactiveSuggestionsModalProps> = ({
 
         {/* Footer */}
         {suggestions.length > 0 && (
-          <div className="bg-gray-50 dark:bg-gray-900 p-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="bg-[hsl(var(--muted))] p-4 border-t border-[hsl(var(--border))]">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-[hsl(var(--muted-foreground))]">
                 💡 Bu öneriler sizin alışkanlıklarınıza göre oluşturuldu
               </p>
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                className="px-4 py-2 bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] text-sm font-medium rounded-lg hover:bg-[hsl(var(--secondary))]/80 transition-colors"
               >
                 Kapat
               </button>

@@ -1,6 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognitionUnified';
 import { Note } from '../types';
 import { archiveService } from '../services/archiveService';
 import { Clipboard } from '@capacitor/clipboard';
@@ -57,7 +56,7 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
   const [tagInput, setTagInput] = useState<string>('');
 
 
-  const handleAddNote = (text: string) => {
+  const handleAddNote = useCallback((text: string) => {
     if (!text.trim() && !newNoteImageDataUrl) return;
 
     const newNote: Note = {
@@ -73,11 +72,21 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
     setNewNoteImagePreview(null);
     setNewNoteImageDataUrl(null);
     if(fileInputRef.current) fileInputRef.current.value = '';
-  };
+  }, [newNoteImageDataUrl, notes, newNoteImagePreview]);
 
   
-  const { isListening, startListening, stopListening, hasSupport } = useSpeechRecognition((finalTranscript) => {
-    // Check for voice commands to auto-save note
+  // Simple Web Speech API implementation - no Capacitor plugins
+  const [isListening, setIsListening] = useState(false);
+  const [hasSupport, setHasSupport] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  
+  useEffect(() => {
+    // Check Web Speech API support
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    setHasSupport(!!SpeechRecognition);
+  }, []);
+  
+  const handleTranscript = useCallback((finalTranscript: string) => {
     const transcript = finalTranscript.toLowerCase();
     const commands = {
       tr: ['tamam', 'bitti', 'kaydet', 'not ekle', 'ekle', 'tamam kaydet', 'not olarak kaydet'],
@@ -92,7 +101,6 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
     });
     
     if (hasCommand) {
-      // Remove the command from the transcript
       let noteText = finalTranscript;
       for (const cmd of currentCommands) {
         const regex = new RegExp(`\\b${cmd.replace(/'/g, "\\'").replace(/\s+/g, '\\s+')}\\s*$`, 'gi');
@@ -109,10 +117,63 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
         }
       }
     } else {
-      // No command detected, just set the text for manual save
       setNewNoteText(finalTranscript);
     }
-  });
+  }, [lang, newNoteImageDataUrl, handleAddNote, setNotification]);
+  
+  const startListening = useCallback(() => {
+    if (!hasSupport || isListening) return;
+    
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = lang === 'tr' ? 'tr-TR' : 'en-US';
+    
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results)
+        .map((result: any) => result[0])
+        .map((result: any) => result.transcript)
+        .join('');
+      
+      setNewNoteText(transcript);
+      
+      // Check if final
+      const isFinal = event.results[event.results.length - 1]?.isFinal;
+      if (isFinal) {
+        handleTranscript(transcript);
+      }
+    };
+    
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+      if (setNotification) {
+        setNotification({
+          message: 'Ses tanıma hatası: ' + event.error,
+          type: 'error'
+        });
+      }
+    };
+    
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+    
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [hasSupport, isListening, lang, handleTranscript, setNotification]);
+  
+  const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsListening(false);
+  }, []);
 
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {

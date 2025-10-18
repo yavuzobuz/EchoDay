@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useSpeechRecognitionUnified } from '../src/hooks/useSpeechRecognitionUnified';
 import { useI18n } from '../src/contexts/I18nContext';
 
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddTask: (description: string) => void;
+  onAddTask: (description: string, imageBase64?: string, imageMimeType?: string, extra?: { locationReminder?: any, skipAIAnalysis?: boolean }) => void;
 }
 
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => {
@@ -16,7 +16,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     setDescription(transcript);
   };
 
-  const { isListening, transcript, startListening, stopListening, hasSupport } = useSpeechRecognition(handleTranscript);
+  const { isListening, transcript, startListening, stopListening, hasSupport } = useSpeechRecognitionUnified(handleTranscript);
   
   useEffect(() => {
     if (isListening) {
@@ -35,7 +35,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (description.trim()) {
-      onAddTask(description.trim());
+      // TaskModal'dan eklenen görevler için AI analizi atlanır (basit ekleme)
+      onAddTask(description.trim(), undefined, undefined, { skipAIAnalysis: true });
       setDescription('');
       onClose();
     }

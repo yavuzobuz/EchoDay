@@ -11,6 +11,7 @@ interface MobileBottomNavProps {
   onShowArchive: () => void;
   onShowProfile: () => void;
   isListening: boolean;
+  hasVoiceSupport?: boolean;
 }
 
 const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
@@ -19,7 +20,8 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   onImageTask,
   onShowArchive,
   onShowProfile,
-  isListening
+  isListening,
+  hasVoiceSupport = true
 }) => {
   const { t } = useI18n();
   const [safeAreaBottom, setSafeAreaBottom] = useState(20);
@@ -57,11 +59,13 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             }
             onVoiceCommand();
           }}
-          disabled={isListening}
+          disabled={isListening || !hasVoiceSupport}
           className={`flex flex-col items-center justify-center gap-0.5 transition-colors min-h-[44px] min-w-[44px] p-2 ${
             isListening
               ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-              : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 active:bg-gray-200 dark:active:bg-gray-600'
+              : !hasVoiceSupport
+                ? 'bg-gray-300 dark:bg-gray-800 text-gray-500 dark:text-gray-600 cursor-not-allowed opacity-50'
+                : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 active:bg-gray-200 dark:active:bg-gray-600'
           }`}
           aria-label={t('bottomNav.voice', 'Sesli')}
         >

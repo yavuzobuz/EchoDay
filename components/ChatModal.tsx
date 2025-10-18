@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChatMessage } from '../types';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
-import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
+import { useSpeechRecognitionUnified } from '../src/hooks/useSpeechRecognitionUnified';
+import { useSpeechSynthesis } from '../src/hooks/useSpeechSynthesis';
 import { useI18n } from '../src/contexts/I18nContext';
 
 interface ChatModalProps {
@@ -74,14 +74,12 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
   }, [onSendMessage, isSpeaking, stopSpeaking]);
 
   const speechRecognitionOptions = useMemo(() => ({
-    stopOnKeywords: false, // Never use stop keywords - we handle them in transcript callback
+    stopOnKeywords: [], // Empty array - we handle stop commands in transcript callback
     stopOnSilence: false, // Turn off custom silence detection
     continuous: isVoiceModeActive ? true : false, // Continuous mode for voice chat
-    realTimeMode: isVoiceModeActive, // Enable real-time processing in voice mode
-    onUserSpeaking: handleUserSpeaking, // Callback for user speaking detection
-  }), [isVoiceModeActive, handleUserSpeaking]);
+  }), [isVoiceModeActive]);
 
-  const { isListening, startListening, stopListening, hasSupport } = useSpeechRecognition(
+  const { isListening, startListening, stopListening, hasSupport } = useSpeechRecognitionUnified(
     handleTranscriptReady,
     speechRecognitionOptions
   );

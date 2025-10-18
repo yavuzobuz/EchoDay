@@ -82,9 +82,8 @@ export const GMAIL_OAUTH_CONFIG: OAuthConfig = {
   redirectUri: window.location.origin + '/auth/gmail/callback',
   scopes: [
     'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.send',
     'https://www.googleapis.com/auth/userinfo.email',
-    'https://www.googleapis.com/auth/userinfo.profile',
+    'https://www.googleapis.com/auth/userinfo.profile'
   ],
   authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
   tokenUrl: 'https://oauth2.googleapis.com/token',

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useSpeechRecognition } from '../hooks/useSpeechRecognitionUnified';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNativeSpeechRecognition } from '../hooks/useNativeSpeechRecognition';
 import { MobileModal, ModalActions } from './MobileModal';
 import { getCurrentCoords } from '../services/locationService';
 import type { GeoReminder } from '../types';
@@ -13,10 +13,9 @@ interface TaskModalProps {
 
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => {
   const [description, setDescription] = useState('');
-  const { t, lang } = useI18n();
-  const [isElectron] = useState(() => {
-    return !!(window as any).isElectron || !!(window as any).electronAPI;
-  });
+  const [showPermissionHelp, setShowPermissionHelp] = useState(false);
+  const isProcessingRef = useRef(false); // useRef kullan - closure sorununu çöz
+  const { t } = useI18n();
 
   // Geo reminder state (optional)
   const [useGeoReminder, setUseGeoReminder] = useState(false);
@@ -24,46 +23,67 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   const [geoRadius, setGeoRadius] = useState<number>(200);
   const [geoTrigger, setGeoTrigger] = useState<'near' | 'enter' | 'exit'>('near');
 
+  // Final transcript geldiğinde direkt görev ekle
+  // (Stop kelimeleri zaten hook tarafından temizlenmiş olarak geliyor)
   const handleTranscript = (transcript: string) => {
+    console.log('[TaskModal] Final transcript received:', transcript);
     
-    // Otomatik görev ekleme komutlarını kontrol et
-    const addTaskCommands = lang === 'tr' 
-      ? ['tamam', 'bitti', 'kaydet', 'ekle', 'oluştur', 'ok', 'gönder', 'tamamdır', 'bitirdim']
-      : ['ok', 'done', 'finished', 'complete', 'that\'s it', 'save', 'create', 'add', 'send'];
-      
-    const lowerTranscript = transcript.toLowerCase().trim();
-    const foundCommand = addTaskCommands.find(cmd => 
-      lowerTranscript.endsWith(cmd.toLowerCase())
-    );
-    
-    if (foundCommand) {
-      // Komut bulundu - komutu temizle ve görevi otomatik ekle (mobil ve Electron)
-      const commandIndex = lowerTranscript.lastIndexOf(foundCommand.toLowerCase());
-      const cleanedTranscript = transcript.substring(0, commandIndex).trim();
-      
-      if (cleanedTranscript) {
-        // Dinlemeyi güvenli şekilde durdur
-        try { (stopListening as any)?.(); } catch {}
-        
-        console.log(`[TaskModal] Komut "${foundCommand}" algılandı, görev ekleniyor:`, cleanedTranscript);
-        onAddTask(cleanedTranscript, undefined, undefined, undefined);
-        setDescription('');
-        onClose();
-        return;
-      }
+    // Duplikasyonu önle - useRef ile GERÇEK kontrol
+    if (isProcessingRef.current) {
+      console.log('[TaskModal] ❌ Already processing, skipping duplicate');
+      return;
     }
     
-    // Normal transcript güncelleme
-    setDescription(transcript);
+    if (transcript.trim()) {
+      // İşleme başla - flag'i HEMEN set et
+      isProcessingRef.current = true;
+      console.log('[TaskModal] ✅ Görev ekleniyor:', transcript);
+      
+      // Geo reminder varsa ekle
+      const extra = (useGeoReminder && geoCoords) ? { 
+        locationReminder: {
+          lat: geoCoords.lat,
+          lng: geoCoords.lng,
+          radius: geoRadius,
+          trigger: geoTrigger,
+          enabled: true as const,
+        }
+      } : undefined;
+      
+      onAddTask(transcript.trim(), undefined, undefined, extra);
+      setDescription('');
+      
+      // Modal kapatıldıktan sonra processing flag'i sıfırla
+      setTimeout(() => {
+        onClose();
+        setTimeout(() => {
+          isProcessingRef.current = false;
+          console.log('[TaskModal] 🔄 Processing flag reset');
+        }, 200);
+      }, 100);
+    }
   };
 
-  const { isListening, transcript, startListening, stopListening, hasSupport, checkAndRequestPermission } = useSpeechRecognition(
-    handleTranscript,
-    { 
-      stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'kayıt', 'ekle', 'oluştur', 'ok'], // Turkish final phrases
-      continuous: true // Allow longer speech input
+  const { 
+    isListening, 
+    transcript, 
+    startListening, 
+    stopListening, 
+    hasSupport
+  } = useNativeSpeechRecognition(
+    (finalTranscript: string) => {
+      console.log('[TaskModal] Final transcript:', finalTranscript);
+      if (finalTranscript.trim()) {
+        handleTranscript(finalTranscript);
+      }
+    },
+    {
+      stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'kayıt', 'ekle', 'oluştur', 'ok'],
+      continuous: true,
+      stopOnSilence: true // Kullanıcı konuşmayı bitirdiğinde 2 saniye sessizlikten sonra durdur
     }
   );
+  
   
   useEffect(() => {
     if (isListening) {
@@ -75,6 +95,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   useEffect(() => {
     if (isOpen) {
       setDescription('');
+      isProcessingRef.current = false; // Reset processing flag on open
     } else {
       try { (stopListening as any)?.(); } catch {}
     }
@@ -88,6 +109,18 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     }, 15000);
     return () => clearTimeout(t);
   }, [isListening, stopListening]);
+
+  // Listen for permission denied modal events
+  useEffect(() => {
+    const handlePermissionModal = (event: any) => {
+      if (event.detail?.showTextInput) {
+        setShowPermissionHelp(true);
+      }
+    };
+    
+    window.addEventListener('showTextInputModal', handlePermissionModal);
+    return () => window.removeEventListener('showTextInputModal', handlePermissionModal);
+  }, []);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -116,13 +149,17 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     >
       <div>
         <div className="space-y-4">
-          {isListening && isElectron && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-              <p className="text-xs md:text-xs text-blue-700 dark:text-blue-300">
-                🎤 <strong>Dinliyor...</strong> Konuşmanızı bitirdiğinizde <strong>mikrofon butonuna tekrar basın</strong>.
+          {/* Enhanced Speech Recognition Info */}
+          {isListening && (
+            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs md:text-xs font-medium text-blue-700 dark:text-blue-300">
+                🎤 <strong>Dinliyor...</strong> 🌐 Online Mod
               </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                💡 İpucu: "tamam", "bitti", "kaydet" gibi kelimeler metin işlendikten sonra otomatik silinir.
+              <p className="text-xs mt-1 text-blue-600 dark:text-blue-400">
+                🌐 Google sunucularını kullanıyor
+              </p>
+              <p className="text-xs mt-1 text-blue-600 dark:text-blue-400">
+                💡 İpucu: "tamam", "bitti", "kaydet" söylürseniz otomatik kaydeder
               </p>
             </div>
           )}
@@ -171,6 +208,43 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
               </div>
             )}
           </div>
+
+          {showPermissionHelp && (
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="p-1 rounded-full bg-red-100 dark:bg-red-900/50">
+                  <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-medium text-red-800 dark:text-red-200 mb-2">
+                    Mikrofon İzni Gerekli
+                  </h4>
+                  <p className="text-sm text-red-700 dark:text-red-300 mb-3">
+                    Android'de sesli görev eklemek için mikrofon iznine ihtiyacım var. 
+                    İzni vermek için:
+                  </p>
+                  <ol className="text-sm text-red-700 dark:text-red-300 list-decimal ml-4 space-y-1 mb-3">
+                    <li>Uygulama ayarlarına git</li>
+                    <li>"İzinler" bölümüne tıkla</li>
+                    <li>"Mikrofon" iznini aktifleştir</li>
+                    <li>Uygulamayı yeniden başlat</li>
+                  </ol>
+                  <p className="text-xs text-red-600 dark:text-red-400 mb-3">
+                    💡 <strong>Alternatif:</strong> Yukarıdaki metin kutusunu kullanarak yazarak da görev ekleyebilirsin!
+                  </p>
+                  <button 
+                    onClick={() => setShowPermissionHelp(false)}
+                    className="text-xs px-3 py-1 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full hover:bg-red-200 dark:hover:bg-red-800"
+                  >
+                    Tamam
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
 
           {!hasSupport && (
             <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
@@ -222,44 +296,42 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
               type="button"
               onClick={async (e) => {
                 e.preventDefault();
-                console.log('[TaskModal] Mic toggle click', { isListening, hasSupport });
+                console.log('[TaskModal] 🎤 Mikrofon durumu:', { isListening, hasSupport });
                 try {
                   if (isListening) {
-                    console.log('[TaskModal] Stopping listening...');
+                    console.log('[TaskModal] Mikrofon durduruluyor...');
                     await stopListening();
                   } else {
-                    console.log('[TaskModal] Starting listening...');
-                    if (checkAndRequestPermission) {
-                      await checkAndRequestPermission();
-                    }
+                    console.log('[TaskModal] Mikrofon başlatılıyor...');
                     await startListening();
                   }
                 } catch (error) {
-                  console.error('[TaskModal] Mic toggle error:', error);
+                  console.error('[TaskModal] Mikrofon toggle hatası:', error);
                 }
               }}
-              className={`p-3 rounded-full transition-all shadow-lg hover:shadow-xl active:scale-95 ${
+              className={`p-3 rounded-full transition-all duration-200 shadow-lg hover:shadow-xl active:scale-95 ${
                 isListening 
-                  ? 'bg-red-600 hover:bg-red-700' 
-                  : 'bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)]'
+                  ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
+                  : 'bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] text-white'
               }`}
               title={isListening ? t('taskModal.mic.stop', 'Mikrofonu durdur') : t('taskModal.mic.start','Mikrofonu başlat')}
             >
               {isListening ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 000 2h4a1 1 0 100-2H8z" clipRule="evenodd" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <rect x="6" y="6" width="12" height="12" rx="2" ry="2"/>
                 </svg>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 715 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />
                 </svg>
               )}
             </button>
           ) : (
             <button 
               type="button"
-              className="p-3 rounded-full bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] active:scale-95 transition-all shadow-lg hover:shadow-xl"
-              title={t('taskModal.mic.start','Basılı tutarak sesli görev kaydet')}
+              disabled
+              className="p-3 rounded-full bg-gray-400 cursor-not-allowed opacity-50 shadow-lg"
+              title={t('taskModal.mic.notSupported','Mikrofon desteklenmiyor')}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 715 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clipRule="evenodd" />

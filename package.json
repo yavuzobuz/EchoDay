@@ -24,10 +24,10 @@
     "preview": "vite preview",
     "sync": "npm run build && npx cap sync",
     "icons:generate": "node scripts/generate-icons.js",
-    "android:build": "cross-env NODE_ENV=production npm run build && node scripts/inject-env-android.js && npx cap sync android && npx cap build android",
-    "android:dev": "cross-env NODE_ENV=production npm run build && node scripts/inject-env-android.js && npx cap sync android && npx cap open android",
-    "android:apk": "cross-env NODE_ENV=production npm run build && node scripts/inject-env-android.js && npx cap sync android && cd android && ./gradlew assembleDebug",
-    "android:apk:win": "cross-env NODE_ENV=production npm run build && node scripts/inject-env-android.js && npx cap sync android && cd android && .\\gradlew.bat assembleDebug"
+    "android:build": "cross-env NODE_ENV=production npm run build && npx cap sync android && npx cap build android",
+    "android:dev": "cross-env NODE_ENV=production npm run build && npx cap sync android && npx cap open android",
+    "android:apk": "cross-env NODE_ENV=production npm run build && npx cap sync android && cd android && ./gradlew assembleDebug",
+    "android:apk:win": "cross-env NODE_ENV=production npm run build && npx cap sync android && cd android && .\\gradlew.bat assembleDebug"
   },
   "build": {
     "appId": "com.echoday.assistant",
@@ -89,6 +89,7 @@
   },
   "dependencies": {
     "@capacitor-community/speech-recognition": "^6.0.0",
+    "@capacitor-community/text-to-speech": "^5.0.0",
     "@capacitor/android": "^6.1.0",
     "@capacitor/clipboard": "^6.0.0",
     "@capacitor/core": "^6.1.0",
@@ -104,6 +105,7 @@
     "@supabase/supabase-js": "^2.58.0",
     "@types/dompurify": "^3.0.5",
     "cors": "^2.8.5",
+    "dexie": "^4.2.1",
     "dexie-react-hooks": "^1.1.7",
     "dompurify": "^3.2.7",
     "dotenv": "^17.2.3",

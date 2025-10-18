@@ -1,0 +1,441 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    ECHODAY PROJESİ - KONSOL KOMUTLARI REHBERİ
+═══════════════════════════════════════════════════════════════════════════════
+
+Bu dosya EchoDay projesinde kullanabileceğiniz tüm komutları içerir.
+Windows PowerShell için optimize edilmiştir.
+
+═══════════════════════════════════════════════════════════════════════════════
+📦 KURULUM VE BAŞLANGIÇ
+═══════════════════════════════════════════════════════════════════════════════
+
+# Proje bağımlılıklarını yükle
+npm install
+
+# İlk kurulumdan sonra Capacitor'ı başlat (sadece bir kez)
+npx cap init
+
+# Android platformunu ekle (sadece bir kez)
+npx cap add android
+
+# iOS platformunu ekle (sadece bir kez - macOS gerekli)
+npx cap add ios
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🌐 WEB GELİŞTİRME (Tarayıcı)
+═══════════════════════════════════════════════════════════════════════════════
+
+# Basit geliştirme sunucusu (sadece web)
+npm run dev
+# Açıklama: Vite dev sunucusu localhost:5173'te çalışır
+# Kullanım: Sadece web arayüzü geliştirmek için
+
+# Geliştirme sunucusu + Mail servisi
+npm run dev:full
+# Açıklama: Web sunucusu + mail server birlikte çalışır
+# Kullanım: Mail özelliklerini test etmek için
+
+# Network üzerinden erişilebilir sunucu
+npm run dev:network
+# Açıklama: Aynı ağdaki diğer cihazlardan erişilebilir (port 5173)
+# Kullanım: Telefondan veya başka cihazdan test etmek için
+
+# Production build önizlemesi
+npm run preview
+# Açıklama: Build edilmiş dosyaları önizlemek için
+# Kullanım: Production build'i test etmek için
+
+
+═══════════════════════════════════════════════════════════════════════════════
+📱 MOBILE GELİŞTİRME (Android/iOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+# Mobil için geliştirme sunucusu (live reload)
+npm run dev:mobile-live
+# Açıklama: Mobil cihazlardan erişilebilir dev server (0.0.0.0:5173)
+# Kullanım: Mobil cihazda gerçek zamanlı test için
+# Not: Bilgisayar ve telefon aynı WiFi'de olmalı
+
+# Mobil build + preview
+npm run dev:mobile
+# Açıklama: Mobil için build yapar ve preview sunar
+# Kullanım: Mobil özellikleri build edilmiş haliyle test etmek için
+
+# Mobil build (production)
+npm run build:mobile
+# Açıklama: Mobil için optimize edilmiş production build
+# Kullanım: Android/iOS'a aktarmadan önce
+
+# Mobil preview sunucusu
+npm run serve:mobile
+# Açıklama: Build edilmiş mobil uygulamayı sunar (0.0.0.0:5173)
+# Kullanım: Build sonrası test için
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🤖 ANDROID GELİŞTİRME
+═══════════════════════════════════════════════════════════════════════════════
+
+# Android için full build
+npm run android:build
+# Açıklama: Web build + Capacitor sync + Android build (Capacitor CLI)
+# Kullanım: Production build için (ancak Capacitor CLI kullanır)
+# Çıktı: Android Studio'da build yapılır
+
+# Android Studio'da aç (geliştirme modu)
+npm run android:dev
+# Açıklama: Web build + sync sonrası Android Studio'yu açar
+# Kullanım: Android Studio'da düzenleme ve debug için
+# Not: Android Studio yüklü olmalı
+
+# Debug APK oluştur (Windows)
+npm run android:apk:win
+# Açıklama: Web build + sync + Gradle ile debug APK oluşturur
+# Kullanım: Direkt APK dosyası almak için (Windows)
+# Çıktı: android/app/build/outputs/apk/debug/app-debug.apk
+
+# Debug APK oluştur (Linux/Mac)
+npm run android:apk
+# Açıklama: Web build + sync + Gradle ile debug APK oluşturur
+# Kullanım: Direkt APK dosyası almak için (Linux/Mac)
+# Çıktı: android/app/build/outputs/apk/debug/app-debug.apk
+
+# Manuel Capacitor sync (Android)
+npx cap sync android
+# Açıklama: Web assets'i Android projesine kopyalar
+# Kullanım: Web kodunda değişiklik yaptıktan sonra
+
+# Android Studio'da aç (manuel)
+npx cap open android
+# Açıklama: Android projesini Android Studio'da açar
+# Kullanım: Manuel kontrol ve düzenleme için
+
+# Android projesini güncelle
+npx cap update android
+# Açıklama: Capacitor ve plugin'leri günceller
+# Kullanım: Capacitor versiyonu değiştiğinde
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🍎 iOS GELİŞTİRME (macOS gerekli)
+═══════════════════════════════════════════════════════════════════════════════
+
+# iOS için Capacitor sync
+npx cap sync ios
+# Açıklama: Web assets'i iOS projesine kopyalar
+# Kullanım: Web kodunda değişiklik yaptıktan sonra
+
+# Xcode'da aç
+npx cap open ios
+# Açıklama: iOS projesini Xcode'da açar
+# Kullanım: iOS geliştirme ve build için
+
+# iOS projesini güncelle
+npx cap update ios
+# Açıklama: Capacitor ve plugin'leri günceller
+# Kullanım: Capacitor versiyonu değiştiğinde
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🖥️ ELECTRON (Desktop App)
+═══════════════════════════════════════════════════════════════════════════════
+
+# Electron geliştirme modu
+npm run electron:dev
+# Açıklama: Vite dev server + Electron birlikte başlatır
+# Kullanım: Desktop uygulaması geliştirmek için
+# Not: Port 5174'te çalışır
+
+# Basit Electron başlatma
+npm run electron:simple
+# Açıklama: Sadece Electron'u başlatır (build gerekli)
+# Kullanım: Önceden build edilmiş uygulamayı test etmek için
+
+# Full geliştirme ortamı (Web + Mail + Electron)
+npm run dev:all
+# Açıklama: Web (3000) + Mail server + Mobile (5173) + Electron birlikte
+# Kullanım: Tüm platformları aynı anda test etmek için
+
+# Basit geliştirme (Web + Mail + Electron)
+npm run dev:simple
+# Açıklama: Web dev + Mail + Electron basit mod
+# Kullanım: Electron'la birlikte geliştirme yapmak için
+
+# Electron production build
+npm run electron:build
+# Açıklama: Web build + Electron installer oluşturur
+# Kullanım: Windows/Mac/Linux için kurulum dosyası yapmak için
+# Çıktı: dist-electron klasörü
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🔨 BUILD İŞLEMLERİ
+═══════════════════════════════════════════════════════════════════════════════
+
+# Full production build (TypeScript check + Vite build)
+npm run build
+# Açıklama: TypeScript kontrolü yapar + production build
+# Kullanım: Production için final build
+# Çıktı: dist/ klasörü
+
+# Hızlı build (TypeScript check yok)
+npm run build:quick
+# Açıklama: Sadece Vite build, TypeScript kontrolsüz
+# Kullanım: Hızlı test buildi için
+# Çıktı: dist/ klasörü
+
+# Build + Capacitor sync (tüm platformlar)
+npm run sync
+# Açıklama: Web build + tüm platformlara sync
+# Kullanım: Hem web hem mobil güncelleme için
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🔧 YARDIMCI ARAÇLAR
+═══════════════════════════════════════════════════════════════════════════════
+
+# Mail server başlat (standalone)
+npm run mail:server
+# Açıklama: IMAP/SMTP mail sunucusunu başlatır
+# Kullanım: Mail özelliklerini test etmek için
+# Not: server/mail-server.cjs dosyasını çalıştırır
+
+# Uygulama ikonlarını oluştur
+npm run icons:generate
+# Açıklama: Tüm platform ikonlarını otomatik oluşturur
+# Kullanım: İkon dosyası değiştiğinde
+# Not: scripts/generate-icons.js dosyasını çalıştırır
+
+# Capacitor assets oluştur
+npx cap-assets generate
+# Açıklama: Capacitor için splash screen ve icon oluşturur
+# Kullanım: Yeni icon/splash eklerken
+
+
+═══════════════════════════════════════════════════════════════════════════════
+📊 GRADLE KOMUTLARI (Android - Direkt)
+═══════════════════════════════════════════════════════════════════════════════
+
+# Android klasörüne git
+cd android
+
+# Debug APK oluştur (Windows)
+.\gradlew.bat assembleDebug
+# Açıklama: Debug APK build eder
+# Çıktı: app/build/outputs/apk/debug/app-debug.apk
+
+# Release APK oluştur (Windows) - İmza gerekli
+.\gradlew.bat assembleRelease
+# Açıklama: İmzalı release APK oluşturur
+# Not: gradle.properties'de signing config gerekli
+# Çıktı: app/build/outputs/apk/release/app-release.apk
+
+# Android App Bundle (AAB) oluştur - Google Play için
+.\gradlew.bat bundleRelease
+# Açıklama: Play Store'a yüklemek için AAB oluşturur
+# Çıktı: app/build/outputs/bundle/release/app-release.aab
+
+# Gradle cache temizle
+.\gradlew.bat clean
+# Açıklama: Build cache'i temizler
+# Kullanım: Build hataları olduğunda
+
+# Build ve hemen yükle (Android cihaz bağlı olmalı)
+.\gradlew.bat installDebug
+# Açıklama: APK build eder ve bağlı cihaza yükler
+# Not: USB debugging açık olmalı
+
+# Tüm build task'leri listele
+.\gradlew.bat tasks
+# Açıklama: Mevcut tüm Gradle task'leri gösterir
+
+# Dependency ağacını göster
+.\gradlew.bat dependencies
+# Açıklama: Tüm bağımlılıkları ağaç yapısında gösterir
+
+# Projeye geri dön
+cd ..
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🔍 DEBUG VE TEST
+═══════════════════════════════════════════════════════════════════════════════
+
+# TypeScript type check
+npx tsc --noEmit
+# Açıklama: Sadece TypeScript hatalarını kontrol eder, build etmez
+# Kullanım: Kod yazdıktan sonra tip kontrolü için
+
+# Capacitor doctor (sorun tespiti)
+npx cap doctor
+# Açıklama: Capacitor kurulumunu ve config'i kontrol eder
+# Kullanım: Capacitor sorunlarını tespit etmek için
+
+# Android logları izle (cihaz bağlı olmalı)
+# Önce Android SDK platform-tools'un PATH'te olduğundan emin olun
+adb logcat
+# Açıklama: Bağlı Android cihazın loglarını gösterir
+# Kullanım: Android hatalarını debug etmek için
+
+# Belirli tag ile logları filtrele
+adb logcat -s "EchoDay"
+# Açıklama: Sadece EchoDay tag'li logları gösterir
+
+# Bağlı cihazları listele
+adb devices
+# Açıklama: USB'ye bağlı Android cihazları gösterir
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🗑️ TEMİZLİK KOMUTLARI
+═══════════════════════════════════════════════════════════════════════════════
+
+# Node modüllerini sil ve yeniden yükle
+Remove-Item -Recurse -Force node_modules
+npm install
+# Açıklama: Bağımlılık sorunlarını çözmek için
+# Kullanım: npm install hataları durumunda
+
+# Build cache'lerini temizle
+Remove-Item -Recurse -Force dist
+Remove-Item -Recurse -Force dist-electron
+Remove-Item -Recurse -Force .vite
+# Açıklama: Tüm build çıktılarını siler
+# Kullanım: Yeni bir temiz build için
+
+# Android build cache temizle
+cd android
+.\gradlew.bat clean
+Remove-Item -Recurse -Force app\build
+Remove-Item -Recurse -Force .gradle
+cd ..
+# Açıklama: Android build sorunlarını çözmek için
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🔐 GÜVENLİK - SIGNING (Release Build İçin)
+═══════════════════════════════════════════════════════════════════════════════
+
+# Keystore oluştur (ilk kez)
+keytool -genkey -v -keystore echoday-release-key.keystore -alias echoday -keyalg RSA -keysize 2048 -validity 10000
+# Açıklama: Yeni bir keystore dosyası oluşturur
+# Kullanım: İlk release build öncesi (tek seferlik)
+# Not: Şifreyi güvenli yerde saklayın!
+
+# Keystore bilgilerini görüntüle
+keytool -list -v -keystore echoday-release-key.keystore
+# Açıklama: Keystore'daki sertifika bilgilerini gösterir
+
+# APK'yı manuel imzala (gerekirse)
+jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore echoday-release-key.keystore app-release-unsigned.apk echoday
+# Açıklama: İmzasız APK'yı imzalar
+
+# APK imzasını doğrula
+jarsigner -verify -verbose -certs app-release.apk
+# Açıklama: APK'nın imzalı olup olmadığını kontrol eder
+
+
+═══════════════════════════════════════════════════════════════════════════════
+📝 ENVIRONMENT VARIABLES (Geliştirme İçin)
+═══════════════════════════════════════════════════════════════════════════════
+
+# Signing için environment variable'lar (PowerShell)
+$env:STORE_FILE="C:\path\to\echoday-release-key.keystore"
+$env:STORE_PASSWORD="your_password"
+$env:KEY_ALIAS="echoday"
+$env:KEY_PASSWORD="your_password"
+
+# Sonra build komutu çalıştır
+cd android
+.\gradlew.bat assembleRelease
+cd ..
+
+# Veya tek satırda
+$env:STORE_PASSWORD="pass"; $env:KEY_PASSWORD="pass"; cd android; .\gradlew.bat assembleRelease; cd ..
+
+
+═══════════════════════════════════════════════════════════════════════════════
+🚀 HIZLI BAŞLANGIÇ ÖRNEKLERİ
+═══════════════════════════════════════════════════════════════════════════════
+
+# Senaryo 1: Web geliştirme yapmak istiyorum
+npm run dev
+# Tarayıcıda http://localhost:5173 aç
+
+# Senaryo 2: Android'de test etmek istiyorum (live reload)
+npm run dev:mobile-live
+# Telefonda http://BILGISAYAR_IP:5173 aç
+
+# Senaryo 3: Android APK oluşturmak istiyorum (test için)
+npm run android:apk:win
+# APK: android/app/build/outputs/apk/debug/app-debug.apk
+
+# Senaryo 4: Release APK oluşturmak istiyorum (production)
+# 1. gradle.properties'e şifreleri ekle (lokal, git'e ekleme!)
+# 2. Build yap:
+npm run build:mobile
+npx cap sync android
+cd android
+.\gradlew.bat assembleRelease
+cd ..
+# APK: android/app/build/outputs/apk/release/app-release.apk
+
+# Senaryo 5: Desktop uygulaması geliştiriyorum
+npm run dev:simple
+# Electron penceresi açılır
+
+# Senaryo 6: Desktop installer oluşturmak istiyorum
+npm run electron:build
+# Çıktı: dist-electron/ klasörü
+
+
+═══════════════════════════════════════════════════════════════════════════════
+⚠️ ÖNEMLİ NOTLAR
+═══════════════════════════════════════════════════════════════════════════════
+
+1. İLK KURULUM SONRASI:
+   - npm install
+   - npm run icons:generate (ikonlar için)
+   - npm run build (ilk build)
+
+2. ANDROID GELİŞTİRME İÇİN GEREKLİLER:
+   - Android Studio yüklü olmalı
+   - Android SDK kurulu olmalı
+   - Java JDK 11+ kurulu olmalı
+   - Gradle (Android Studio ile gelir)
+
+3. GÜVENLİK:
+   - gradle.properties dosyasını .gitignore'a ekleyin
+   - Keystore dosyasını asla git'e eklemeyin
+   - Şifreleri environment variable olarak kullanın
+
+4. GRADLE GÜNCELLEMELER:
+   - İlk build'de Gradle 8.5 otomatik indirilir
+   - Bu işlem 5-10 dakika sürebilir (tek seferlik)
+
+5. MOBILE BUILD:
+   - Değişiklik yaptıktan sonra "npx cap sync" unutmayın
+   - Natif kod değişiklikleri Android Studio'da yapılmalı
+
+6. PERFORMANS:
+   - "npm run build:quick" TypeScript check atlar (daha hızlı)
+   - Gradle clean sadece sorun olduğunda kullanın
+
+7. DEBUG:
+   - Android logları: adb logcat -s "EchoDay"
+   - Chrome DevTools: chrome://inspect (Android)
+   - Electron DevTools: Electron'da F12
+
+═══════════════════════════════════════════════════════════════════════════════
+📞 DESTEK VE KAYNAKLAR
+═══════════════════════════════════════════════════════════════════════════════
+
+Capacitor Docs: https://capacitorjs.com/docs
+Vite Docs: https://vitejs.dev
+React Docs: https://react.dev
+Android Docs: https://developer.android.com
+
+═══════════════════════════════════════════════════════════════════════════════
+                                SON GÜNCELLEME: 2025-10-17
+═══════════════════════════════════════════════════════════════════════════════
