@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AIService, AIMessage } from '../src/services/aiService';
 import { AIProvider } from '../src/types/ai';
-import { useSpeechRecognitionUnified } from '../src/hooks/useSpeechRecognitionUnified';
+import { useWebSpeechRecognition } from '../src/hooks/useWebSpeechRecognition';
 
 interface WebhookChatbotProps {
   isOpen: boolean;
@@ -45,7 +45,7 @@ const WebhookChatbot: React.FC<WebhookChatbotProps> = ({ isOpen, onClose, webhoo
     startListening,
     stopListening,
     hasSupport: hasSpeechSupport
-  } = useSpeechRecognitionUnified(handleSpeechResult, {
+  } = useWebSpeechRecognition(handleSpeechResult, {
     stopOnKeywords: ['tamam', 'bitti', 'ok', 'kaydet', 'gönder'],
     continuous: false,
     stopOnSilence: true
