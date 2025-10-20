@@ -2,6 +2,7 @@ import { Todo } from '../types/todo';
 import { UserContext } from '../types/userContext';
 import { getCurrentAIService } from '../utils/aiHelper';
 import { AIProvider } from '../types/ai';
+import { rateLimitService } from './rateLimitService';
 
 export interface SmartSuggestion {
   id: string;
@@ -301,6 +302,12 @@ export class SmartSuggestionsService {
     _todos: Todo[]
   ): Promise<SmartSuggestion[]> {
     try {
+      // Check rate limiting first
+      if (!rateLimitService.canMakeRequest('gemini', 'free')) {
+        console.log('[SmartSuggestions] Rate limit exceeded, skipping AI suggestions');
+        return [];
+      }
+
       // Try to get AI service - will throw if no API key is configured
       const aiService = getCurrentAIService();
       

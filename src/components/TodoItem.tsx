@@ -517,27 +517,17 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
       )}
       
       {/* Reminder Setup Modal */}
-      {(() => {
-        console.log('🔵 TodoItem Render: onUpdateReminders exists?', !!onUpdateReminders);
-        console.log('🔵 TodoItem Render: isReminderModalOpen?', isReminderModalOpen);
-        return onUpdateReminders && (
-          <ReminderSetupModal
-            isOpen={isReminderModalOpen}
-            onClose={() => {
-              console.log('🔴 Closing reminder modal');
-              setIsReminderModalOpen(false);
-            }}
-            taskDateTime={todo.datetime}
-            existingReminders={todo.reminders || []}
-            onSave={(reminders) => {
-              console.log('📋 TodoItem: Saving reminders for task:', todo.id);
-              console.log('📋 TodoItem: New reminders data:', reminders);
-              console.log('📋 TodoItem: Previous reminders:', todo.reminders);
-              onUpdateReminders(todo.id, reminders);
-            }}
-          />
-        );
-      })()}
+      {onUpdateReminders && (
+        <ReminderSetupModal
+          isOpen={isReminderModalOpen}
+          onClose={() => setIsReminderModalOpen(false)}
+          taskDateTime={todo.datetime}
+          existingReminders={todo.reminders || []}
+          onSave={(reminders) => {
+            onUpdateReminders(todo.id, reminders);
+          }}
+        />
+      )}
       {/* GeoReminder Modal */}
       {onUpdateGeoReminder && (
         <GeoReminderModal

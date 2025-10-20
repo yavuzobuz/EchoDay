@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { SmartSuggestion, SmartSuggestionsService } from '../src/services/smartSuggestionsService';
 import { Todo } from '../src/types/todo';
 import { UserContext } from '../src/types/userContext';
@@ -20,10 +20,36 @@ const SmartSuggestionsPanel: React.FC<SmartSuggestionsPanelProps> = ({
   const [loading, setLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const suggestionsService = SmartSuggestionsService.getInstance();
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTodosHashRef = useRef<string>('');
+
+  // Debounced suggestions loading
+  const debouncedLoadSuggestions = useCallback(() => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    debounceRef.current = setTimeout(() => {
+      loadSuggestions();
+    }, 2000); // 2 second debounce
+  }, []);
 
   useEffect(() => {
-    loadSuggestions();
-  }, [todos]);
+    // Create a simple hash of todos to detect actual changes
+    const todosHash = todos.map(t => `${t.id}-${t.completed}-${t.text}`).join('|');
+    
+    // Only load suggestions if todos actually changed
+    if (todosHash !== lastTodosHashRef.current) {
+      lastTodosHashRef.current = todosHash;
+      debouncedLoadSuggestions();
+    }
+    
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [todos, debouncedLoadSuggestions]);
 
   const loadSuggestions = async () => {
     setLoading(true);

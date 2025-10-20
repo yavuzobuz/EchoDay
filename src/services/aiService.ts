@@ -1,4 +1,5 @@
 import { AIProvider } from '../types/ai';
+import { rateLimitService } from './rateLimitService';
 
 export interface AIMessage {
   role: 'user' | 'assistant' | 'system';
@@ -77,6 +78,12 @@ export class AIService {
     prompt: string,
     options: AIGenerateOptions
   ): Promise<AIGenerateResult> {
+    // Rate limiting check
+    if (!rateLimitService.canMakeRequest('gemini', 'free')) {
+      const waitTime = rateLimitService.getWaitTime('gemini', 'free');
+      throw new Error(`Rate limit exceeded. Please wait ${waitTime} seconds before making another request.`);
+    }
+
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(this.apiKey);
     
@@ -115,6 +122,12 @@ export class AIService {
     messages: AIMessage[],
     options: AIGenerateOptions
   ): Promise<AIGenerateResult> {
+    // Rate limiting check
+    if (!rateLimitService.canMakeRequest('gemini', 'free')) {
+      const waitTime = rateLimitService.getWaitTime('gemini', 'free');
+      throw new Error(`Rate limit exceeded. Please wait ${waitTime} seconds before making another request.`);
+    }
+
     const { GoogleGenerativeAI } = await import('@google/generative-ai');
     const genAI = new GoogleGenerativeAI(this.apiKey);
     
