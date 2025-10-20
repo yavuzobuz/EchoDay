@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Todo, Priority, ReminderConfig, GeoReminder } from '../types';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
-import ReminderSetupModal from './ReminderSetupModal';
 import GeoReminderModal from './GeoReminderModal';
 import { useI18n } from '../contexts/I18nContext';
 
@@ -51,15 +50,13 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(todo.text);
   const [showReminderBadge, setShowReminderBadge] = useState(false);
-  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [isGeoModalOpen, setIsGeoModalOpen] = useState(false);
+  const [showReminderMenu, setShowReminderMenu] = useState(false);
+  const [customReminderDate, setCustomReminderDate] = useState('');
+  const [customReminderTime, setCustomReminderTime] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
   const { isSpeaking, speak, cancel, hasSupport } = useTextToSpeech();
   
-  // Debug: Log when modal state changes
-  useEffect(() => {
-    console.log('⚡ isReminderModalOpen changed to:', isReminderModalOpen, 'for task:', todo.id);
-  }, [isReminderModalOpen, todo.id]);
 
   // Uzun ve bozuk satır sonlarını tek satıra normalize et (PDF/OCR kaynaklı \n sorunları)
   const displayedText = useMemo(() => {
@@ -86,6 +83,20 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
       editInputRef.current?.select();
     }
   }, [isEditing]);
+
+  // Close reminder menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showReminderMenu) {
+        setShowReminderMenu(false);
+      }
+    };
+
+    if (showReminderMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showReminderMenu]);
 
   const handleSave = () => {
     if (editText.trim() && editText.trim() !== todo.text) {
@@ -146,6 +157,75 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
     return 'Bilinmeyen';
   };
 
+  const reminderOptions = [
+    { label: '5 dk önce', minutes: 5 },
+    { label: '15 dk önce', minutes: 15 },
+    { label: '30 dk önce', minutes: 30 },
+    { label: '1 saat önce', minutes: 60 },
+    { label: '1 gün önce', minutes: 1440 },
+  ];
+
+  const handleReminderToggle = (minutes: number) => {
+    if (!onUpdateReminders || !todo.datetime) return;
+    
+    const existingReminders = todo.reminders || [];
+    const hasThisReminder = existingReminders.some(r => r.type === 'relative' && r.minutesBefore === minutes);
+    
+    if (hasThisReminder) {
+      // Remove this reminder
+      const updatedReminders = existingReminders.filter(r => !(r.type === 'relative' && r.minutesBefore === minutes));
+      onUpdateReminders(todo.id, updatedReminders);
+    } else {
+      // Add this reminder
+      const newReminder: ReminderConfig = {
+        id: 'reminder-' + Date.now(),
+        type: 'relative',
+        minutesBefore: minutes,
+        triggered: false
+      };
+      onUpdateReminders(todo.id, [...existingReminders, newReminder]);
+    }
+    setShowReminderMenu(false);
+  };
+
+  const handleCustomReminder = () => {
+    if (!onUpdateReminders || !customReminderDate || !customReminderTime) {
+      alert('Lütfen tarih ve saat seçiniz.');
+      return;
+    }
+
+    const combinedDateTime = `${customReminderDate}T${customReminderTime}:00`;
+    const reminderDate = new Date(combinedDateTime);
+    const now = new Date();
+
+    if (reminderDate <= now) {
+      alert('Hatırlatma zamanı gelecekte olmalıdır.');
+      return;
+    }
+
+    const existingReminders = todo.reminders || [];
+    const isDuplicate = existingReminders.some(r => 
+      r.type === 'absolute' && r.absoluteTime === combinedDateTime
+    );
+    
+    if (isDuplicate) {
+      alert('Bu tarih ve saatte zaten bir hatırlatma mevcut.');
+      return;
+    }
+
+    const newReminder: ReminderConfig = {
+      id: 'custom-' + Date.now(),
+      type: 'absolute',
+      absoluteTime: combinedDateTime,
+      triggered: false
+    };
+    
+    onUpdateReminders(todo.id, [...existingReminders, newReminder]);
+    setCustomReminderDate('');
+    setCustomReminderTime('');
+    setShowReminderMenu(false);
+  };
+
   return (
     <div id={`todo-${todo.id}`} className={`group bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow duration-200 border-l-4 ${conflictClass} ${todo.completed ? 'opacity-60 saturate-50' : ''}`}>
       <div className="flex items-start justify-between">
@@ -172,23 +252,99 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
               </div>
               {!isEditing && (
                 <div className="flex items-center gap-1.5">
-                  {onUpdateReminders && (
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('🔔 Reminder button clicked for task:', todo.id);
-                        console.log('🔔 Current modal state:', isReminderModalOpen);
-                        setIsReminderModalOpen(true);
-                        console.log('🔔 Modal should now be open');
-                      }}
-                      className="p-1 rounded-full transition-colors text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50" 
-                      aria-label={t('todoItem.aria.setReminder','Hatırlatma ayarla')}
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                      </svg>
-                    </button>
+                  {onUpdateReminders && todo.datetime && (
+                    <div className="relative">
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowReminderMenu(!showReminderMenu);
+                        }}
+                        className={`p-1 rounded-full transition-colors ${
+                          activeRemindersCount > 0
+                            ? 'text-blue-500 bg-blue-100 dark:bg-blue-900/50' 
+                            : 'text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50'
+                        }`} 
+                        aria-label={t('todoItem.aria.setReminder','Hatırlatma ayarla')}
+                        title="Hatırlatma seçenekleri"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                        </svg>
+                      </button>
+                      {showReminderMenu && (
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+                          <div className="p-2 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                            Hatırlatma Seçenekleri
+                          </div>
+                          {reminderOptions.map(option => {
+                            const isActive = (todo.reminders || []).some(r => r.type === 'relative' && r.minutesBefore === option.minutes);
+                            return (
+                              <button
+                                key={option.minutes}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleReminderToggle(option.minutes);
+                                }}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between ${
+                                  isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-300'
+                                }`}
+                              >
+                                <span>{option.label}</span>
+                                {isActive && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </button>
+                            );
+                          })}
+                          <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+                            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                              Özel Tarih/Saat
+                            </div>
+                            <div className="space-y-2">
+                              <input
+                                type="date"
+                                value={customReminderDate}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setCustomReminderDate(e.target.value);
+                                }}
+                                min={new Date().toISOString().split('T')[0]}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <input
+                                type="time"
+                                value={customReminderTime}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setCustomReminderTime(e.target.value);
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleCustomReminder();
+                                }}
+                                disabled={!customReminderDate || !customReminderTime}
+                                className="w-full px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded transition-colors"
+                              >
+                                Ekle
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {onUpdateGeoReminder && (
                     <button onClick={() => setIsGeoModalOpen(true)} className="p-1 rounded-full text-gray-400 hover:text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900/50" aria-label={t('todoItem.aria.geoReminder','Konum hatırlatıcısı')}>
@@ -313,23 +469,99 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
                     />
                   </div>
                   <div className="flex items-center gap-1 touch-manipulation">
-                  {onUpdateReminders && (
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        console.log('🔔 Mobile reminder button clicked for task:', todo.id);
-                        console.log('🔔 Current modal state:', isReminderModalOpen);
-                        setIsReminderModalOpen(true);
-                        console.log('🔔 Modal should now be open');
-                      }}
-                      className="p-2 min-h-[44px] min-w-[44px] rounded-full transition-colors text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50 active:scale-95" 
-                      aria-label="Hatırlatma ayarla"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                      </svg>
-                    </button>
+                  {onUpdateReminders && todo.datetime && (
+                    <div className="relative">
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowReminderMenu(!showReminderMenu);
+                        }}
+                        className={`p-2 min-h-[44px] min-w-[44px] rounded-full transition-colors active:scale-95 ${
+                          activeRemindersCount > 0
+                            ? 'text-blue-500 bg-blue-100 dark:bg-blue-900/50' 
+                            : 'text-gray-400 hover:text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/50'
+                        }`} 
+                        aria-label="Hatırlatma ayarla"
+                        title="Hatırlatma seçenekleri"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                        </svg>
+                      </button>
+                      {showReminderMenu && (
+                        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50">
+                          <div className="p-2 text-xs font-medium text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                            Hatırlatma Seçenekleri
+                          </div>
+                          {reminderOptions.map(option => {
+                            const isActive = (todo.reminders || []).some(r => r.type === 'relative' && r.minutesBefore === option.minutes);
+                            return (
+                              <button
+                                key={option.minutes}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleReminderToggle(option.minutes);
+                                }}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between ${
+                                  isActive ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'text-gray-700 dark:text-gray-300'
+                                }`}
+                              >
+                                <span>{option.label}</span>
+                                {isActive && (
+                                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                              </button>
+                            );
+                          })}
+                          <div className="border-t border-gray-200 dark:border-gray-700 p-3">
+                            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                              Özel Tarih/Saat
+                            </div>
+                            <div className="space-y-2">
+                              <input
+                                type="date"
+                                value={customReminderDate}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setCustomReminderDate(e.target.value);
+                                }}
+                                min={new Date().toISOString().split('T')[0]}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <input
+                                type="time"
+                                value={customReminderTime}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setCustomReminderTime(e.target.value);
+                                }}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleCustomReminder();
+                                }}
+                                disabled={!customReminderDate || !customReminderTime}
+                                className="w-full px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded transition-colors"
+                              >
+                                Ekle
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                   {hasAIMetadata && (
                     <button onClick={() => setIsExpanded(!isExpanded)} className="p-2 min-h-[44px] min-w-[44px] rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 transition-transform" aria-label="Detayları gör">
@@ -514,19 +746,6 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
             </button>
           )}
         </div>
-      )}
-      
-      {/* Reminder Setup Modal */}
-      {onUpdateReminders && (
-        <ReminderSetupModal
-          isOpen={isReminderModalOpen}
-          onClose={() => setIsReminderModalOpen(false)}
-          taskDateTime={todo.datetime}
-          existingReminders={todo.reminders || []}
-          onSave={(reminders) => {
-            onUpdateReminders(todo.id, reminders);
-          }}
-        />
       )}
       {/* GeoReminder Modal */}
       {onUpdateGeoReminder && (
