@@ -6,6 +6,7 @@ import { Clipboard } from '@capacitor/clipboard';
 import { useAuth } from '../contexts/AuthContext';
 import { PencilSquareIcon, HeartIcon, TagIcon, ShareIcon, TrashIcon, BookmarkIcon, SparklesIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '../contexts/I18nContext';
+import { encryptedNotesService } from '../services/encryptedNotesService';
 
 interface DailyNotepadProps {
   notes: Note[];
@@ -38,9 +39,17 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
 
-  // Selection mode state
+// Selection mode state
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedNoteIds, setSelectedNoteIds] = useState<string[]>([]);
+
+  // Encrypted notes state
+  const [encryptNew, setEncryptNew] = useState<boolean>(false);
+  const [decryptedTexts, setDecryptedTexts] = useState<Record<string, string>>({});
+  const [isVaultOpen, setIsVaultOpen] = useState<boolean>(false);
+  const [vaultUnlocked, setVaultUnlocked] = useState<boolean>(false);
+  const [vaultError, setVaultError] = useState<string>('');
+  const vaultTimerRef = useRef<number | null>(null as any);
 
   // Local undo snackbar state
   const [undoState, setUndoState] = useState<{
@@ -56,23 +65,42 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
   const [tagInput, setTagInput] = useState<string>('');
 
 
-  const handleAddNote = useCallback((text: string) => {
+const handleAddNote = useCallback(async (text: string) => {
     if (!text.trim() && !newNoteImageDataUrl) return;
 
-    const newNote: Note = {
+    const baseNote: Note = {
       id: uuidv4(),
       text: text.trim(),
       imageUrl: newNoteImageDataUrl || undefined,
       createdAt: new Date().toISOString(),
     };
 
-    setNotes([newNote, ...notes]);
+    let noteToSave: Note = baseNote;
+
+    if (encryptNew) {
+      try {
+        const enc = await encryptedNotesService.encrypt(baseNote.text);
+        noteToSave = {
+          ...baseNote,
+          text: '',
+          isEncrypted: true,
+          ciphertext: enc.ciphertext,
+          iv: enc.iv,
+          salt: enc.salt,
+        };
+      } catch (e) {
+        console.warn('[DailyNotepad] Encryption cancelled or failed:', e);
+        return; // do not add note if encryption failed/cancelled
+      }
+    }
+
+    setNotes(prev => [noteToSave, ...prev]);
     setNewNoteText('');
     if (newNoteImagePreview) URL.revokeObjectURL(newNoteImagePreview);
     setNewNoteImagePreview(null);
     setNewNoteImageDataUrl(null);
     if(fileInputRef.current) fileInputRef.current.value = '';
-  }, [newNoteImageDataUrl, notes, newNoteImagePreview]);
+  }, [newNoteImageDataUrl, newNoteImagePreview, encryptNew]);
 
   
   // Simple Web Speech API implementation - no Capacitor plugins
@@ -109,6 +137,10 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
       
       if (noteText.trim() || newNoteImageDataUrl) {
         handleAddNote(noteText);
+        // Clear immediately after saving
+        setTimeout(() => {
+          setNewNoteText('');
+        }, 0);
         if (setNotification) {
           setNotification({ 
             message: lang === 'tr' ? 'Not sesli komutla kaydedildi!' : 'Note saved with voice command!', 
@@ -490,9 +522,58 @@ setNewNoteImageDataUrl(reader.result as string);
     setNotes(notes.map(n => n.id === note.id ? { ...n, text: newText, updatedAt: new Date().toISOString() } : n));
   };
 
-  // Render markdown-like content with checklist support
+// Render markdown-like content with checklist support
   // Improve OCR'd text appearance by merging consecutive short lines into paragraphs
   const renderNoteContent = (note: Note) => {
+    // Encrypted note rendering
+    if (note.isEncrypted) {
+      const decrypted = decryptedTexts[note.id];
+      if (decrypted) {
+        // render decrypted as normal
+        const rawLines = (decrypted || '').split('\n');
+        const elements: React.ReactNode[] = [];
+        let paragraphBuffer: string[] = [];
+        const flushParagraph = (key: string) => {
+          if (paragraphBuffer.length > 0) {
+            const text = paragraphBuffer.join(' ').replace(/\s+/g, ' ').trim();
+            if (text) {
+              elements.push(
+                <p key={key} className="text-sm sm:text-base leading-relaxed text-gray-800 dark:text-gray-200 whitespace-normal break-words">
+                  {linkify(text)}
+                </p>
+              );
+            }
+            paragraphBuffer = [];
+          }
+        };
+        rawLines.forEach((line, idx) => {
+          const trimmed = line.trim();
+          if (trimmed === '') { flushParagraph(`p-${idx}`); return; }
+          paragraphBuffer.push(trimmed);
+          if (/[\.!?؛،]$/.test(trimmed)) flushParagraph(`p-${idx}`);
+        });
+        flushParagraph('p-last');
+        return <div className="space-y-1">{elements}</div>;
+      }
+      // locked view
+      return (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm text-gray-600 dark:text-gray-300">🔒 Şifreli not (kilitli)</span>
+          <button
+            className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white hover:bg-[var(--accent-color-700)]"
+            onClick={async () => {
+              try {
+                const plain = await encryptedNotesService.decrypt({ ciphertext: note.ciphertext!, iv: note.iv!, salt: note.salt! });
+                setDecryptedTexts(prev => ({ ...prev, [note.id]: plain }));
+              } catch (e) {
+                alert('Parola hatalı veya çözme başarısız.');
+              }
+            }}
+          >Kilit Aç</button>
+        </div>
+      );
+    }
+
     const rawLines = (note.text || '').split('\n');
     const elements: React.ReactNode[] = [];
     let paragraphBuffer: string[] = [];
@@ -605,6 +686,7 @@ setNewNoteImageDataUrl(reader.result as string);
 
   // Derived: filter and sort notes (pinned first always)
   const visibleNotes = notes
+    .filter(n => !n.isEncrypted) // Hide encrypted notes from main list
     .filter(n => !filterTag || (n.tags || []).includes(filterTag))
     .sort((a, b) => {
       if (a.pinned && !b.pinned) return -1;
@@ -647,6 +729,14 @@ setNewNoteImageDataUrl(reader.result as string);
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
             </svg>
+        </button>
+        <button
+            onClick={() => setIsVaultOpen(true)}
+            className="p-2 rounded-full bg-white/50 dark:bg-gray-700 text-purple-600 dark:text-purple-300 hover:bg-white dark:hover:bg-gray-600 transition-all transform hover:scale-110 shadow-sm"
+            aria-label={t('notepad.encryptedArea','Encrypted Area')}
+            title={t('notepad.encryptedArea','Encrypted Area')}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4z" clip-rule="evenodd"/></svg>
         </button>
       </div>
     </div>
@@ -898,7 +988,11 @@ setNewNoteImageDataUrl(reader.result as string);
             )}
         </div>
         </div>
-        <div className="flex justify-end items-center mt-2">
+<div className="flex justify-between items-center mt-2">
+            <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
+              <input type="checkbox" checked={encryptNew} onChange={(e) => setEncryptNew(e.target.checked)} />
+              {t('notepad.encryptNew','Şifrele')}
+            </label>
             <button type="submit" className="px-4 py-1.5 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 text-sm font-semibold shadow-sm hover:shadow-md transition-all" disabled={!newNoteText.trim() && !newNoteImageDataUrl}>
 {t('common.add','Add')}
             </button>
@@ -909,6 +1003,86 @@ setNewNoteImageDataUrl(reader.result as string);
         <div className="fixed bottom-4 right-4 z-40 bg-gray-900 text-white rounded-lg shadow-lg px-4 py-3 flex items-center gap-3">
           <span>{undoState.type === 'delete' ? t('notepad.notesDeleted','Notes deleted.') : t('notepad.notesArchived','Notes archived.')}</span>
 <button onClick={handleUndo} className="px-2 py-1 bg-white/20 hover:bg-white/30 rounded">{t('common.undo','Undo')}</button>
+        </div>
+      )}
+    </div>
+
+      {/* Encrypted Vault Modal */}
+      {isVaultOpen && (
+        <div className="fixed inset-0 z-[10010] bg-black/70 flex items-center justify-center p-2 sm:p-4" onClick={() => { setIsVaultOpen(false); setVaultUnlocked(false); setVaultError(''); }}>
+          <div className="bg-white dark:bg-gray-800 w-full max-w-3xl max-h-[90vh] rounded-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">🔒 {t('notepad.encryptedArea','Encrypted Area')}</h3>
+              <button onClick={() => { setIsVaultOpen(false); setVaultUnlocked(false); setVaultError(''); }} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            {!vaultUnlocked ? (
+              <div className="p-4 sm:p-6">
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{t('notepad.enterPassword','Lütfen şifreli alana erişmek için parolanızı girin.')}</p>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+                  setVaultError('');
+                  const input = (e.currentTarget.elements.namedItem('vault-pass') as HTMLInputElement);
+                  const pass = input?.value || '';
+                  if (!pass.trim()) { setVaultError(t('common.required','Zorunlu')); return; }
+                  try {
+                    encryptedNotesService.setPassphrase(pass.trim());
+                    // validate if exists any encrypted note
+                    const encList = notes.filter(n => n.isEncrypted);
+                    if (encList.length > 0 && encList[0].ciphertext && encList[0].iv && encList[0].salt) {
+                      await encryptedNotesService.decrypt({ ciphertext: encList[0].ciphertext as any, iv: encList[0].iv as any, salt: encList[0].salt as any });
+                    }
+                    setVaultUnlocked(true);
+                    // start auto-lock timer (5 min)
+                    if (vaultTimerRef.current) window.clearTimeout(vaultTimerRef.current);
+                    vaultTimerRef.current = window.setTimeout(() => { setVaultUnlocked(false); encryptedNotesService.clear(); }, 5 * 60 * 1000);
+                  } catch {
+                    setVaultError(t('notepad.wrongPassword','Parola yanlış.'));
+                    encryptedNotesService.clear();
+                  }
+                }} className="space-y-3">
+                  <input name="vault-pass" type="password" autoFocus className="w-full px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200" placeholder={t('notepad.password','Parola')} />
+                  {vaultError && <div className="text-red-600 text-sm">{vaultError}</div>}
+                  <div className="flex justify-end">
+                    <button type="submit" className="px-3 py-1.5 bg-[var(--accent-color-600)] text-white rounded hover:bg-[var(--accent-color-700)]">{t('common.unlock','Kilit Aç')}</button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div className="p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm text-gray-600 dark:text-gray-300">{t('notepad.encryptedNotes','Şifreli notlar')}</div>
+                  <button onClick={() => { setVaultUnlocked(false); encryptedNotesService.clear(); }} className="px-2 py-1 text-xs rounded bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">{t('common.lock','Kilitle')}</button>
+                </div>
+                <div className="space-y-2 max-h-[65vh] overflow-y-auto pr-1">
+                  {notes.filter(n => n.isEncrypted).length === 0 && (
+                    <div className="text-center text-gray-500 dark:text-gray-400 py-10">{t('notepad.noEncryptedNotes','Henüz şifreli not yok.')}</div>
+                  )}
+                  {notes.filter(n => n.isEncrypted).map(note => (
+                    <div key={note.id} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded p-2 sm:p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{new Date(note.createdAt).toLocaleString('tr-TR')}</div>
+                        {!decryptedTexts[note.id] && (
+                          <button onClick={async () => {
+                            try {
+                              const plain = await encryptedNotesService.decrypt({ ciphertext: note.ciphertext as any, iv: note.iv as any, salt: note.salt as any });
+                              setDecryptedTexts(prev => ({ ...prev, [note.id]: plain }));
+                              if (vaultTimerRef.current) { window.clearTimeout(vaultTimerRef.current); vaultTimerRef.current = window.setTimeout(() => { setVaultUnlocked(false); encryptedNotesService.clear(); }, 5*60*1000); }
+                            } catch { setVaultError(t('notepad.wrongPassword','Parola yanlış.')); }
+                          }} className="text-xs px-2 py-1 rounded bg-[var(--accent-color-600)] text-white">{t('common.unlock','Kilit Aç')}</button>
+                        )}
+                      </div>
+                      <div className="mt-2 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                        {decryptedTexts[note.id] ? decryptedTexts[note.id] : '🔒 ' + t('notepad.locked','Kilitli')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

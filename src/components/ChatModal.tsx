@@ -60,6 +60,9 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
   useEffect(() => {
     if (speechTranscript && isListening) {
       setUserInput(speechTranscript);
+    } else if (!isListening && !speechTranscript) {
+      // Clear input when listening stops and transcript is empty
+      setUserInput('');
     }
   }, [speechTranscript, isListening]);
   

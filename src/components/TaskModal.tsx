@@ -87,7 +87,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   
   
   useEffect(() => {
-    if (isListening) {
+    // Sadece mikrofon aktifken transcript'i senkronize et
+    if (isListening && transcript) {
       setDescription(transcript);
     }
   }, [transcript, isListening]);
@@ -100,7 +101,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     } else {
       try { (stopListening as any)?.(); } catch {}
     }
-  }, [isOpen, stopListening]);
+  }, [isOpen]); // stopListening'i kaldır - loop yapıyor
 
   // Emergency auto-stop after 15s to avoid stuck mic
   useEffect(() => {

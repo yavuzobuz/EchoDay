@@ -234,8 +234,10 @@ export const useNativeSpeechRecognition = (
             silenceTimerRef.current = null;
           }
           
-          // Don't process transcript here if stop word already handled it
-          // The transcript was already sent in the partialResults handler
+          // Clear transcript when stopped
+          setTranscript('');
+          currentTranscriptRef.current = '';
+          
           setIsListening(false);
           debugLogger.speech('NativeSpeech', 'Native recognition stopped');
         }
@@ -396,9 +398,11 @@ export const useNativeSpeechRecognition = (
         // Only log if this is unexpected (not triggered by stop word or manual stop)
         if (!isStoppingRef.current) {
           debugLogger.speech('NativeSpeech', 'Web recognition ended unexpectedly');
-          // Don't send transcript here - it was already sent if there was a stop word
-          // If user didn't say stop word, they need to say it or click send button
         }
+        
+        // Clear transcript when stopped
+        setTranscript('');
+        currentTranscriptRef.current = '';
         
         setIsListening(false);
         

@@ -19,13 +19,16 @@ class WebhookService {
       ],
       defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
       setupInstructions: [
-        '1. Tarayıcınızda https://slack.com/apps sayfasını açın (Slack hesabınıza giriş yapın)',
-        '2. Arama kutusuna "Incoming Webhooks" yazın ve çıkan sonuça tıklayın',
-        '3. Yeşil "Add to Slack" butonunu bulun ve tıklayın',
-        '4. Açılan menüden bildirimlerin gönderileceği kanalı seçin',
-        '5. "Add Incoming WebHooks integration" veya "Allow" butonuna tıklayın',
-        '6. Sayfada görünen uzun URL\'i kopyalayın (https://hooks.slack.com/... ile başlar)',
-        '7. Kopyaladığınız URL\'i aşağıdaki "Webhook URL" alanına yapıştırın'
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/slack/integrations/webhook',
+        '2. "Create Zap" butonuna tıklayın',
+        '3. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin',
+        '4. Zapier size webhook URL verecek - kopyalayın',
+        '5. Action: "Slack" -> "Send Channel Message" seçin',
+        '6. Slack hesabınıza bağlanın ve kanal seçin',
+        '7. Mesaj formatını ayarlayın ve webhook URL\'i aşağıya yapıştırın',
+        '---',
+        'VEYA DİREKT WEBHOOK (Daha Hızlı): https://api.slack.com/messaging/webhooks',
+        'Slack workspace ayarlarından "Incoming Webhooks" ekleyin'
       ],
       exampleUrl: 'https://hooks.slack.com/services/T{workspace}/B{channel}/XXXXXXXXXXXXXXXXXXXXXXXX'
     },
@@ -251,7 +254,105 @@ class WebhookService {
         '6. Webhook\'a anlamıflı bir isim verin (ör: "EchoDay Bildirimleri")',
         '7. "Save" butonuna basın, görünen webhook URL\'ini kopyalayın ve aşağıya yapıştırın'
       ],
-      exampleUrl: 'https://chat.googleapis.com/v1/spaces/xxx/messages'
+      exampleUrl: 'https://chat.googleapis.com/v1/spaces/AAAA1234567/messages?key=AIzaSy&token=abcd1234xyz'
+    },
+    {
+      type: 'google-calendar',
+      name: 'Google Calendar',
+      description: 'Görevleri takvime otomatik ekle',
+      icon: '📅',
+      briefing: 'Google Calendar, dünyanın en popüler takvim uygulamasıdır. EchoDay görevlerinizi otomatik olarak takvim etkinliklerine dönüştürün ve hatırlatmaları bir arada yönetin.',
+      useCases: ['Görevleri takvim etkinliği olarak ekle', 'Deadline hatırlatmaları', 'Toplantı öncesi görev kontrolü', 'Zaman yönetimi optimizasyonu'],
+      defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      setupInstructions: [
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/google-calendar/integrations/webhooks',
+        '2. "Create Zap" butonuna tıklayın',
+        '3. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin ve webhook URL alın',
+        '4. Action: "Google Calendar" -> "Create Detailed Event" seçin',
+        '5. Google hesabınıza bağlanın ve takvim seçin',
+        '6. Görev bilgilerini takvim alanlarına eşleştirin (title -> event name, date -> start time)',
+        '7. Aldığınız webhook URL\'ini aşağıya yapıştırın'
+      ],
+      exampleUrl: 'https://hooks.zapier.com/hooks/catch/YOUR_HOOK_ID/'
+    },
+    {
+      type: 'gmail',
+      name: 'Gmail',
+      description: 'E-posta bildirimleri gönder',
+      icon: '📧',
+      briefing: 'Gmail ile görev bildirimlerini e-posta olarak alın. Tamamlanan görevler, günlük özetler ve hatırlatıcılar doğrudan mailinize gelsin.',
+      useCases: ['Görev tamamlandığında mail al', 'Günlük özet maili', 'Deadline yaklaşıyor uyarıları', 'Ekip üyelerine otomatik rapor'],
+      defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      setupInstructions: [
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/gmail/integrations/webhooks',
+        '2. "Create Zap" butonuna tıklayın',
+        '3. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin',
+        '4. Zapier size webhook URL verecek - kopyalayın',
+        '5. Action: "Gmail" -> "Send Email" seçin',
+        '6. Gmail hesabınıza bağlanın',
+        '7. "To" alanına mail adresinizi, "Subject" ve "Body" alanlarını webhook verileriyle doldurun',
+        '8. Webhook URL\'ini aşağıya yapıştırın'
+      ],
+      exampleUrl: 'https://hooks.zapier.com/hooks/catch/YOUR_HOOK_ID/'
+    },
+    {
+      type: 'google-sheets',
+      name: 'Google Sheets',
+      description: 'Görevleri spreadsheet\'e kaydet',
+      icon: '📊',
+      briefing: 'Google Sheets ile görev verilerinizi otomatik olarak bir tabloda toplayın. Analiz, raporlama ve veri işleme için mükemmel bir çözüm.',
+      useCases: ['Görev geçmişini kaydet', 'Performans analizi yap', 'Aylık rapor oluştur', 'Takım dashboard\' u besle'],
+      defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      setupInstructions: [
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/google-sheets/integrations/webhooks',
+        '2. "Create Zap" butonuna tıklayın',
+        '3. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin ve webhook URL alın',
+        '4. Action: "Google Sheets" -> "Create Spreadsheet Row" seçin',
+        '5. Google hesabınıza bağlanın, bir spreadsheet ve sheet seçin',
+        '6. Webhook verilerini (task title, date, status) kolonlara eşleştirin',
+        '7. Webhook URL\'ini aşağıya yapıştırın'
+      ],
+      exampleUrl: 'https://hooks.zapier.com/hooks/catch/YOUR_HOOK_ID/'
+    },
+    {
+      type: 'whatsapp',
+      name: 'WhatsApp',
+      description: 'WhatsApp mesajı gönder',
+      icon: '💬',
+      briefing: 'WhatsApp Business API ile görev bildirimlerini WhatsApp üzerinden alın. Dünya\'nın en popüler mesajlaşma uygulamasında hatırlatıcılarınızı görün.',
+      useCases: ['Kişisel hatırlatıcı al', 'Takıma hızlı bildirim', 'Mobil first bildirim sistemi', 'Acil görev uyarıları'],
+      defaultSettings: { retryCount: 3, timeout: 8000, includeDetails: true },
+      setupInstructions: [
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/whatsapp/integrations/webhooks',
+        '2. NOT: WhatsApp Business API kullanımı gerektirir (ücretsiz deneme mevcut)',
+        '3. "Create Zap" butonuna tıklayın',
+        '4. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin',
+        '5. Action: "WhatsApp" (veya "Twilio" -> "Send WhatsApp Message") seçin',
+        '6. WhatsApp Business hesabınıza bağlanın',
+        '7. Mesaj şablonunu ayarlayın ve webhook URL\'ini alıp aşağıya yapıştırın',
+        'Alternatif: https://www.twilio.com/whatsapp adresinden doğrudan Twilio kullanabilirsiniz'
+      ],
+      exampleUrl: 'https://hooks.zapier.com/hooks/catch/YOUR_HOOK_ID/'
+    },
+    {
+      type: 'airtable',
+      name: 'Airtable',
+      description: 'Airtable veritabanına kayıt ekle',
+      icon: '🗄️',
+      briefing: 'Airtable, spreadsheet ve veritabanının gücünü birleştiren modern bir platformdur. EchoDay görevlerinizi Airtable base\'inize otomatik aktararak güçlü görselleştirmeler ve iş akışları oluşturun.',
+      useCases: ['Görev veritabanı oluştur', 'Kanban board senkronize et', 'Proje yönetimi dashboard\' u', 'Takım koordinasyon sistemi'],
+      defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      setupInstructions: [
+        '1. Tarayıcınızda https://airtable.com/create/tokens adresini açın',
+        '2. "Create new token" (Yeni Token Oluştur) butonuna tıklayın',
+        '3. Token\'a anlamlı bir isim verin (ör: "EchoDay Integration")',
+        '4. Scopes bölümünde "data.records:write" iznini seçin',
+        '5. Access bölümünde webhook göndermek istediğiniz base\'i seçin',
+        '6. "Create token" butonuna basın ve görünen token\'ı kopyalayın',
+        '7. API endpoint formatı: https://api.airtable.com/v0/YOUR_BASE_ID/YOUR_TABLE_NAME (Base ID\'yi Airtable API dökümanından alabilirsiniz)',
+        '8. Token\'ı Authorization header olarak kullanmanız gerekecek (Bearer YOUR_TOKEN)'
+      ],
+      exampleUrl: 'https://api.airtable.com/v0/YOUR_BASE_ID/YOUR_TABLE_NAME'
     },
     {
       type: 'generic',
@@ -352,43 +453,99 @@ class WebhookService {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        const response = await fetch(webhook.url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formattedPayload),
-          signal: controller.signal
-        });
+        // Route strategy: external URLs -> proxy first (CSP-safe), local URLs -> direct first
+        const isExternal = /^https?:\/\/(?!localhost|0\.0\.0\.0)/i.test(webhook.url);
+        let response;
+        try {
+          if (isExternal) {
+            // Proxy first
+            response = await fetch('http://localhost:5123/proxy/webhook', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: webhook.url, payload: formattedPayload })
+            });
+          } else {
+            // Direct first
+            response = await fetch(webhook.url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+              },
+              body: JSON.stringify(formattedPayload),
+              signal: controller.signal,
+              mode: 'cors'
+            });
+          }
+        } catch (firstErr) {
+          // Fallback: try the other route
+          try {
+            if (isExternal) {
+              response = await fetch(webhook.url, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Accept': 'application/json',
+                },
+                body: JSON.stringify(formattedPayload),
+                signal: controller.signal,
+                mode: 'cors'
+              });
+            } else {
+              response = await fetch('http://localhost:5123/proxy/webhook', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: webhook.url, payload: formattedPayload })
+              });
+            }
+          } catch (secondErr) {
+            throw secondErr;
+          }
+        }
 
         clearTimeout(timeoutId);
 
         if (response.ok) {
-          // Başarılı gönderim
           webhook.lastTriggered = new Date();
           this.saveToLocalStorage();
-          
           return {
             success: true,
             statusCode: response.status,
             message: 'Webhook başarıyla gönderildi'
           };
         } else {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          let errorDetail = response.statusText;
+          try {
+            const errorBody = await response.text();
+            if (errorBody) errorDetail += ` - ${errorBody.substring(0, 200)}`;
+          } catch {}
+          throw new Error(`HTTP ${response.status}: ${errorDetail}`);
         }
 
       } catch (error) {
         console.error(`Webhook gönderimi başarısız (Deneme ${attempt}/${maxRetries}):`, error);
         
+        // Hata tiplerine göre mesaj özelleştir
+        let errorMessage = 'Bilinmeyen hata';
+        if (error instanceof Error) {
+          if (error.name === 'AbortError') {
+            errorMessage = `Zaman aşımı (${timeout}ms). Webhook sunucusu yanıt vermiyor.`;
+          } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            errorMessage = 'Ağ hatası. URL erişilebilir değil veya CORS politikası engelliyor.';
+          } else {
+            errorMessage = error.message;
+          }
+        }
+        
         if (attempt === maxRetries) {
           return {
             success: false,
-            error: error instanceof Error ? error.message : 'Bilinmeyen hata'
+            error: errorMessage
           };
         }
 
-        // Retry delay
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        // Retry delay (exponential backoff)
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
       }
     }
 

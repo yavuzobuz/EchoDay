@@ -124,6 +124,13 @@ export interface Note {
   updatedAt?: string;
   userId?: string; // Kullanıcıya özel veri için
   pdfSource?: PdfSourceMetadata; // PDF'den oluşturulan notlar için
+  
+  // Encryption (Şifreli notlar)
+  isEncrypted?: boolean;
+  ciphertext?: string; // base64
+  iv?: string; // base64
+  salt?: string; // base64
+  
   isDeleted?: boolean; // Soft delete flag - geçici silme için
   isArchived?: boolean; // Archive flag - arşivlendiğini takip etmek için
 }

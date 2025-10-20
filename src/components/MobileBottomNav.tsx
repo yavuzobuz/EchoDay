@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useI18n } from '../contexts/I18nContext';
-import { debugLog } from '../utils/debugOverlay';
 import { Capacitor } from '@capacitor/core';
 import { triggerHaptic } from '../utils/hapticFeedback';
 
@@ -57,7 +56,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             } else {
               triggerHaptic.voiceStart();
             }
-            onVoiceCommand();
+            try { onVoiceCommand(); } catch {}
           }}
           disabled={isListening || !hasVoiceSupport}
           className={`flex flex-col items-center justify-center gap-0.5 transition-colors min-h-[44px] min-w-[44px] p-2 ${
@@ -95,7 +94,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => {
             triggerHaptic.light();
-            onImageTask();
+            try { onImageTask(); } catch {}
           }}
           disabled={isListening}
           className="flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors disabled:opacity-50 active:bg-gray-200 dark:active:bg-gray-600"
@@ -120,7 +119,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => {
             triggerHaptic.light();
-            onOpenChat();
+            try { onOpenChat(); } catch {}
           }}
           disabled={isListening}
           className="flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors disabled:opacity-50 active:bg-gray-200 dark:active:bg-gray-600"
@@ -147,7 +146,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
         <button
           onClick={() => {
             triggerHaptic.light();
-            onShowArchive();
+            try { onShowArchive(); } catch {}
           }}
           className="flex flex-col items-center justify-center gap-0.5 min-h-[44px] min-w-[44px] p-2 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-colors active:bg-gray-200 dark:active:bg-gray-600"
           aria-label={t('bottomNav.archive', 'Arşiv')}
@@ -171,13 +170,9 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
 
         {/* Profile - 44dp minimum touch target */}
         <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
+          onClick={() => {
             triggerHaptic.light();
-            console.log('[BottomNav] Profil butonu tıklandı');
-            try { debugLog('BOTTOMNAV → PROFIL'); } catch {}
-            // Capacitor için doğrudan hash navigation
+            // Capacitor için doğrudan hash navigation (daha güvenilir)
             window.location.hash = '#/profile';
             // Fallback: prop callback
             try { onShowProfile(); } catch {}

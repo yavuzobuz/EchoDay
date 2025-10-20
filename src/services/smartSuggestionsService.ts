@@ -333,7 +333,12 @@ Lütfen 1-2 kısa, eyleme dönük öneri sun. JSON formatında yanıtla:
 `;
 
       const response = await aiService.generate(prompt);
-      const aiData = JSON.parse(response.text);
+      // AI bazen markdown code block içinde JSON gönderiyor - temizle
+      let cleanedText = response.text.trim();
+      if (cleanedText.startsWith('```')) {
+        cleanedText = cleanedText.replace(/^```json?\s*\n?/i, '').replace(/\n?```\s*$/i, '');
+      }
+      const aiData = JSON.parse(cleanedText);
       
       return aiData.suggestions.map((suggestion: any, index: number) => ({
         id: `ai-${Date.now()}-${index}`,

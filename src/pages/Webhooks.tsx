@@ -6,16 +6,15 @@ import WebhookChatbot from '../../components/WebhookChatbot';
 
 // Helper: Convert text with URLs to clickable links
 const renderTextWithLinks = (text: string) => {
-  const urlRegex = /(https?:\/\/[^\s]+)|([a-zA-Z0-9.-]+\.[a-z]{2,}\/[^\s]*)/gi;
+  const urlRegex = /(https?:\/\/[^\s]+)/gi;
   const parts = text.split(urlRegex).filter(Boolean);
   
   return parts.map((part, index) => {
-    if (part && (part.startsWith('http://') || part.startsWith('https://') || part.includes('.com') || part.includes('.org'))) {
-      const url = part.startsWith('http') ? part : `https://${part}`;
+    if (part && part.match(/^https?:\/\//i)) {
       return (
         <a
           key={index}
-          href={url}
+          href={part}
           target="_blank"
           rel="noopener noreferrer"
           className="text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] hover:underline font-medium transition-colors"
@@ -55,13 +54,31 @@ const Webhooks: React.FC = () => {
   }, []);
 
   const handleAddWebhook = async () => {
-    if (!selectedTemplate || !formData.name || !formData.url) {
-      setTestResult('❌ Lütfen tüm alanları doldurun');
+    // Validasyon kontrolleri
+    if (!selectedTemplate) {
+      setTestResult('❌ Lütfen bir servis seçin');
       return;
     }
+    
+    if (!formData.url.trim()) {
+      setTestResult('❌ Webhook URL alanı zorunludur');
+      return;
+    }
+    
+    // URL format kontrolü
+    try {
+      new URL(formData.url);
+    } catch {
+      setTestResult('❌ Geçersiz URL formatı. URL "https://" ile başlamalıdır');
+      return;
+    }
+    
+    // İsim yoksa otomatik oluştur
+    const webhookName = formData.name.trim() || `${selectedTemplate.name} - ${new Date().toLocaleDateString('tr-TR')}`;
 
     try {
       setIsLoading(true);
+      setTestResult('⏳ Webhook test ediliyor...');
       
       // Önce test et
       const testResponse = await webhookService.testWebhook(formData.url, selectedTemplate.type);
@@ -69,7 +86,7 @@ const Webhooks: React.FC = () => {
       if (testResponse.success) {
         // Test başarılı, webhook'u ekle
         webhookService.addWebhook({
-          name: formData.name,
+          name: webhookName,
           type: selectedTemplate.type,
           url: formData.url,
           isActive: true,
@@ -81,14 +98,14 @@ const Webhooks: React.FC = () => {
         });
 
         setWebhooks(webhookService.getWebhooks());
-        setTestResult(`✅ Webhook başarıyla eklendi! Test mesajı gönderildi.`);
+        setTestResult(`✅ Webhook başarıyla eklendi ve test edildi! "${webhookName}" adıyla kaydedildi.`);
         
         // Formu temizle
         setFormData({ name: '', url: '', channel: '', events: ['task_completed'] });
         setSelectedTemplate(null);
         setShowAddForm(false);
       } else {
-        setTestResult(`❌ Test başarısız: ${testResponse.error}`);
+        setTestResult(`❌ Webhook testi başarısız: ${testResponse.error || 'Bilinmeyen hata'}\n\nURL'yi kontrol edin ve tekrar deneyin.`);
       }
     } catch (error) {
       setTestResult(`❌ Hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
@@ -140,9 +157,9 @@ const Webhooks: React.FC = () => {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button 
-              onClick={() => navigate('/app')} 
+              onClick={() => navigate(-1)} 
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-              title="Ana sayfaya dön"
+              title="Önceki sayfaya dön"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -199,8 +216,24 @@ const Webhooks: React.FC = () => {
 
         {/* Test Result */}
         {testResult && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 mb-6 border border-gray-200 dark:border-gray-700">
-            <div className="text-sm font-mono text-gray-900 dark:text-gray-100">{testResult}</div>
+          <div className={`rounded-lg shadow-sm p-4 mb-6 border ${
+            testResult.includes('✅') 
+              ? 'bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700'
+              : testResult.includes('⏳')
+              ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700'
+              : 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700'
+          }`}>
+            <div className="flex items-start gap-3">
+              <div className="flex-1 text-sm whitespace-pre-wrap text-gray-900 dark:text-gray-100">{testResult}</div>
+              <button 
+                onClick={() => setTestResult('')} 
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
 
@@ -298,28 +331,30 @@ const Webhooks: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Webhook Adı
+                    Webhook Adı <span className="text-xs text-gray-500 dark:text-gray-400">(Opsiyonel - boş bırakılırsa otomatik oluşturulur)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Örn: Takım Bildirimleri"
+                    placeholder={`Örn: ${selectedTemplate.name} Bildirimleri`}
                     className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-[var(--accent-color-500)] focus:border-transparent transition-colors"
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Webhook URL
+                    Webhook URL <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="url"
                     value={formData.url}
                     onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                     placeholder={selectedTemplate.exampleUrl}
-                    className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-[var(--accent-color-500)] focus:border-transparent transition-colors font-mono text-sm"
+                    className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-[var(--accent-color-500)] focus:border-[var(--accent-color-500)] transition-colors font-mono text-sm"
+                    required
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Yukarıdaki kurulum adımlarını takip ederek webhook URL'nizi alın</p>
                 </div>
 
                 {(selectedTemplate.type === 'slack' || selectedTemplate.type === 'discord') && (
@@ -336,6 +371,41 @@ const Webhooks: React.FC = () => {
                     />
                   </div>
                 )}
+                
+                {/* Events Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Bildirim Olayları <span className="text-xs text-gray-500 dark:text-gray-400">(En az bir tane seçilmeli)</span>
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      { value: 'task_completed', label: '✅ Görev Tamamlandı' },
+                      { value: 'task_created', label: '📝 Yeni Görev' },
+                      { value: 'task_updated', label: '✏️ Görev Güncellendi' },
+                      { value: 'goal_completed', label: '🎯 Hedef Tamamlandı' },
+                      { value: 'daily_summary', label: '📊 Günlük Özet' },
+                      { value: 'weekly_report', label: '📅 Haftalık Rapor' }
+                    ].map((event) => (
+                      <label 
+                        key={event.value}
+                        className="flex items-center gap-2 p-2 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.events.includes(event.value)}
+                          onChange={(e) => {
+                            const newEvents = e.target.checked
+                              ? [...formData.events, event.value]
+                              : formData.events.filter(ev => ev !== event.value);
+                            setFormData({ ...formData, events: newEvents });
+                          }}
+                          className="w-4 h-4 text-[var(--accent-color-600)] border-gray-300 rounded focus:ring-[var(--accent-color-500)]"
+                        />
+                        <span className="text-sm text-gray-900 dark:text-white">{event.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Setup Instructions - Enhanced */}
                 <div className="bg-gradient-to-r from-[var(--accent-color-100)]/50 to-[var(--accent-color-100)]/30 dark:from-[var(--accent-color-900)]/20 dark:to-[var(--accent-color-900)]/10 p-6 rounded-xl border border-[var(--accent-color-300)] dark:border-[var(--accent-color-700)]">

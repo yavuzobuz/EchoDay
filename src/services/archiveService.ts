@@ -362,13 +362,25 @@ const getAllArchivedItems = async (userId?: string): Promise<{ todos: Todo[], no
       completed: true,
     }));
     
-    const notes = (nRes.data || []).map((row: any) => ({
-      ...row,
-      createdAt: row.created_at ?? row.createdAt,
-      archivedAt: row.archived_at ?? row.archivedAt,
-      userId: row.user_id ?? row.userId,
-      imageUrl: row.image_url ?? row.imageUrl,
-    }));
+const notes = (nRes.data || []).map((row: any) => {
+      let parsed: any = { text: String(row.text || '') };
+      try {
+        if (typeof row.text === 'string' && row.text.trim().startsWith('{')) {
+          const obj = JSON.parse(row.text);
+          if (obj && obj.enc && obj.ct) {
+            parsed = { text: '', isEncrypted: true, ciphertext: obj.ct, iv: obj.iv, salt: obj.salt };
+          }
+        }
+      } catch {}
+      return {
+        id: row.id,
+        ...parsed,
+        createdAt: row.created_at ?? row.createdAt,
+        archivedAt: row.archived_at ?? row.archivedAt,
+        userId: row.user_id ?? row.userId,
+        imageUrl: row.image_url ?? row.imageUrl,
+      };
+    });
     
     console.log(`[Archive] ✅ Fetched ${todos.length} todos, ${notes.length} notes`);
     return { todos, notes };

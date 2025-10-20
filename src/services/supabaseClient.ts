@@ -358,6 +358,10 @@ export async function upsertNotes(userId: string, notes: any[]) {
       text,
       imageUrl,
       createdAt,
+      isEncrypted,
+      ciphertext,
+      iv,
+      salt,
       // Strip fields that don't exist in DB
       userId: _userId,
       pdfSource: _pdfSource,
@@ -368,9 +372,13 @@ export async function upsertNotes(userId: string, notes: any[]) {
       color: _color,
     } = n;
 
+    const textToStore = isEncrypted && ciphertext
+      ? JSON.stringify({ enc: true, v: 1, ct: ciphertext, iv, salt })
+      : (text || '');
+
     return {
       id: id || undefined, // Let DB generate if not provided
-      text: text || '',
+      text: textToStore,
       image_url: imageUrl || null,
       audio_url: null,
       created_at: createdAt || now,
@@ -467,11 +475,14 @@ export async function archiveUpsertNotes(userId: string, notes: any[]) {
   try {
     const now = new Date().toISOString();
     const payload = notes.map((n) => {
-      const { id, text, imageUrl, createdAt } = n;
+      const { id, text, imageUrl, createdAt, isEncrypted, ciphertext, iv, salt } = n;
+      const textToStore = isEncrypted && ciphertext
+        ? JSON.stringify({ enc: true, v: 1, ct: ciphertext, iv, salt })
+        : (text || '');
       return {
         id, // use original id as primary key for de-duplication
         user_id: userId,
-        text: text || '',
+        text: textToStore,
         image_url: imageUrl || null,
         created_at: createdAt || now,
         archived_at: now,
@@ -568,13 +579,25 @@ export async function archiveFetchByDate(userId: string, date: string) {
       userId: row.user_id ?? row.userId,
       completed: true,
     }));
-    const notes = (nRes.data || []).map((row: any) => ({
-      ...row,
-      createdAt: row.created_at ?? row.createdAt,
-      archivedAt: row.archived_at ?? row.archivedAt,
-      userId: row.user_id ?? row.userId,
-      imageUrl: row.image_url ?? row.imageUrl,
-    }));
+const notes = (nRes.data || []).map((row: any) => {
+      let parsed: any = { text: String(row.text || '') };
+      try {
+        if (typeof row.text === 'string' && row.text.trim().startsWith('{')) {
+          const obj = JSON.parse(row.text);
+          if (obj && obj.enc && obj.ct) {
+            parsed = { text: '', isEncrypted: true, ciphertext: obj.ct, iv: obj.iv, salt: obj.salt };
+          }
+        }
+      } catch {}
+      return {
+        id: row.id,
+        ...parsed,
+        createdAt: row.created_at ?? row.createdAt,
+        archivedAt: row.archived_at ?? row.archivedAt,
+        userId: row.user_id ?? row.userId,
+        imageUrl: row.image_url ?? row.imageUrl,
+      };
+    });
     
     console.log('[Archive] ✅ Tarih bazında arşiv getirildi:', { todosCount: todos.length, notesCount: notes.length });
     return { todos, notes };
@@ -603,7 +626,18 @@ export async function archiveSearch(userId: string, query: string) {
     ]);
     
     const todos = (tRes.data || []).map((row: any) => ({ ...row, imageUrl: row.image_url ?? row.imageUrl }));
-    const notes = (nRes.data || []).map((row: any) => ({ ...row, imageUrl: row.image_url ?? row.imageUrl }));
+const notes = (nRes.data || []).map((row: any) => {
+      let parsed: any = { text: String(row.text || '') };
+      try {
+        if (typeof row.text === 'string' && row.text.trim().startsWith('{')) {
+          const obj = JSON.parse(row.text);
+          if (obj && obj.enc && obj.ct) {
+            parsed = { text: '', isEncrypted: true, ciphertext: obj.ct, iv: obj.iv, salt: obj.salt };
+          }
+        }
+      } catch {}
+      return { id: row.id, ...parsed, imageUrl: row.image_url ?? row.imageUrl };
+    });
     
     console.log('[Archive] ✅ Arama tamamlandı:', { query, todosCount: todos.length, notesCount: notes.length });
     return { todos, notes };
@@ -858,13 +892,25 @@ export async function fetchAll(userId: string) {
     userId: row.user_id ?? row.userId,
   }));
 
-  const notes = (nRes.data || []).map((row: any) => ({
-    ...row,
-    createdAt: row.created_at ?? row.createdAt,
-    updatedAt: row.updated_at ?? row.updatedAt,
-    userId: row.user_id ?? row.userId,
-    imageUrl: row.image_url ?? row.imageUrl,
-  }));
+const notes = (nRes.data || []).map((row: any) => {
+    let parsed: any = { text: String(row.text || '') };
+    try {
+      if (typeof row.text === 'string' && row.text.trim().startsWith('{')) {
+        const obj = JSON.parse(row.text);
+        if (obj && obj.enc && obj.ct) {
+          parsed = { text: '', isEncrypted: true, ciphertext: obj.ct, iv: obj.iv, salt: obj.salt };
+        }
+      }
+    } catch {}
+    return {
+      id: row.id,
+      ...parsed,
+      createdAt: row.created_at ?? row.createdAt,
+      updatedAt: row.updated_at ?? row.updatedAt,
+      userId: row.user_id ?? row.userId,
+      imageUrl: row.image_url ?? row.imageUrl,
+    };
+  });
 
   return { todos, notes };
 }

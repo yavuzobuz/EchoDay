@@ -86,7 +86,7 @@ const TodoItem: React.FC<TodoItemProps> = ({ todo, onToggle, onDelete, onGetDire
 
   // Close reminder menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+  const handleClickOutside = (_event: MouseEvent) => {
       if (showReminderMenu) {
         setShowReminderMenu(false);
       }

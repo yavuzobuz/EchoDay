@@ -14,7 +14,7 @@ interface ChatModalProps {
 }
 
 const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onSendMessage, isLoading, voiceModeEnabled = false }) => {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [userInput, setUserInput] = useState('');
   const [isVoiceModeActive, setIsVoiceModeActive] = useState(voiceModeEnabled);
   const [lastAIMessageIndex, setLastAIMessageIndex] = useState(-1);
@@ -61,8 +61,47 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
       // Don't send the stop command as a message
       return;
     }
+
+    // Voice command system adapted from DailyNotepad
+    const sendCommands = {
+      tr: ['tamam', 'gönder', 'mesaj gönder', 'yolla', 'tamam gönder', 'bitti gönder', 'gönderebilirsin'],
+      en: ['okay', 'send', 'send message', 'send it', 'okay send', 'done send', 'you can send']
+    };
     
-    if (transcript.trim() && !isProcessingRef.current) {
+    const currentSendCommands = sendCommands[lang === 'tr' ? 'tr' : 'en'] || sendCommands.en;
+    const hasSendCommand = currentSendCommands.some(cmd => {
+      const words = lowerTranscript.split(' ');
+      const lastWords = words.slice(-cmd.split(' ').length).join(' ');
+      return lastWords === cmd || lowerTranscript.endsWith(cmd);
+    });
+    
+    if (hasSendCommand) {
+      // Extract message content by removing the send command
+      let messageText = transcript;
+      for (const cmd of currentSendCommands) {
+        const regex = new RegExp(`\\b${cmd.replace(/'/g, "\\'").replace(/\s+/g, '\\s+')}\\s*$`, 'gi');
+        messageText = messageText.replace(regex, '').trim();
+      }
+      
+      if (messageText.trim() && !isProcessingRef.current) {
+        console.log('📤 Sending message via voice command:', messageText);
+        console.log(`✅ Voice command detected: "${hasSendCommand ? currentSendCommands.find(cmd => lowerTranscript.endsWith(cmd)) : 'unknown'}" - Message sent!`);
+        isProcessingRef.current = true;
+        onSendMessage(messageText.trim());
+        setUserInput(''); // Clear input after voice command
+        // Reset processing flag after a delay
+        setTimeout(() => {
+          isProcessingRef.current = false;
+        }, 1000);
+      }
+      return;
+    }
+    
+    // Update user input with transcript for regular voice input
+    setUserInput(transcript);
+    
+    // Send message immediately if not using voice commands and transcript is complete
+    if (!isVoiceModeActive && transcript.trim() && !isProcessingRef.current) {
       console.log('📤 Sending user message:', transcript);
       isProcessingRef.current = true;
       onSendMessage(transcript.trim());
@@ -71,7 +110,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
         isProcessingRef.current = false;
       }, 1000);
     }
-  }, [onSendMessage, isSpeaking, stopSpeaking]);
+  }, [onSendMessage, isSpeaking, stopSpeaking, t, lang, isVoiceModeActive]);
 
   const speechRecognitionOptions = useMemo(() => ({
     stopOnKeywords: [], // Empty array - we handle stop commands in transcript callback

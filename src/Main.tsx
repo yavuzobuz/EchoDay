@@ -234,10 +234,10 @@ const Main: React.FC<MainProps> = ({
     const hasAnyKey = !!(geminiKey || openaiKey || anthropicKey);
     
     if (!hasAnyKey) {
-      setNotification({ 
-        message: t('main.apiKey.missing', 'Lütfen ayarlar sayfasından bir AI sağlayıcısı API anahtarı girin (Gemini, OpenAI veya Anthropic).'), 
-        type: 'error' 
-      });
+      showMessage(
+        t('main.apiKey.missing', 'Lütfen ayarlar sayfasından bir AI sağlayıcısı API anahtarı girin (Gemini, OpenAI veya Anthropic).'),
+        'error'
+      );
       return false;
     }
     return true;
@@ -372,6 +372,48 @@ const Main: React.FC<MainProps> = ({
         };
         setTodos(prev => [newTodo, ...prev]);
         
+        // Chat'e kısa onay mesajı da ekle (kullanıcı geri bildirimi)
+        setChatHistory(prev => [...prev, { role: 'model', text: `✅ Görev eklendi: "${(text || description).trim()}"` }]);
+        
+        // Webhook tetikleme - görev oluşturuldu
+        try {
+          const { webhookService } = await import('./services/webhookService');
+          const activeWebhooks = webhookService.getActiveWebhooks();
+          if (activeWebhooks.length > 0) {
+            const webhookPayload = {
+              event: 'task_created' as const,
+              timestamp: new Date().toISOString(),
+              user: { id: userId || 'guest', name: 'Kullanıcı' },
+              data: {
+                id: newTodo.id,
+                title: newTodo.text,
+                description: newTodo.text,
+                datetime: newTodo.datetime,
+                priority: newTodo.priority,
+                category: newTodo.aiMetadata?.category,
+                tags: newTodo.aiMetadata?.tags
+              }
+            };
+            
+            // Tüm aktif webhookları tetikle
+            activeWebhooks.forEach(webhook => {
+              if (webhook.events.includes('task_created')) {
+                webhookService.triggerWebhook(webhook.id, webhookPayload)
+                  .then(response => {
+                    if (response.success) {
+                      console.log(`[Main] Webhook ${webhook.name} başarıyla tetiklendi (task_created)`);
+                    } else {
+                      console.warn(`[Main] Webhook ${webhook.name} tetikleme hatası:`, response.error);
+                    }
+                  })
+                  .catch(err => console.error(`[Main] Webhook ${webhook.name} tetikleme hatası:`, err));
+              }
+            });
+          }
+        } catch (error) {
+          console.warn('[Main] Webhook tetikleme hatası:', error);
+        }
+        
         // Check if location was extracted
         const hasLocation = location && location.trim().length > 0;
         
@@ -389,11 +431,11 @@ const Main: React.FC<MainProps> = ({
           } else {
             successMsg += ` ${t('main.reminder.prefix', 'Hatırlatma:')} ${mins} ${t('unit.minute', 'dakika')} ${t('common.before', 'önce')}`;
           }
-          setNotification({ message: successMsg, type: 'success' });
+        showMessage(successMsg, 'success');
         } else if (hasLocation) {
           // Task has location reminder - show location prompt
           console.log('[Main] Task has location - opening location prompt');
-          setNotification({ message: successMsg + ` 📍 Konum hatırlatıcısı kurulacak mı?`, type: 'success' });
+          showMessage(successMsg + ` 📍 Konum hatırlatıcısı kurulacak mı?`, 'success');
           setLastAddedTaskId(newTodo.id);
           setTodoForDirections(newTodo);
           // For location reminder, user can use the geo modal
@@ -405,7 +447,7 @@ const Main: React.FC<MainProps> = ({
           console.log('[Main] Task text:', text);
           console.log('[Main] Task datetime:', datetime);
           
-          setNotification({ message: successMsg, type: 'success' });
+          showMessage(successMsg, 'success');
           
           // Store task ID for later reminder addition
           setLastAddedTaskId(newTodo.id);
@@ -459,7 +501,7 @@ const Main: React.FC<MainProps> = ({
           console.log('[Main] Opening chat modal');
           setIsChatOpen(true);
         } else {
-          setNotification({ message: successMsg, type: 'success' });
+        showMessage(successMsg, 'success');
         }
       } else {
         throw new Error("AI analysis returned null.");
@@ -475,7 +517,7 @@ const Main: React.FC<MainProps> = ({
         createdAt: new Date().toISOString(),
       };
       setTodos(prev => [newTodo, ...prev]);
-      setNotification({ message: 'Görev eklendi (AI analizi başarısız).', type: 'error' });
+      showMessage('Görev eklendi (AI analizi başarısız).', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -557,6 +599,48 @@ const Main: React.FC<MainProps> = ({
             console.warn('[Main] Auto-archive skipped:', e);
           }
         }
+        
+        // Webhook tetikleme - görev tamamlandı
+        if (newCompleted) {
+          try {
+            const { webhookService } = await import('./services/webhookService');
+            const activeWebhooks = webhookService.getActiveWebhooks();
+            if (activeWebhooks.length > 0) {
+              const webhookPayload = {
+                event: 'task_completed' as const,
+                timestamp: new Date().toISOString(),
+                user: { id: userId || 'guest', name: 'Kullanıcı' },
+                data: {
+                  id: todo.id,
+                  title: todo.text,
+                  description: todo.text,
+                  datetime: todo.datetime,
+                  priority: todo.priority,
+                  category: todo.aiMetadata?.category,
+                  tags: todo.aiMetadata?.tags,
+                  completedAt: new Date().toISOString()
+                }
+              };
+              
+              // Tüm aktif webhookları tetikle
+              activeWebhooks.forEach(webhook => {
+                if (webhook.events.includes('task_completed')) {
+                  webhookService.triggerWebhook(webhook.id, webhookPayload)
+                    .then(response => {
+                      if (response.success) {
+                        console.log(`[Main] Webhook ${webhook.name} başarıyla tetiklendi (task_completed)`);
+                      } else {
+                        console.warn(`[Main] Webhook ${webhook.name} tetikleme hatası:`, response.error);
+                      }
+                    })
+                    .catch(err => console.error(`[Main] Webhook ${webhook.name} tetikleme hatası:`, err));
+                }
+              });
+            }
+          } catch (error) {
+            console.warn('[Main] Webhook tetikleme hatası:', error);
+          }
+        }
       } catch (error: any) {
         console.error('[Main] Failed to sync todo update:', error);
         
@@ -565,10 +649,10 @@ const Main: React.FC<MainProps> = ({
           t.id === id ? { ...t, completed: !newCompleted } : t
         ));
         
-        setNotification({ 
-          message: 'Güncelleme kaydedilemedi. İnternet bağlantınızı kontrol edin.', 
-          type: 'error' 
-        });
+        showMessage(
+          'Güncelleme kaydedilemedi. İnternet bağlantınızı kontrol edin.',
+          'error'
+        );
       }
     }
   };
@@ -586,24 +670,24 @@ const Main: React.FC<MainProps> = ({
       try {
         const { deleteTodos } = await import('./services/supabaseClient');
         await deleteTodos(userId, [id]);
-        setNotification({ 
-          message: t('main.delete.success', 'Görev silindi.'), 
-          type: 'success' 
-        });
+        showMessage(
+          t('main.delete.success', 'Görev silindi.'),
+          'success'
+        );
       } catch (error) {
         console.error('[Main] Failed to delete todo from backend:', error);
         // Geri al (revert) – sunucu silinemediyse yerelde isDeleted=false yap
         setTodos(prev => prev.map(t => t.id === id ? { ...t, isDeleted: false } : t));
-        setNotification({ 
-          message: t('main.delete.failed', 'Görev sunucuya silinemedi. Lütfen tekrar deneyin.'), 
-          type: 'error' 
-        });
+        showMessage(
+          t('main.delete.failed', 'Görev sunucuya silinemedi. Lütfen tekrar deneyin.'),
+          'error'
+        );
       }
     } else {
-      setNotification({ 
-        message: t('main.delete.temp', 'Görev geçici olarak silindi.'), 
-        type: 'success' 
-      });
+      showMessage(
+        t('main.delete.temp', 'Görev geçici olarak silindi.'),
+        'success'
+      );
     }
   };
 
@@ -650,7 +734,7 @@ const Main: React.FC<MainProps> = ({
         }
       } : t));
     } else {
-      setNotification({ message: t('main.directions.failed', 'Yol tarifi alınamadı.'), type: 'error' });
+      showMessage(t('main.directions.failed', 'Yol tarifi alınamadı.'), 'error');
     }
     setTodoForDirections(null);
   };
@@ -1522,7 +1606,17 @@ const Main: React.FC<MainProps> = ({
         onOpenChat={handleOpenChat}
         onImageTask={() => { if(checkApiKey()) setIsImageTaskModalOpen(true); }}
         onShowArchive={() => setIsArchiveModalOpen(true)}
-        onShowProfile={onNavigateToProfile}
+        onShowProfile={() => {
+          console.log('[Main] 🟡 MobileBottomNav onShowProfile triggered');
+          console.log('[Main] onNavigateToProfile type:', typeof onNavigateToProfile);
+          try {
+            console.log('[Main] 📞 Calling onNavigateToProfile()...');
+            const result = onNavigateToProfile();
+            console.log('[Main] ✅ onNavigateToProfile() completed, result:', result);
+          } catch (err) {
+            console.error('[Main] ❌ onNavigateToProfile() failed:', err);
+          }
+        }}
         isListening={mainCommandListener.isListening}
         hasVoiceSupport={mainCommandListener.hasSupport}
       />
@@ -1611,7 +1705,12 @@ const Main: React.FC<MainProps> = ({
           {/* Action Buttons - Modern Grid Layout */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 lg:gap-4 px-1 sm:px-0">
             <button 
-              onClick={() => navigate('/messages')} 
+              onClick={() => {
+                // Capacitor için doğrudan hash navigation
+                window.location.hash = '#/messages';
+                // Fallback: React Router navigate
+                try { navigate('/messages'); } catch {}
+              }} 
               className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group min-h-[48px] btn-touch-friendly"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
@@ -1623,7 +1722,12 @@ const Main: React.FC<MainProps> = ({
             </button>
 
             <button 
-              onClick={() => navigate('/email')} 
+              onClick={() => {
+                // Capacitor için doğrudan hash navigation
+                window.location.hash = '#/email';
+                // Fallback: React Router navigate
+                try { navigate('/email'); } catch {}
+              }} 
               className="flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 sm:py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl hover:shadow-md hover:border-[var(--accent-color-500)] dark:hover:border-[var(--accent-color-400)] transition-all duration-200 group min-h-[48px] btn-touch-friendly"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[var(--accent-color-600)] dark:text-[var(--accent-color-400)] group-hover:text-[var(--accent-color-700)] dark:group-hover:text-[var(--accent-color-300)] transition-colors" viewBox="0 0 20 20" fill="currentColor">
@@ -1926,7 +2030,7 @@ const Main: React.FC<MainProps> = ({
                         console.warn('[Main] Archive service failed or unavailable, archiving locally:', e);
                       }
                       setTodos(prev => prev.map(t => t.id === id ? { ...t, isArchived: true } : t));
-                      setNotification({ message: t('archive.messages.successTasks', 'Görev arşivlendi!'), type: 'success' });
+                      showMessage(t('archive.messages.successTasks', 'Görev arşivlendi!'), 'success');
                     }}
                     onUpdateReminders={handleUpdateReminders}
                   />

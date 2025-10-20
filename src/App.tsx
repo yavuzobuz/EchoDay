@@ -221,8 +221,26 @@ function AppContent() {
                 apiKey={apiKey}
                 assistantName={assistantName}
                 onNavigateToProfile={() => {
-                  console.log('[App] Profile butonuna tıklandı, /profile yapılıyor');
-                  navigate('/profile');
+                  console.log('[App] 🟢 PROFILE NAVIGATION TRIGGERED FROM MAIN');
+                  console.log('[App] navigate function type:', typeof navigate);
+                  console.log('[App] Current location:', window.location.href);
+                  console.log('[App] Current hash:', window.location.hash);
+                  
+                  try {
+                    console.log('[App] 📞 Calling navigate("/profile")...');
+                    const result = navigate('/profile');
+                    console.log('[App] ✅ navigate() completed, result:', result);
+                    
+                    // Verify navigation after a short delay
+                    setTimeout(() => {
+                      console.log('[App] 🔍 Navigation verification:');
+                      console.log('[App] New location:', window.location.href);
+                      console.log('[App] New hash:', window.location.hash);
+                    }, 100);
+                  } catch (err) {
+                  console.error('[App] ❌ navigate() failed:', err);
+                  console.error('[App] Error stack:', (err as Error)?.stack);
+                  }
                 }}
                 onNavigateToHome={() => {
                   console.log('[App] Home butonuna tıklandı, /welcome yapılıyor');

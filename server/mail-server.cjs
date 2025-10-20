@@ -249,6 +249,31 @@ app.post('/smtp/send', async (req, res) => {
   }
 });
 
+// Generic Webhook Proxy (DEV ONLY)
+// WARNING: Do not expose publicly. No auth/validation.
+app.post('/proxy/webhook', async (req, res) => {
+  try {
+    const { url, payload, headers } = req.body || {};
+    if (!url) return res.status(400).json({ success: false, error: 'url is required' });
+
+    console.log('[Proxy] Forwarding to:', url);
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(headers || {})
+      },
+      body: JSON.stringify(payload ?? {})
+    });
+
+    const text = await resp.text();
+    return res.status(resp.status).json({ success: resp.ok, status: resp.status, body: text });
+  } catch (e) {
+    console.error('[Proxy] Error:', e.message || String(e));
+    return res.status(500).json({ success: false, error: e.message || String(e) });
+  }
+});
+
 app.get('/', (_, res) => res.send('Mail bridge is running'));
 
 app.listen(PORT, '0.0.0.0', () => console.log(`[mail-bridge] listening on http://0.0.0.0:${PORT}`));

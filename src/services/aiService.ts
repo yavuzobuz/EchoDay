@@ -100,7 +100,7 @@ export class AIService {
     }
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.0-flash',
       generationConfig: modelConfig,
       systemInstruction: options.systemPrompt,
     });
@@ -144,7 +144,7 @@ export class AIService {
     const chatMessages = messages.filter(m => m.role !== 'system');
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.0-flash',
       generationConfig: modelConfig,
       systemInstruction: systemMessage?.content || options.systemPrompt,
     });

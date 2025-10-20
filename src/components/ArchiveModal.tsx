@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Suspense, lazy } from 'react';
 const PeriodicReportView = lazy(() => import('./PeriodicReportView'));
 import { useI18n } from '../contexts/I18nContext';
+import { encryptedNotesService } from '../services/encryptedNotesService';
 
 interface ArchiveModalProps {
   isOpen: boolean;
@@ -60,7 +61,10 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
   const [view, setView] = useState<ArchiveView>('search');
   // DB health status
   const [dbHealthy, setDbHealthy] = useState<boolean>(true);
-  const [_dbErrors, setDbErrors] = useState<string[]>([]);
+const [_dbErrors, setDbErrors] = useState<string[]>([]);
+  
+  // Decrypted cache for encrypted notes
+  const [decryptedNoteTexts, setDecryptedNoteTexts] = useState<Record<string, string>>({});
   
   // Delete mode state
   const [deleteMode, setDeleteMode] = useState(false);
@@ -561,9 +565,30 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                 {/* Note Details */}
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('archive.detail.noteContent', 'Note Content')}</label>
+<label className="text-xs sm:text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{t('archive.detail.noteContent', 'Note Content')}</label>
                     <div className="mt-2 p-3 sm:p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                      <p className="text-gray-900 dark:text-white whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">{note.text}</p>
+                      {note.isEncrypted ? (
+                        decryptedNoteTexts[note.id] ? (
+                          <p className="text-gray-900 dark:text-white whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">{decryptedNoteTexts[note.id]}</p>
+                        ) : (
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-gray-700 dark:text-gray-200">🔒 {t('archive.encryptedNote','Şifreli not (kilitli)')}</p>
+                            <button
+                              className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white hover:bg-[var(--accent-color-700)]"
+                              onClick={async () => {
+                                try {
+                                  const plain = await encryptedNotesService.decrypt({ ciphertext: (note as any).ciphertext, iv: (note as any).iv, salt: (note as any).salt });
+                                  setDecryptedNoteTexts(prev => ({ ...prev, [note.id]: plain }));
+                                } catch (e) {
+                                  alert(t('archive.decryptFailed','Parola hatalı veya çözme başarısız.'));
+                                }
+                              }}
+                            >{t('archive.unlock','Kilit Aç')}</button>
+                          </div>
+                        )
+                      ) : (
+                        <p className="text-gray-900 dark:text-white whitespace-pre-wrap leading-relaxed break-words overflow-wrap-anywhere">{note.text}</p>
+                      )}
                     </div>
                   </div>
                   
@@ -1031,7 +1056,7 @@ const ArchiveModal: React.FC<ArchiveModalProps> = ({ isOpen, onClose, currentTod
                             </button>
                           </>
                         )}
-                        <p className="text-gray-800 dark:text-gray-200 pr-8 line-clamp-3 break-words overflow-hidden">{note.text}</p>
+<p className="text-gray-800 dark:text-gray-200 pr-8 line-clamp-3 break-words overflow-hidden">{note.isEncrypted ? (decryptedNoteTexts[note.id] || '🔒 Şifreli not') : note.text}</p>
                         {note.imageUrl && (
                           <div className="mt-2 relative overflow-hidden rounded-md group/img">
                             <img 

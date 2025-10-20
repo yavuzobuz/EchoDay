@@ -96,10 +96,11 @@ export const MobileModal: React.FC<MobileModalProps> = ({
     return () => window.removeEventListener('keydown', handleEsc);
   }, [isOpen, onClose]);
 
+  
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-end md:items-center md:justify-center">
+    <div className="fixed inset-0 z-[10100] flex items-end md:items-center md:justify-center">
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black/60 backdrop-blur-sm"

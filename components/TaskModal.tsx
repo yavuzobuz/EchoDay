@@ -9,10 +9,44 @@ interface TaskModalProps {
 }
 
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [description, setDescription] = useState('');
 
   const handleTranscript = (transcript: string) => {
+    const lowerTranscript = transcript.toLowerCase().trim();
+    
+    // Voice command system adapted from DailyNotepad
+    const addCommands = {
+      tr: ['tamam', 'ekle', 'görev ekle', 'kaydet', 'tamam ekle', 'bitti ekle', 'görev olarak ekle', 'listeye ekle'],
+      en: ['okay', 'add', 'add task', 'save', 'okay add', 'done add', 'add as task', 'add to list']
+    };
+    
+    const currentAddCommands = addCommands[lang === 'tr' ? 'tr' : 'en'] || addCommands.en;
+    const hasAddCommand = currentAddCommands.some(cmd => {
+      const words = lowerTranscript.split(' ');
+      const lastWords = words.slice(-cmd.split(' ').length).join(' ');
+      return lastWords === cmd || lowerTranscript.endsWith(cmd);
+    });
+    
+    if (hasAddCommand) {
+      // Extract task content by removing the add command
+      let taskText = transcript;
+      for (const cmd of currentAddCommands) {
+        const regex = new RegExp(`\\b${cmd.replace(/'/g, "\\'").replace(/\s+/g, '\\s+')}\\s*$`, 'gi');
+        taskText = taskText.replace(regex, '').trim();
+      }
+      
+      if (taskText.trim()) {
+        console.log('✅ Adding task via voice command:', taskText);
+        console.log(`✅ Voice command detected: "${hasAddCommand ? currentAddCommands.find(cmd => lowerTranscript.endsWith(cmd)) : 'unknown'}" - Task added!`);
+        onAddTask(taskText.trim(), undefined, undefined, { skipAIAnalysis: true });
+        setDescription('');
+        onClose();
+      }
+      return;
+    }
+    
+    // Regular transcript update
     setDescription(transcript);
   };
 

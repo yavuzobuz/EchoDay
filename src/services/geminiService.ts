@@ -10,7 +10,7 @@ import { EmailMessage } from "../types/mail";
 
 // Helper to create a new AI instance for each request, ensuring the user-provided API key is used.
 const getAI = (apiKey: string) => new GoogleGenerativeAI(apiKey);
-// Using gemini-2.0-flash for higher rate limits (200 RPD vs 100 RPD for 2.5-pro)
+// Using gemini-2.0-flash for stable performance (200 RPD free tier)
 const modelName = 'gemini-2.0-flash';
 
 const taskSchema = {
@@ -191,6 +191,48 @@ function safelyParseJSON<T>(jsonString: string): T | null {
         console.error("Failed to parse JSON:", error, "Raw string:", jsonString);
         return null;
     }
+}
+
+// Retry helper for API calls with exponential backoff
+async function retryWithBackoff<T>(
+    fn: () => Promise<T>,
+    maxRetries: number = 5, // 3'ten 5'e çıkarıldı
+    initialDelay: number = 2000 // 1s'den 2s'ye çıkarıldı
+): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            lastError = error;
+            
+            // Check if error is retryable (503 overloaded, 429 rate limit, network errors)
+            const isRetryable = 
+                error?.message?.includes('503') || 
+                error?.message?.includes('overloaded') ||
+                error?.message?.includes('The model is overloaded') ||
+                error?.message?.includes('429') ||
+                error?.message?.includes('rate limit') ||
+                error?.message?.includes('network') ||
+                error?.message?.includes('ECONNREFUSED');
+            
+            if (!isRetryable || attempt === maxRetries - 1) {
+                // Son denemede daha açıklayıcı hata mesajı
+                if (error?.message?.includes('503') || error?.message?.includes('overloaded')) {
+                    throw new Error('Gemini API sunucusu aşırı yüklenmiş. Lütfen birkaç dakika sonra tekrar deneyin.');
+                }
+                throw error;
+            }
+            
+            // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+            const delay = initialDelay * Math.pow(2, attempt);
+            console.log(`[Gemini] Model aşırı yüklü - Deneme ${attempt + 1}/${maxRetries}, ${delay}ms sonra tekrar denenecek...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+    
+    throw lastError;
 }
 
 // Dynamic prompt generation based on user language
@@ -426,33 +468,35 @@ Resmi analiz et ve kullanıcının isteği ile resim içeriğine dayanarak bir g
 // FIX: Update return type to AnalyzedTaskData for better type safety.
 const analyzeTask = async (apiKey: string, description: string): Promise<AnalyzedTaskData | null> => {
     try {
-        const model = getAI(apiKey).getGenerativeModel({
-            model: modelName,
-            generationConfig: {
-                responseMimeType: "application/json",
-                responseSchema: taskSchema as any,
-                temperature: 0.2,
-            },
+        return await retryWithBackoff(async () => {
+            const model = getAI(apiKey).getGenerativeModel({
+                model: modelName,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: taskSchema as any,
+                    temperature: 0.2,
+                },
+            });
+            
+            const lang = getAppLang();
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
+            const now = new Date();
+            const nowISO = now.toISOString(); // UTC
+            const nowLocal = lang === 'en' 
+                ? now.toLocaleString('en-US', { hour12: false, timeZone: tz })
+                : now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
+            const offsetMinutes = -now.getTimezoneOffset();
+            const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
+            
+            const prompt = getTaskAnalysisPrompt(lang, tz, nowLocal, nowISO, offsetHours, description);
+            
+            const result = await model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+            
+            // FIX: Use the specific AnalyzedTaskData type for parsing.
+            return safelyParseJSON<AnalyzedTaskData>(text);
         });
-        
-        const lang = getAppLang();
-        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Istanbul';
-        const now = new Date();
-        const nowISO = now.toISOString(); // UTC
-        const nowLocal = lang === 'en' 
-            ? now.toLocaleString('en-US', { hour12: false, timeZone: tz })
-            : now.toLocaleString('tr-TR', { hour12: false, timeZone: tz });
-        const offsetMinutes = -now.getTimezoneOffset();
-        const offsetHours = (offsetMinutes / 60).toFixed(1).replace(/\.0$/, '');
-        
-        const prompt = getTaskAnalysisPrompt(lang, tz, nowLocal, nowISO, offsetHours, description);
-        
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        const text = response.text();
-        
-        // FIX: Use the specific AnalyzedTaskData type for parsing.
-        return safelyParseJSON<AnalyzedTaskData>(text);
     } catch (error) {
         console.error('Error analyzing task with Gemini:', error);
         return null;
