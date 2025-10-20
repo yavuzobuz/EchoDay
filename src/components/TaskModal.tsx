@@ -72,7 +72,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     hasSupport
   } = useNativeSpeechRecognition(
     (finalTranscript: string) => {
-      console.log('[TaskModal] Final transcript:', finalTranscript);
+      console.log('[TaskModal] Final transcript (stop word detected):', finalTranscript);
+      // Stop word geldiğinde otomatik ekle
       if (finalTranscript.trim()) {
         handleTranscript(finalTranscript);
       }
@@ -80,7 +81,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     {
       stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'kayıt', 'ekle', 'oluştur', 'ok'],
       continuous: true,
-      stopOnSilence: true // Kullanıcı konuşmayı bitirdiğinde 2 saniye sessizlikten sonra durdur
+      stopOnSilence: false // Sessizlikte otomatik ekleme yapma, kullanıcı stop word söyleyecek
     }
   );
   
@@ -158,8 +159,8 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
               <p className="text-xs mt-1 text-blue-600 dark:text-blue-400">
                 🌐 Google sunucularını kullanıyor
               </p>
-              <p className="text-xs mt-1 text-blue-600 dark:text-blue-400">
-                💡 İpucu: "tamam", "bitti", "kaydet" söylürseniz otomatik kaydeder
+              <p className="text-xs mt-1 font-semibold text-blue-700 dark:text-blue-300">
+                ⚠️ Bitirmek için "tamam", "bitti" veya "kaydet" deyin
               </p>
             </div>
           )}

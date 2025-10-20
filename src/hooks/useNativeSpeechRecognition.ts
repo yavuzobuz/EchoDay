@@ -162,16 +162,12 @@ export const useNativeSpeechRecognition = (
     setTranscript(newTranscript);
     currentTranscriptRef.current = newTranscript;
 
-    // Only check for stop words on final results to prevent premature stopping
+    // Send final transcript to parent (already cleaned by caller)
     if (isFinal) {
-      const { shouldStop, cleanedText } = checkStopWords(newTranscript);
-      
-      debugLogger.speech('NativeSpeech', 'Final transcript', { data: { text: cleanedText, reason: shouldStop ? 'stopword' : 'final' } });
-      onTranscriptReady(cleanedText);
-      
-      // Note: Actual stopping will be handled by the caller or recognition end event
+      debugLogger.speech('NativeSpeech', 'Sending final transcript', { data: { text: newTranscript } });
+      onTranscriptReady(newTranscript);
     }
-  }, [checkStopWords, onTranscriptReady]);
+  }, [onTranscriptReady]);
 
   // Native speech recognition
   const startNativeRecognition = useCallback(async () => {
@@ -195,11 +191,14 @@ export const useNativeSpeechRecognition = (
         const { shouldStop, cleanedText } = checkStopWords(transcript);
         
         if (shouldStop) {
-          // Stop word detected - stop recognition immediately
+          // Stop word detected - process and stop recognition
           debugLogger.speech('NativeSpeech', 'Stop word detected in partial result', { data: { cleanedText } });
           
           // Update with cleaned text
           currentTranscriptRef.current = cleanedText;
+          
+          // Send the cleaned transcript
+          handleTranscriptUpdate(cleanedText, true);
           
           // Stop the recognition
           SpeechRecognition.stop().catch(err => {
@@ -229,11 +228,16 @@ export const useNativeSpeechRecognition = (
 
       const stateListener = await SpeechRecognition.addListener('listeningState', (data: { status: 'started' | 'stopped' }) => {
         if (data.status === 'stopped') {
-          // Process final transcript when listening stops
-          if (currentTranscriptRef.current.trim()) {
-            handleTranscriptUpdate(currentTranscriptRef.current, true);
+          // Clear silence timer
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+            silenceTimerRef.current = null;
           }
+          
+          // Don't process transcript here if stop word already handled it
+          // The transcript was already sent in the partialResults handler
           setIsListening(false);
+          debugLogger.speech('NativeSpeech', 'Native recognition stopped');
         }
       });
 
@@ -311,49 +315,56 @@ export const useNativeSpeechRecognition = (
           .map((result: any) => result.transcript)
           .join('');
         
-        // Update transcript
-        setTranscript(transcript);
-        currentTranscriptRef.current = transcript;
-        
-        // Check for stop words
-        const { shouldStop, cleanedText } = checkStopWords(transcript);
-        
-        if (shouldStop) {
-          // Stop word detected - stop recognition immediately
-          debugLogger.speech('NativeSpeech', 'Stop word detected in web result', { data: { cleanedText } });
-          
-          // Update with cleaned text
-          currentTranscriptRef.current = cleanedText;
-          
-          // Stop the recognition
-          if (recognitionRef.current) {
-            try {
-              recognitionRef.current.stop();
-            } catch (err) {
-              console.warn('[NativeSpeech] Stop on keyword error:', err);
-            }
-          }
-          
-          return;
-        }
-        
         // Check if the last result is final
         const lastResult = event.results[event.results.length - 1];
         const isFinal = lastResult?.isFinal === true;
         
+        // Update transcript for UI
+        setTranscript(transcript);
+        currentTranscriptRef.current = transcript;
+        
+        // Only check for stop words on FINAL results to prevent multiple triggers
         if (isFinal) {
-          handleTranscriptUpdate(transcript, true);
+          const { shouldStop, cleanedText } = checkStopWords(transcript);
+          
+          if (shouldStop) {
+            // Stop word detected - process cleaned text and stop recognition
+            debugLogger.speech('NativeSpeech', 'Stop word detected in web result', { data: { cleanedText } });
+            
+            // Update with cleaned text
+            currentTranscriptRef.current = cleanedText;
+            
+            // Mark that we're intentionally stopping
+            isStoppingRef.current = true;
+            
+            // Send the cleaned transcript first
+            handleTranscriptUpdate(cleanedText, true);
+            
+            // Then stop the recognition
+            if (recognitionRef.current) {
+              try {
+                recognitionRef.current.stop();
+              } catch (err) {
+                console.warn('[NativeSpeech] Stop on keyword error:', err);
+              }
+            }
+            
+            return;
+          }
+          
+          // No stop word found, just update transcript (don't send yet)
+          // User needs to say a stop word to send
         }
         
-        // Optional: Auto-stop on silence detection for web recognition
+        // Reset silence timer ONLY on interim results (not final)
         if (stopOnSilence && continuous && !isFinal) {
-          // Reset silence timer on each new result
           if (silenceTimerRef.current) {
             clearTimeout(silenceTimerRef.current);
           }
           
           silenceTimerRef.current = window.setTimeout(() => {
             debugLogger.speech('NativeSpeech', 'Stopping due to silence (web)');
+            isStoppingRef.current = true; // Mark intentional stop
             try {
               if (recognitionRef.current) {
                 recognitionRef.current.stop();
@@ -376,10 +387,25 @@ export const useNativeSpeechRecognition = (
       };
 
       recognition.onend = () => {
+        // Clear silence timer on end
+        if (silenceTimerRef.current) {
+          clearTimeout(silenceTimerRef.current);
+          silenceTimerRef.current = null;
+        }
+        
+        // Only log if this is unexpected (not triggered by stop word or manual stop)
         if (!isStoppingRef.current) {
           debugLogger.speech('NativeSpeech', 'Web recognition ended unexpectedly');
+          // Don't send transcript here - it was already sent if there was a stop word
+          // If user didn't say stop word, they need to say it or click send button
         }
+        
         setIsListening(false);
+        
+        // Reset stopping flag after a short delay
+        setTimeout(() => {
+          isStoppingRef.current = false;
+        }, 100);
       };
 
       recognition.start();

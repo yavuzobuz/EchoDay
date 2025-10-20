@@ -33,6 +33,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
   const [isVoiceModeActive, setIsVoiceModeActive] = useState(false);
   const [lastAIMessageIndex, setLastAIMessageIndex] = useState(-1);
 
+  // Transcript'i sadece UI'da göster, otomatik gönderme
   const {
     isListening,
     startListening,
@@ -41,7 +42,8 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
     transcript: speechTranscript
   } = useNativeSpeechRecognition(
     (finalTranscript: string) => {
-      console.log('[ChatModal] Final transcript received:', finalTranscript);
+      console.log('[ChatModal] Final transcript received (stop word detected):', finalTranscript);
+      // Stop word geldiğinde otomatik gönder
       if (finalTranscript.trim()) {
         onSendMessage(finalTranscript.trim());
         setUserInput('');
@@ -50,7 +52,7 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
     {
       stopOnKeywords: ['tamam', 'bitti', 'ok', 'oldu', 'kaydet', 'oluştur', 'gönder'],
       continuous: true,
-      stopOnSilence: true // Kullanıcı konuşmayı bitirdiğinde 2 saniye sessizlikten sonra durdur
+      stopOnSilence: false // Sessizlikte otomatik durdurma, kullanıcı stop word söyleyecek
     }
   );
   
@@ -509,6 +511,21 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
             {pdfError && (
               <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                 <p className="text-sm text-red-700 dark:text-red-300">⚠️ {pdfError}</p>
+              </div>
+            )}
+            
+            {/* Mikrofon aktif uyarısı */}
+            {isListening && (
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                  🎤 <strong>Dinliyor...</strong> 🌐 Online Mod
+                </p>
+                <p className="text-xs mt-1 text-blue-600 dark:text-blue-400">
+                  🌐 Google sunucularını kullanıyor
+                </p>
+                <p className="text-xs mt-1 font-semibold text-blue-700 dark:text-blue-300">
+                  ⚠️ Bitirmek için "tamam", "bitti", "ok" veya "gönder" deyin
+                </p>
               </div>
             )}
 
