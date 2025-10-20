@@ -50,6 +50,7 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
   const [vaultUnlocked, setVaultUnlocked] = useState<boolean>(false);
   const [vaultError, setVaultError] = useState<string>('');
   const vaultTimerRef = useRef<number | null>(null as any);
+  const [vaultDetailNote, setVaultDetailNote] = useState<Note | null>(null);
 
   // Local undo snackbar state
   const [undoState, setUndoState] = useState<{
@@ -736,7 +737,7 @@ setNewNoteImageDataUrl(reader.result as string);
             aria-label={t('notepad.encryptedArea','Encrypted Area')}
             title={t('notepad.encryptedArea','Encrypted Area')}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4z" clip-rule="evenodd"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 2a4 4 0 00-4 4v2H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-1V6a4 4 0 00-4-4zm2 6V6a2 2 0 10-4 0v2h4z" clipRule="evenodd"/></svg>
         </button>
       </div>
     </div>
@@ -1005,10 +1006,9 @@ setNewNoteImageDataUrl(reader.result as string);
 <button onClick={handleUndo} className="px-2 py-1 bg-white/20 hover:bg-white/30 rounded">{t('common.undo','Undo')}</button>
         </div>
       )}
-    </div>
 
       {/* Encrypted Vault Modal */}
-      {isVaultOpen && (
+      {isVaultOpen && (<>
         <div className="fixed inset-0 z-[10010] bg-black/70 flex items-center justify-center p-2 sm:p-4" onClick={() => { setIsVaultOpen(false); setVaultUnlocked(false); setVaultError(''); }}>
           <div className="bg-white dark:bg-gray-800 w-full max-w-3xl max-h-[90vh] rounded-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
@@ -1061,11 +1061,12 @@ setNewNoteImageDataUrl(reader.result as string);
                     <div className="text-center text-gray-500 dark:text-gray-400 py-10">{t('notepad.noEncryptedNotes','Henüz şifreli not yok.')}</div>
                   )}
                   {notes.filter(n => n.isEncrypted).map(note => (
-                    <div key={note.id} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded p-2 sm:p-3">
+                    <div key={note.id} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded p-2 sm:p-3 cursor-pointer hover:shadow" onClick={() => setVaultDetailNote(note)}>
                       <div className="flex items-center justify-between">
                         <div className="text-xs text-gray-500 dark:text-gray-400">{new Date(note.createdAt).toLocaleString('tr-TR')}</div>
                         {!decryptedTexts[note.id] && (
-                          <button onClick={async () => {
+                          <button onClick={async (e) => {
+                            e.stopPropagation();
                             try {
                               const plain = await encryptedNotesService.decrypt({ ciphertext: note.ciphertext as any, iv: note.iv as any, salt: note.salt as any });
                               setDecryptedTexts(prev => ({ ...prev, [note.id]: plain }));
@@ -1074,6 +1075,11 @@ setNewNoteImageDataUrl(reader.result as string);
                           }} className="text-xs px-2 py-1 rounded bg-[var(--accent-color-600)] text-white">{t('common.unlock','Kilit Aç')}</button>
                         )}
                       </div>
+                      {note.imageUrl && (
+                        <div className="mt-2 rounded overflow-hidden">
+                          <img src={note.imageUrl} alt={t('notepad.noteImage','Note image')} className="w-full h-28 object-cover" />
+                        </div>
+                      )}
                       <div className="mt-2 text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
                         {decryptedTexts[note.id] ? decryptedTexts[note.id] : '🔒 ' + t('notepad.locked','Kilitli')}
                       </div>
@@ -1085,6 +1091,41 @@ setNewNoteImageDataUrl(reader.result as string);
           </div>
         </div>
       )}
+      
+      {/* Vault detail modal */}
+      {vaultDetailNote && (
+          <div className="fixed inset-0 z-[10030] bg-black/60 flex items-center justify-center p-2 sm:p-4" onClick={() => setVaultDetailNote(null)}>
+            <div className="bg-white dark:bg-gray-800 w-full max-w-2xl max-h-[90vh] rounded-lg shadow-2xl overflow-auto" onClick={(e)=>e.stopPropagation()}>
+              <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 dark:border-gray-700">
+                <h4 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200">🔒 {t('notepad.encryptedNoteDetail','Şifreli Not')}</h4>
+                <button onClick={() => setVaultDetailNote(null)} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="p-3 sm:p-4 space-y-3">
+                {vaultDetailNote.imageUrl && (
+                  <img src={vaultDetailNote.imageUrl} alt={t('notepad.noteImage','Note image')} className="w-full max-h-[50vh] object-contain rounded" />
+                )}
+                <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                  {decryptedTexts[vaultDetailNote.id] ? (
+                    decryptedTexts[vaultDetailNote.id]
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <span>🔒 {t('notepad.locked','Kilitli')}</span>
+                      <button onClick={async () => {
+                        try {
+                          const plain = await encryptedNotesService.decrypt({ ciphertext: vaultDetailNote.ciphertext as any, iv: vaultDetailNote.iv as any, salt: vaultDetailNote.salt as any });
+                          setDecryptedTexts(prev => ({ ...prev, [vaultDetailNote.id]: plain }));
+                          if (vaultTimerRef.current) { window.clearTimeout(vaultTimerRef.current); vaultTimerRef.current = window.setTimeout(() => { setVaultUnlocked(false); encryptedNotesService.clear(); }, 5*60*1000); }
+                        } catch { setVaultError(t('notepad.wrongPassword','Parola yanlış.')); }
+                      }} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">{t('common.unlock','Kilit Aç')}</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 };
