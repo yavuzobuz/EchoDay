@@ -1032,7 +1032,7 @@ const Main: React.FC<MainProps> = ({
   };
 
   // PDF Analysis Handler
-  const handleAnalyzePdf = useCallback(async (pdfFile: File, customPrompt?: string) => {
+  const handleAnalyzePdf = useCallback(async (pdfFile: File, customPrompt?: string, encryptNotes?: boolean) => {
     if (!checkApiKey()) return;
     
     setIsLoading(true);
@@ -1081,21 +1081,58 @@ const Main: React.FC<MainProps> = ({
           setTodos(prev => [...newTasks, ...prev]);
         }
 
-        // Add suggested notes
-        const newNotes: Note[] = suggestedNotes.map(note => {
-          // Destructure pdfSource to exclude it from DB sync
-          const { pdfSource: _, ...noteData } = {
-            id: uuidv4(),
-            text: `**${note.title}**\n\n${note.content}`,
-            createdAt: new Date().toISOString(),
-            userId: userId,
-            tags: note.tags,
-          } as Note;
-          return noteData;
-        });
+        // Add suggested notes - support encryption if enabled
+        const processedNotes: Note[] = [];
         
-        if (newNotes.length > 0) {
-          setNotes(prev => [...newNotes, ...prev]);
+        for (const note of suggestedNotes) {
+          const noteText = `**${note.title}**\n\n${note.content}`;
+          
+          if (encryptNotes) {
+            try {
+              // Şifrelenmiş not oluştur
+              const { encryptedNotesService } = await import('./services/encryptedNotesService');
+              const enc = await encryptedNotesService.encrypt(noteText);
+              
+              const encryptedNote: Note = {
+                id: uuidv4(),
+                text: '', // Şifreli notlarda text boş
+                isEncrypted: true,
+                ciphertext: enc.ciphertext,
+                iv: enc.iv,
+                salt: enc.salt,
+                createdAt: new Date().toISOString(),
+                userId: userId,
+                tags: note.tags,
+              };
+              
+              processedNotes.push(encryptedNote);
+            } catch (e) {
+              console.warn('[Main] PDF note encryption failed, adding as plain text:', e);
+              // Şifreleme başarısızsa normal not ekle
+              const plainNote: Note = {
+                id: uuidv4(),
+                text: noteText,
+                createdAt: new Date().toISOString(),
+                userId: userId,
+                tags: note.tags,
+              };
+              processedNotes.push(plainNote);
+            }
+          } else {
+            // Normal not oluştur
+            let noteData: Note = {
+              id: uuidv4(),
+              text: noteText,
+              createdAt: new Date().toISOString(),
+              userId: userId,
+              tags: note.tags,
+            };
+            processedNotes.push(noteData);
+          }
+        }
+        
+        if (processedNotes.length > 0) {
+          setNotes(prev => [...processedNotes, ...prev]);
         }
 
         // Add to chat history
@@ -1108,7 +1145,7 @@ const Main: React.FC<MainProps> = ({
           `- 👥 Kişiler: ${analysisResult.entities?.people?.join(', ') || 'Yok'}\n` +
           `- 🏛️ Kurumlar: ${analysisResult.entities?.organizations?.join(', ') || 'Yok'}\n\n` +
           `✅ **${newTasks.length} görev** görev listesine eklendi.\n` +
-          `✅ **${newNotes.length} not** not defterine eklendi.`;
+          `✅ **${processedNotes.length} ${encryptNotes ? 'şifreli ' : ''}not** not defterine eklendi.`;
         
         setChatHistory(prev => [
           ...prev,
@@ -1117,7 +1154,7 @@ const Main: React.FC<MainProps> = ({
         ]);
         
         setNotification({ 
-          message: `✅ ${newTasks.length} görev ve ${newNotes.length} not eklendi!`, 
+          message: `✅ ${newTasks.length} görev ve ${processedNotes.length} ${encryptNotes ? 'şifreli ' : ''}not eklendi!`, 
           type: 'success' 
         });
       } else {

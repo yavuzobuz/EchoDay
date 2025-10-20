@@ -15,7 +15,7 @@ interface DailyNotepadProps {
   onAnalyzeImage: (noteId: string) => void;
   onShareNote: (note: Note) => void;
   setNotification?: (notification: { message: string; type: 'success' | 'error' } | null) => void;
-  onAnalyzePdf?: (pdfFile: File) => void;
+  onAnalyzePdf?: (pdfFile: File, customPrompt?: string, encryptNotes?: boolean) => void;
   onExtractTextFromImage?: (dataUrl: string) => Promise<string | null>;
   onDeleteNotesRemote?: (ids: string[]) => Promise<void> | void;
   onSelectionModeChange?: (active: boolean) => void;
@@ -51,6 +51,7 @@ const DailyNotepad: React.FC<DailyNotepadProps> = ({ notes, setNotes, onOpenAiMo
   const [vaultError, setVaultError] = useState<string>('');
   const vaultTimerRef = useRef<number | null>(null as any);
   const [vaultDetailNote, setVaultDetailNote] = useState<Note | null>(null);
+  const [showEncryptWarning, setShowEncryptWarning] = useState(false);
 
   // Local undo snackbar state
   const [undoState, setUndoState] = useState<{
@@ -250,7 +251,8 @@ const handleAddNote = useCallback(async (text: string) => {
     const file = e.target.files?.[0];
     if (file && file.type === 'application/pdf') {
       if (onAnalyzePdf) {
-        onAnalyzePdf(file);
+        // PDF analizi yaparken şifreleme ayarını da ilet
+        onAnalyzePdf(file, undefined, encryptNew);
       }
       // Reset input
       if (pdfInputRef.current) pdfInputRef.current.value = '';
@@ -989,11 +991,73 @@ setNewNoteImageDataUrl(reader.result as string);
             )}
         </div>
         </div>
-<div className="flex justify-between items-center mt-2">
-            <label className="flex items-center gap-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
-              <input type="checkbox" checked={encryptNew} onChange={(e) => setEncryptNew(e.target.checked)} />
-              {t('notepad.encryptNew','Şifrele')}
-            </label>
+        <div className="flex justify-between items-center mt-2">
+            {/* Profesyonel Şifreli Not Toggle */}
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <input 
+                  type="checkbox" 
+                  id="encrypt-toggle"
+                  checked={encryptNew} 
+                  onChange={(e) => {
+                    if (e.target.checked && !encryptNew) {
+                      setShowEncryptWarning(true);
+                    } else {
+                      setEncryptNew(e.target.checked);
+                    }
+                  }}
+                  className="sr-only"
+                />
+                <label 
+                  htmlFor="encrypt-toggle" 
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 cursor-pointer ${
+                    encryptNew 
+                      ? 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-lg shadow-amber-500/30' 
+                      : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500'
+                  }`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition-transform duration-200 ${
+                    encryptNew ? 'translate-x-6' : 'translate-x-1'
+                  }`} />
+                </label>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg transition-all duration-200 ${
+                  encryptNew 
+                    ? 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-800/50' 
+                    : 'bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700'
+                }`}>
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    className={`h-4 w-4 transition-colors ${
+                      encryptNew 
+                        ? 'text-amber-600 dark:text-amber-400' 
+                        : 'text-gray-500 dark:text-gray-400'
+                    }`} 
+                    fill="none" 
+                    viewBox="0 0 24 24" 
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span className={`text-sm font-medium transition-colors ${
+                    encryptNew 
+                      ? 'text-amber-700 dark:text-amber-300' 
+                      : 'text-gray-700 dark:text-gray-300'
+                  }`}>
+                    {encryptNew ? t('notepad.encrypted','🔐 Şifreli') : t('notepad.encryptNew','🔓 Şifrele')}
+                  </span>
+                </div>
+                {encryptNew && (
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-xs font-medium">{t('notepad.secureMode','Güvenli Mod')}</span>
+                  </div>
+                )}
+              </div>
+            </div>
             <button type="submit" className="px-4 py-1.5 bg-[var(--accent-color-600)] text-white rounded-md hover:bg-[var(--accent-color-700)] disabled:opacity-50 text-sm font-semibold shadow-sm hover:shadow-md transition-all" disabled={!newNoteText.trim() && !newNoteImageDataUrl}>
 {t('common.add','Add')}
             </button>
@@ -1090,6 +1154,7 @@ setNewNoteImageDataUrl(reader.result as string);
             )}
           </div>
         </div>
+      </>
       )}
       
       {/* Vault detail modal */}
@@ -1126,6 +1191,71 @@ setNewNoteImageDataUrl(reader.result as string);
             </div>
           </div>
         )}
+
+      {/* Encryption Warning Modal */}
+      {showEncryptWarning && (
+        <div className="fixed inset-0 z-[10050] bg-black/70 flex items-center justify-center p-2 sm:p-4" onClick={() => setShowEncryptWarning(false)}>
+          <div className="bg-white dark:bg-gray-800 w-full max-w-md rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 sm:p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{t('notepad.encryptionWarningTitle','Şifreleme Uyarısı')}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{t('notepad.securityFeature','Güvenlik özelliği')}</p>
+                </div>
+              </div>
+              
+              <div className="space-y-3 mb-6">
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50">
+                  <div className="flex-shrink-0 w-5 h-5 bg-amber-500 rounded-full flex items-center justify-center mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-medium text-amber-800 dark:text-amber-300 mb-1">{t('notepad.encryptionInfo','Şifreleme hakkında:')}</p>
+                    <p className="text-amber-700 dark:text-amber-300">{t('notepad.encryptionDescription','Notunuz yerel olarak şifrelenir ve yalnızca parolanızla açılabilir. Parolanızı unutursanız notunuza erişemezsiniz.')}</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50">
+                  <div className="flex-shrink-0 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">{t('notepad.securityBenefit','Güvenlik faydası:')}</p>
+                    <p className="text-blue-700 dark:text-blue-300">{t('notepad.securityDescription','Hassas bilgileriniz güvenli bir şekilde saklanır ve yetkisiz erişimden korunur.')}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-3 justify-end">
+                <button 
+                  onClick={() => setShowEncryptWarning(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  {t('common.cancel','İptal')}
+                </button>
+                <button 
+                  onClick={() => {
+                    setEncryptNew(true);
+                    setShowEncryptWarning(false);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-500/25 transition-all"
+                >
+                  {t('notepad.enableEncryption','Şifrelemeyi Etkinleştir')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
