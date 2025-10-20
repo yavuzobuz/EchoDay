@@ -31,8 +31,10 @@ class RateLimitService {
   }
 
   recordRequest(provider: string, tier: string = 'free'): void {
-    const key = `${provider}-${tier}`;
     // Request already recorded in canMakeRequest
+    // This method is kept for API compatibility
+    void provider;
+    void tier;
   }
 
   getWaitTime(provider: string, tier: string = 'free'): number {

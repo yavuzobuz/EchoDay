@@ -218,8 +218,7 @@ const Main: React.FC<MainProps> = ({
   // Task List Modal State (for Smart Suggestions)
   const [isTaskListModalOpen, setIsTaskListModalOpen] = useState(false);
   const [taskListData, setTaskListData] = useState<{ tasks: Todo[], title: string }>({ tasks: [], title: '' });
-  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
-  const [reminderTodoId, setReminderTodoId] = useState<string | null>(null);
+  // Removed unused variables: editingTodo, reminderTodoId
   
 
   const [todoForDirections, setTodoForDirections] = useState<Todo | null>(null);
@@ -2103,7 +2102,6 @@ const Main: React.FC<MainProps> = ({
         onTaskClick={(todo) => {
           // Close the modal and scroll to the task in the main list
           setIsTaskListModalOpen(false);
-          setEditingTodo(todo);
           // Scroll to task after a brief delay to ensure DOM is ready
           setTimeout(() => {
             const taskElement = document.getElementById(`todo-${todo.id}`);

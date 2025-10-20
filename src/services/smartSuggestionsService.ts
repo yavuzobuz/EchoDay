@@ -1,7 +1,6 @@
 import { Todo } from '../types/todo';
 import { UserContext } from '../types/userContext';
 import { getCurrentAIService } from '../utils/aiHelper';
-import { AIProvider } from '../types/ai';
 import { rateLimitService } from './rateLimitService';
 
 export interface SmartSuggestion {
@@ -12,7 +11,7 @@ export interface SmartSuggestion {
   priority: 'low' | 'medium' | 'high';
   actionable: boolean;
   action?: {
-    type: 'add_task' | 'set_reminder' | 'open_modal' | 'show_analytics';
+    type: 'add_task' | 'set_reminder' | 'open_modal' | 'show_analytics' | 'show_task_list';
     data?: any;
   };
   timestamp: number;

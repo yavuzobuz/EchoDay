@@ -34,7 +34,7 @@ export const useSpeechRecognitionUnified = (
         setIsAvailable(result.available);
         console.log('[SpeechRecognition] Available:', result.available);
       } catch (error) {
-        console.log('[SpeechRecognition] Not available on web platform:', error.message || 'Capacitor feature not implemented');
+        console.log('[SpeechRecognition] Not available on web platform:', (error as Error)?.message || 'Capacitor feature not implemented');
         setHasSupport(false);
         setIsAvailable(false);
       }
