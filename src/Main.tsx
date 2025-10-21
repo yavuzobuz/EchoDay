@@ -549,7 +549,43 @@ const Main: React.FC<MainProps> = ({
     } catch (error) {
       console.warn('[Main] Webhook tetikleme hatası:', error);
     }
-  }, [apiKey, setTodos, checkApiKey, setChatHistory, setIsChatOpen, todos, userId]);
+
+    // Yeni eklenen görevin tarihi mevcut listRange aralığının dışındaysa, listRange'i 'all' yap
+    if (createdTodo && createdTodo.datetime && listRange !== 'all') {
+      const taskDate = new Date(createdTodo.datetime);
+      const now = new Date();
+      
+      // Mevcut listRange aralığını hesapla
+      let rangeStart: Date, rangeEnd: Date;
+      
+      if (listRange === 'day') {
+        rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      } else if (listRange === 'week') {
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay());
+        rangeStart = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate());
+        rangeEnd = new Date(rangeStart);
+        rangeEnd.setDate(rangeStart.getDate() + 6);
+        rangeEnd.setHours(23, 59, 59);
+      } else if (listRange === 'month') {
+        rangeStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        rangeEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      } else if (listRange === 'year') {
+        rangeStart = new Date(now.getFullYear(), 0, 1);
+        rangeEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+      } else {
+        // listRange 'all' ise hiçbir şey yapma
+        return;
+      }
+      
+      // Görevin tarihi aralığın dışındaysa listRange'i 'all' yap
+      if (taskDate < rangeStart || taskDate > rangeEnd) {
+        console.log('[Main] Yeni görev mevcut tarih aralığının dışında, listRange "all" olarak ayarlanıyor');
+        setListRange('all');
+      }
+    }
+  }, [apiKey, setTodos, checkApiKey, setChatHistory, setIsChatOpen, todos, userId, listRange, setListRange]);
   
   const createNextOccurrence = (todo: Todo): Todo | null => {
     if (!todo.recurrence) return null;

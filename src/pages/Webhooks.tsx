@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { webhookService } from '../services/webhookService';
 import { WebhookConfig, WebhookTemplate } from '../types/webhook';
 import WebhookChatbot from '../../components/WebhookChatbot';
+import GmailWebhookUI from '../components/webhooks/GmailWebhookUI';
+import ZapierWebhookUI from '../components/webhooks/ZapierWebhookUI';
 
 // Helper: Convert text with URLs to clickable links
 const renderTextWithLinks = (text: string) => {
@@ -609,6 +611,22 @@ const Webhooks: React.FC = () => {
                       className="w-full p-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-[var(--accent-color-500)] focus:border-transparent transition-colors"
                     />
                   </div>
+                )}
+
+                {/* Gmail Özel UI */}
+                {selectedTemplate.type === 'gmail' && (
+                  <GmailWebhookUI 
+                    formData={formData}
+                    setFormData={setFormData}
+                  />
+                )}
+
+                {/* Zapier Özel UI */}
+                {selectedTemplate.type === 'zapier' && (
+                  <ZapierWebhookUI 
+                    formData={formData}
+                    setFormData={setFormData}
+                  />
                 )}
                 
                 {/* Events Selection */}
