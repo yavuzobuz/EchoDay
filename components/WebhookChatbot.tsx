@@ -10,6 +10,8 @@ interface WebhookChatbotProps {
     type?: string;
     name?: string;
     setupInstructions?: string[];
+    zapierConfigMode?: boolean; // Yeni: Zapier yapılandırma asistan modu
+    zapierConfig?: any; // Template'den gelen zapier config
   };
 }
 
@@ -72,11 +74,28 @@ const WebhookChatbot: React.FC<WebhookChatbotProps> = ({ isOpen, onClose, webhoo
         
         // Add welcome message
         if (messages.length === 0) {
+          let welcomeMessage = '';
+          
+          if (webhookContext?.zapierConfigMode) {
+            // Zapier yapılandırma asistan modu
+            welcomeMessage = `🤖 **Zapier Yapılandırma Asistanı**\n\n`;
+            welcomeMessage += `Merhaba! ${webhookContext.name || webhookContext.type} için Zapier otomasyonu kurmanıza yardımcı olacağım.\n\n`;
+            welcomeMessage += `**Ne yapmak istiyorsunuz?**\n`;
+            welcomeMessage += `Örnek senaryolar:\n`;
+            welcomeMessage += `• "Görev eklendiğinde otomatik takvime eklensin"\n`;
+            welcomeMessage += `• "Görev tamamlandığında mail gönder"\n`;
+            welcomeMessage += `• "Günlük özeti Slack\'e gönder"\n`;
+            welcomeMessage += `• "Tüm görevleri Google Sheets\'e kaydet"\n\n`;
+            welcomeMessage += `Lütfen istediğiniz senaryoyu anlatın, size detaylı Zapier yapılandırması hazırlayım! 🚀`;
+          } else if (webhookContext?.type) {
+            welcomeMessage = `Merhaba! ${webhookContext.name || webhookContext.type} webhook kurulumunda size yardımcı olabilirim. Sorunuz nedir?`;
+          } else {
+            welcomeMessage = 'Merhaba! Webhook kurulumunda size nasıl yardımcı olabilirim? Ekran görüntüsü paylaşabilir veya soru sorabilirsiniz.';
+          }
+          
           setMessages([{
             role: 'assistant',
-            content: webhookContext?.type 
-              ? `Merhaba! ${webhookContext.name || webhookContext.type} webhook kurulumunda size yardımcı olabilirim. Sorunuz nedir?`
-              : 'Merhaba! Webhook kurulumunda size nasıl yardımcı olabilirim? Ekran görüntüsü paylaşabilir veya soru sorabilirsiniz.',
+            content: welcomeMessage,
             timestamp: new Date()
           }]);
         }
@@ -184,7 +203,33 @@ const WebhookChatbot: React.FC<WebhookChatbotProps> = ({ isOpen, onClose, webhoo
 
     try {
       // Build context-aware system prompt
-      let systemPrompt = `Sen bir webhook kurulum asistanısın. Kullanıcıya Türkçe, açık ve adım adım yardım et.`;
+      let systemPrompt = '';
+      
+      if (webhookContext?.zapierConfigMode) {
+        // Zapier yapılandırma asistan modu
+        systemPrompt = `Sen bir Zapier yapılandırma uzmanısın. Kullanıcı ${webhookContext.name || webhookContext.type} için otomasyon kurmak istiyor.\n\n`;
+        systemPrompt += `Görevin:\n`;
+        systemPrompt += `1. Kullanıcının ne yapmak istediğini anla\n`;
+        systemPrompt += `2. Detaylı, kopyala-yapıştır yapılabilir Zapier yapılandırması hazırla\n`;
+        systemPrompt += `3. Her alanı şu formatta açıkla:\n`;
+        systemPrompt += `   - Alan adı: [Değer] (Açıklama)\n`;
+        systemPrompt += `   - Webhook field'larını {{webhook__data__fieldName}} formatında kullan\n\n`;
+        systemPrompt += `Örnek webhook payload:\n`;
+        systemPrompt += `{\n`;
+        systemPrompt += `  "event": "task_created" veya "task_completed",\n`;
+        systemPrompt += `  "data": {\n`;
+        systemPrompt += `    "title": "Görev başlığı",\n`;
+        systemPrompt += `    "description": "Görev detayları",\n`;
+        systemPrompt += `    "priority": "high/medium/low",\n`;
+        systemPrompt += `    "category": "Kategori",\n`;
+        systemPrompt += `    "date": "Başlangıç tarihi",\n`;
+        systemPrompt += `    "dueDate": "Bitiş tarihi"\n`;
+        systemPrompt += `  }\n`;
+        systemPrompt += `}\n\n`;
+        systemPrompt += `Cevabını markdown formatlı, adım adım, kopyalanabilir şekilde ver.`;
+      } else {
+        systemPrompt = `Sen bir webhook kurulum asistanısın. Kullanıcıya Türkçe, açık ve adım adım yardım et.`;
+      }
       
       if (webhookContext) {
         systemPrompt += `\n\nŞu anda ${webhookContext.name || webhookContext.type} webhook'u için kurulum yapılıyor.`;

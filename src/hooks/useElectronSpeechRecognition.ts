@@ -235,9 +235,12 @@ export const useElectronSpeechRecognition = (
               const cleanedText = stopKeywordsArray 
                 ? cleanStopKeywords(text, stopKeywordsArray)
                 : text;
-              setTranscript(cleanedText);
+              // Send final result to consumer first
               onTranscriptReady(cleanedText);
+              // Then clear local transcript so UI input is not repopulated after send
+              setTranscript('');
             } else {
+              // Ensure UI is cleared on empty result
               setTranscript('');
               onTranscriptReady('');
             }

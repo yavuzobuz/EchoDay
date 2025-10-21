@@ -74,7 +74,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
     }
   };
 
-  const saveTasksFromSummary = (tasks: EmailSummary['suggestedTasks']) => {
+  const saveTasksFromSummary = async (tasks: EmailSummary['suggestedTasks']) => {
     if (!tasks || tasks.length === 0) return;
     
     try {
@@ -97,6 +97,47 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       
       const updated = [...newTodos, ...existing];
       localStorage.setItem(todosKey, JSON.stringify(updated));
+      
+      // Webhook tetikleme - eklenen her görev için
+      try {
+        const { webhookService } = await import('../services/webhookService');
+        const activeWebhooks = webhookService.getActiveWebhooks();
+        if (activeWebhooks.length > 0) {
+          newTodos.forEach(newTodo => {
+            const webhookPayload = {
+              event: 'task_created' as const,
+              timestamp: new Date().toISOString(),
+              user: { id: userId, name: 'Kullanıcı' },
+              data: {
+                id: newTodo.id,
+                title: newTodo.text,
+                description: newTodo.text,
+                datetime: newTodo.datetime,
+                priority: newTodo.priority,
+                category: newTodo.aiMetadata?.category,
+                tags: newTodo.aiMetadata?.tags
+              }
+            };
+            
+            activeWebhooks.forEach(webhook => {
+              if (webhook.events.includes('task_created')) {
+                webhookService.triggerWebhook(webhook.id, webhookPayload)
+                  .then(response => {
+                    if (response.success) {
+                      console.log(`[MailList] Webhook ${webhook.name} başarıyla tetiklendi`);
+                    } else {
+                      console.warn(`[MailList] Webhook ${webhook.name} hatası:`, response.error);
+                    }
+                  })
+                  .catch(err => console.error(`[MailList] Webhook tetikleme hatası:`, err));
+              }
+            });
+          });
+        }
+      } catch (webhookError) {
+        console.warn('[MailList] Webhook tetikleme hatası:', webhookError);
+      }
+      
       setOpMsg(`${newTodos.length} ${t('mail.tasksAdded')}`);
       setTimeout(() => setOpMsg(null), 3000);
     } catch (e) {
@@ -160,7 +201,7 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
     }
   };
 
-  const saveToTodos = (email: EmailMessage) => {
+  const saveToTodos = async (email: EmailMessage) => {
     try {
       const todosKey = `todos_${userId}`;
       const existing: Todo[] = JSON.parse(localStorage.getItem(todosKey) || '[]');
@@ -184,6 +225,45 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       };
       const updated = [newTodo, ...existing];
       localStorage.setItem(todosKey, JSON.stringify(updated));
+      
+      // Webhook tetikleme
+      try {
+        const { webhookService } = await import('../services/webhookService');
+        const activeWebhooks = webhookService.getActiveWebhooks();
+        if (activeWebhooks.length > 0) {
+          const webhookPayload = {
+            event: 'task_created' as const,
+            timestamp: new Date().toISOString(),
+            user: { id: userId, name: 'Kullanıcı' },
+            data: {
+              id: newTodo.id,
+              title: newTodo.text,
+              description: newTodo.text,
+              datetime: newTodo.datetime,
+              priority: newTodo.priority,
+              category: newTodo.aiMetadata?.category,
+              tags: newTodo.aiMetadata?.tags
+            }
+          };
+          
+          activeWebhooks.forEach(webhook => {
+            if (webhook.events.includes('task_created')) {
+              webhookService.triggerWebhook(webhook.id, webhookPayload)
+                .then(response => {
+                  if (response.success) {
+                    console.log(`[MailList] Webhook ${webhook.name} başarıyla tetiklendi`);
+                  } else {
+                    console.warn(`[MailList] Webhook ${webhook.name} hatası:`, response.error);
+                  }
+                })
+                .catch(err => console.error(`[MailList] Webhook tetikleme hatası:`, err));
+            }
+          });
+        }
+      } catch (webhookError) {
+        console.warn('[MailList] Webhook tetikleme hatası:', webhookError);
+      }
+      
       setOpMsg(t('mail.taskCreated'));
       setTimeout(() => setOpMsg(null), 2500);
     } catch (e) {

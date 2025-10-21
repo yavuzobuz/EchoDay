@@ -3,41 +3,49 @@ import type { Note } from '../types';
 
 let _passphrase: string | null = null;
 
-function promptSetPassphrase(): string | null {
-  const p = window.prompt('Şifreli notlar için bir parola belirleyin (unutmayın!):');
-  if (!p || !p.trim()) return null;
-  _passphrase = p.trim();
-  return _passphrase;
-}
-
-function promptEnterPassphrase(): string | null {
-  const p = window.prompt('Şifreli notlar için parolanızı girin:');
-  if (!p || !p.trim()) return null;
-  _passphrase = p.trim();
-  return _passphrase;
-}
+// Optional async passphrase provider (UI should set this)
+let _provider: ((mode: 'set' | 'enter') => Promise<string | null>) | null = null;
 
 export const encryptedNotesService = {
   isUnlocked(): boolean {
     return !!_passphrase;
   },
   setPassphrase(p: string) {
-    _passphrase = p;
+    _passphrase = (p || '').trim() || null;
   },
   clear() {
     _passphrase = null;
   },
+  setProvider(fn: (mode: 'set' | 'enter') => Promise<string | null>) {
+    _provider = fn;
+  },
   async ensurePassphraseForEncrypt(): Promise<string> {
     if (_passphrase) return _passphrase;
-    const p = promptSetPassphrase();
-    if (!p) throw new Error('Parola ayarlanmadı.');
-    return p;
+    // Ask UI via provider if available
+    if (_provider) {
+      const p = await _provider('set');
+      if (p && p.trim()) {
+        _passphrase = p.trim();
+        return _passphrase;
+      }
+    }
+    // No provider -> signal to UI
+    const err: any = new Error('PASS_REQUIRED_ENCRYPT');
+    err.code = 'PASS_REQUIRED_ENCRYPT';
+    throw err;
   },
   async ensurePassphraseForDecrypt(): Promise<string> {
     if (_passphrase) return _passphrase;
-    const p = promptEnterPassphrase();
-    if (!p) throw new Error('Parola girilmedi.');
-    return p;
+    if (_provider) {
+      const p = await _provider('enter');
+      if (p && p.trim()) {
+        _passphrase = p.trim();
+        return _passphrase;
+      }
+    }
+    const err: any = new Error('PASS_REQUIRED_DECRYPT');
+    err.code = 'PASS_REQUIRED_DECRYPT';
+    throw err;
   },
   async encrypt(text: string): Promise<{ ciphertext: string; iv: string; salt: string }> {
     const pass = await this.ensurePassphraseForEncrypt();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ChatMessage, Note } from '../types';
 import { useNativeSpeechRecognition } from '../hooks/useNativeSpeechRecognition';
+import { useElectronSpeechRecognition } from '../hooks/useElectronSpeechRecognition';
 import { useTextToSpeech } from '../hooks/useTextToSpeech';
 import { pdfService } from '../services/pdfService';
 import { useI18n } from '../contexts/I18nContext';
@@ -16,9 +17,10 @@ interface ChatModalProps {
   notes?: Note[];
   onProcessNotes?: (selectedNotes: Note[], prompt: string) => void;
   onAnalyzePdf?: (pdfFile: File, prompt?: string) => void;
+  user?: { id: string; email?: string } | null;
 }
 
-const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onSendMessage, isLoading, notes = [], onProcessNotes, onAnalyzePdf }) => {
+const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onSendMessage, isLoading, notes = [], onProcessNotes, onAnalyzePdf, user }) => {
   const [userInput, setUserInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showNoteProcessor, setShowNoteProcessor] = useState(false);
@@ -32,37 +34,69 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
   // Voice mode state
   const [isVoiceModeActive, setIsVoiceModeActive] = useState(false);
   const [lastAIMessageIndex, setLastAIMessageIndex] = useState(-1);
+  // Suppress auto-send when modal is closing to avoid unintended sends
+  const suppressVoiceSendRef = useRef(false);
+  // Prevent input repopulation from transcript after voice send until listening stops
+  const voiceCommittedRef = useRef(false);
 
   // Transcript'i sadece UI'da göster, otomatik gönderme
-  const {
-    isListening,
-    startListening,
-    stopListening,
-    hasSupport,
-    transcript: speechTranscript
-  } = useNativeSpeechRecognition(
+  // Initialize both and choose at runtime (React hook rules)
+  const nativeSR = useNativeSpeechRecognition(
     (finalTranscript: string) => {
+      if (suppressVoiceSendRef.current) {
+        console.log('[ChatModal] Voice send suppressed on modal close');
+        suppressVoiceSendRef.current = false;
+        return;
+      }
       console.log('[ChatModal] Final transcript received (stop word detected):', finalTranscript);
-      // Stop word geldiğinde otomatik gönder
       if (finalTranscript.trim()) {
         onSendMessage(finalTranscript.trim());
         setUserInput('');
+        voiceCommittedRef.current = true;
       }
     },
     {
       stopOnKeywords: ['tamam', 'bitti', 'ok', 'oldu', 'kaydet', 'oluştur', 'gönder'],
       continuous: true,
-      stopOnSilence: false // Sessizlikte otomatik durdurma, kullanıcı stop word söyleyecek
+      stopOnSilence: false,
     }
   );
+  const electronSR = useElectronSpeechRecognition(
+    (finalTranscript: string) => {
+      if (suppressVoiceSendRef.current) {
+        console.log('[ChatModal] Voice send suppressed on modal close (electron)');
+        suppressVoiceSendRef.current = false;
+        return;
+      }
+      console.log('[ChatModal] Final transcript (electron):', finalTranscript);
+      if (finalTranscript.trim()) {
+        onSendMessage(finalTranscript.trim());
+        setUserInput('');
+        voiceCommittedRef.current = true;
+      }
+    },
+    {
+      stopOnKeywords: ['tamam', 'bitti', 'ok', 'oldu', 'kaydet', 'oluştur', 'gönder'],
+      continuous: true,
+    }
+  );
+  const isElectronEnv = !!(window as any).isElectron || !!(window as any).electronAPI;
+  const isListening = isElectronEnv ? electronSR.isListening : nativeSR.isListening;
+  const startListening = isElectronEnv ? electronSR.startListening : nativeSR.startListening;
+  const stopListening = isElectronEnv ? electronSR.stopListening : nativeSR.stopListening;
+  const hasSupport = isElectronEnv ? electronSR.hasSupport : nativeSR.hasSupport;
+  const speechTranscript = isElectronEnv ? electronSR.transcript : nativeSR.transcript;
   
   // Speech transcript'i input'a aktar
   useEffect(() => {
-    if (speechTranscript && isListening) {
-      setUserInput(speechTranscript);
-    } else if (!isListening && !speechTranscript) {
-      // Clear input when listening stops and transcript is empty
-      setUserInput('');
+    if (isListening) {
+      if (speechTranscript && !voiceCommittedRef.current) {
+        setUserInput(speechTranscript);
+      }
+    } else {
+      if (!speechTranscript) setUserInput('');
+      // Reset commit flag when listening stops
+      voiceCommittedRef.current = false;
     }
   }, [speechTranscript, isListening]);
   
@@ -99,9 +133,14 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
           // Cleanup işlemlerini sırayla yap
           const cleanup = async () => {
             try {
+              // Prevent auto-send from finalization when closing modal
+              suppressVoiceSendRef.current = true;
               await stopListening();
             } catch (error) {
               console.warn('[ChatModal] Mikrofon durdurulurken hata:', error);
+            } finally {
+              // Ensure suppression is reset after cleanup
+              suppressVoiceSendRef.current = false;
             }
             
             // TTS cancel fonksiyonunu direkt çağır
@@ -195,6 +234,48 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
     if (!validation.valid) {
       setPdfError(validation.error || t('chat.pdf.error.invalid', 'Geçersiz PDF dosyası'));
       if (pdfInputRef.current) pdfInputRef.current.value = '';
+      return;
+    }
+
+    // Excel dosyası mı? Otomatik import yap
+    const isExcel = /\.(xlsx|xls)$/i.test(file.name) || 
+      ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel'].includes(file.type);
+    
+    if (isExcel) {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('user_id', user?.id || 'demo');
+      formData.append('group_by_date', 'true'); // Tarih bazında grupla
+      
+      fetch('http://localhost:5123/api/tasks/import-upload', { 
+        method: 'POST', 
+        body: formData 
+      })
+      .then(async r => {
+        const text = await r.text();
+        console.log('[Excel Import] Response status:', r.status);
+        console.log('[Excel Import] Response:', text);
+        try {
+          return JSON.parse(text);
+        } catch (e) {
+          throw new Error(`Invalid response: ${text}`);
+        }
+      })
+      .then(j => {
+        if (j.success) {
+          setPdfError(`✅ ${j.count} görev başarıyla içe aktarıldı`);
+          setUserInput(`${j.count} görev eklendi`);
+        } else {
+          setPdfError(`❌ Hata: ${j.error || 'İçe aktarma başarısız'}`);
+        }
+      })
+      .catch(err => {
+        console.error('[Excel Import] Error:', err);
+        setPdfError(`❌ İçe aktarma hatası: ${err.message || 'Sunucu bağlantısı başarısız'}`);
+      })
+      .finally(() => {
+        if (pdfInputRef.current) pdfInputRef.current.value = '';
+      });
       return;
     }
 
@@ -532,11 +613,11 @@ const ChatModal: React.FC<ChatModalProps> = ({ isOpen, onClose, chatHistory, onS
               </div>
             )}
 
-            {/* Hidden PDF Input */}
+            {/* Hidden PDF/Excel Input */}
             <input
               ref={pdfInputRef}
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               onChange={handlePdfFileChange}
               className="hidden"
             />

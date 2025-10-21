@@ -795,11 +795,14 @@ KLASİFİKASYON KURALLARI:
 
 5. 'chat' - Genel sohbet:
    - Yukarıdakilerin hiçbirine uymuyor
-   - Örnekler: "merhaba", "nasılsın", "hava nasıl"
+   - Yardım/rehberlik isteyen ifadeler: "yardım", "yardımcı olur musun", "nasıl yaparım", "help", "how to", "can you help me"
+   - Görev ekleme niyetini BİLDİREN ama içerik vermeyen soru/istekler ("yeni görev eklemek istiyorum, yardımcı olur musun?") -> 'chat' olarak sınıflandır
+   - Örnekler: "merhaba", "nasılsın", "hava nasıl", "görev eklemek istiyorum yardımcı olur musun?"
 
 KRİTİK ÖRNEKLER:
 ✓ "not ekle" -> intent: 'add_note' (description: "[Kullanıcı not eklemek istiyor ama içerik belirtmedi]")
 ✓ "görev ekle" -> intent: 'add_task' (description: "[Kullanıcı görev eklemek istiyor ama içerik belirtmedi]")
+✓ "Yeni bir görev eklemek istiyorum. Bana yardımcı olur musun?" -> intent: 'chat'
 ✓ "haftalık ajandamı listele" -> intent: 'get_agenda', period: 'week'
 ✓ "haftalık liste" -> intent: 'get_agenda', period: 'week'
 ✓ "günlük liste" -> intent: 'get_agenda', period: 'day'
@@ -1468,18 +1471,46 @@ Example 2 - ENGLISH PDF (use English in ALL fields):
 
 ONLY return JSON in the format above. No other text, explanation, or comments!`;
 
+    const pdfData = base64Data.split(',')[1] || base64Data; // Remove data:application/pdf;base64, prefix if exists
+    
+    // Validate PDF data
+    if (!pdfData || pdfData.length < 100) {
+      console.error('PDF dosyası çok küçük veya boş görünüyor');
+      return { 
+        summary: 'PDF dosyası açılabilir ancak içeriği boş veya okunabilir değil',
+        documentType: 'unknown',
+        suggestedTasks: [],
+        suggestedNotes: [],
+        entities: { dates: [], people: [], organizations: [], locations: [], amounts: [] }
+      };
+    }
+    
     const pdfPart = {
       inlineData: {
         mimeType: 'application/pdf',
-        data: base64Data.split(',')[1] || base64Data, // Remove data:application/pdf;base64, prefix if exists
+        data: pdfData,
       },
     };
 
-    const result = await model.generateContent([prompt, pdfPart]);
-    const response = await result.response;
-    const text = response.text();
-
-    return safelyParseJSON<PdfAnalysisResult>(text);
+    try {
+      const result = await model.generateContent([prompt, pdfPart]);
+      const response = await result.response;
+      const text = response.text();
+      return safelyParseJSON<PdfAnalysisResult>(text);
+    } catch (apiError: any) {
+      const errorMsg = apiError?.message || String(apiError);
+      if (errorMsg.includes('no pages') || errorMsg.includes('empty') || errorMsg.includes('400')) {
+        console.warn('PDF dosyası sayfa içermiyor veya boş:', errorMsg);
+        return { 
+          summary: 'PDF dosyası sayfa içermiyor veya boş görünüyor. Lütfen geçerli bir PDF yükleyin.',
+          documentType: 'unknown',
+          suggestedTasks: [],
+          suggestedNotes: [],
+          entities: { dates: [], people: [], organizations: [], locations: [], amounts: [] }
+        };
+      }
+      throw apiError;
+    }
   } catch (error) {
     console.error('Error analyzing PDF document:', error);
     return null;

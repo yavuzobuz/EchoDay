@@ -111,15 +111,17 @@
     "dotenv": "^17.2.3",
     "es6-promise-plugin": "^4.2.2",
     "express": "^4.19.2",
-    "imapflow": "^1.0.141",
-    "mailparser": "3.7.4",
-    "nodemailer": "^6.9.7",
+    "imapflow": "^1.0.200",
+    "mailparser": "^3.7.4",
+    "multer": "^2.0.2",
+    "nodemailer": "^6.10.1",
     "poplib": "^0.1.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.9.3",
     "stripe": "^19.1.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",

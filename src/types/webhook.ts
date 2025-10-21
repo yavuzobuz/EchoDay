@@ -23,6 +23,15 @@ export type WebhookType =
   | 'n8n'
   | 'pabbly'
   | 'google-chat'
+  | 'google-calendar'
+  | 'gmail'
+  | 'google-sheets'
+  | 'whatsapp'
+  | 'outlook-calendar'
+  | 'gmail-to-task'
+  | 'outlook-to-task'
+  | 'outlook-mail'
+  | 'airtable'
   | 'generic';
 
 export type WebhookEvent = 
@@ -67,6 +76,7 @@ export interface WebhookTemplate {
   icon: string;
   briefing?: string; // Kısa bilgilendirme metni
   useCases?: string[]; // Kullanım senaryoları
+  zapierConfig?: any; // Zapier yapılandırma detayları
   defaultSettings: WebhookSettings;
   setupInstructions: string[];
   exampleUrl: string;

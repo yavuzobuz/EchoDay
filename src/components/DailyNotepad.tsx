@@ -594,6 +594,16 @@ setNewNoteImageDataUrl(reader.result as string);
                   isUnlocked: encryptedNotesService.isUnlocked()
                 });
                 
+                // Eğer passphrase ayarlanmamışsa, kullanıcıdan iste
+                if (!encryptedNotesService.isUnlocked()) {
+                  const password = prompt('Şifreli not için parolanızı girin:');
+                  if (!password) {
+                    alert('Şifre girmeden not açılamaz.');
+                    return;
+                  }
+                  encryptedNotesService.setPassphrase(password);
+                }
+                
                 const plain = await encryptedNotesService.decrypt({ 
                   ciphertext: note.ciphertext, 
                   iv: note.iv, 
@@ -611,11 +621,27 @@ setNewNoteImageDataUrl(reader.result as string);
                 
                 // Hata türüne göre farklı mesaj göster
                 if (e.code === 'PASS_REQUIRED_DECRYPT') {
-                  alert('Lütfen şifre girin.');
+                  const password = prompt('Şifreli not için parolanızı girin:');
+                  if (password) {
+                    encryptedNotesService.setPassphrase(password);
+                    // Tekrar dene
+                    try {
+                      const plain = await encryptedNotesService.decrypt({ 
+                        ciphertext: note.ciphertext, 
+                        iv: note.iv, 
+                        salt: note.salt 
+                      });
+                      setDecryptedTexts(prev => ({ ...prev, [note.id]: plain }));
+                    } catch (retryError) {
+                      alert('Parola hatalı veya çözme başarısız.');
+                      encryptedNotesService.clear();
+                    }
+                  }
                 } else if (e.message?.includes('eksik')) {
                   alert('Not verileri bozuk veya eksik.');
                 } else {
                   alert('Parola hatalı veya çözme başarısız.');
+                  encryptedNotesService.clear(); // Yanlış passphrase'i temizle
                 }
               }
             }}
@@ -1190,6 +1216,16 @@ setNewNoteImageDataUrl(reader.result as string);
                                 throw new Error('Şifreli not verileri eksik');
                               }
                               
+                              // Eğer passphrase ayarlanmamışsa, kullanıcıdan iste
+                              if (!encryptedNotesService.isUnlocked()) {
+                                const password = prompt('Şifreli not için parolanızı girin:');
+                                if (!password) {
+                                  alert('Şifre girmeden not açılamaz.');
+                                  return;
+                                }
+                                encryptedNotesService.setPassphrase(password);
+                              }
+                              
                               const plain = await encryptedNotesService.decrypt({ 
                                 ciphertext: note.ciphertext, 
                                 iv: note.iv, 
@@ -1199,7 +1235,27 @@ setNewNoteImageDataUrl(reader.result as string);
                               if (vaultTimerRef.current) { window.clearTimeout(vaultTimerRef.current); vaultTimerRef.current = window.setTimeout(() => { setVaultUnlocked(false); encryptedNotesService.clear(); }, 5*60*1000); }
                             } catch (e: any) { 
                               console.error('[VaultModal] Decryption failed:', e);
-                              setVaultError(t('notepad.wrongPassword','Parola yanlış.')); 
+                              if (e.code === 'PASS_REQUIRED_DECRYPT') {
+                                const password = prompt('Şifreli not için parolanızı girin:');
+                                if (password) {
+                                  encryptedNotesService.setPassphrase(password);
+                                  try {
+                                    const plain = await encryptedNotesService.decrypt({ 
+                                      ciphertext: note.ciphertext, 
+                                      iv: note.iv, 
+                                      salt: note.salt 
+                                    });
+                                    setDecryptedTexts(prev => ({ ...prev, [note.id]: plain }));
+                                    if (vaultTimerRef.current) { window.clearTimeout(vaultTimerRef.current); vaultTimerRef.current = window.setTimeout(() => { setVaultUnlocked(false); encryptedNotesService.clear(); }, 5*60*1000); }
+                                  } catch (retryError) {
+                                    setVaultError(t('notepad.wrongPassword','Parola yanlış.'));
+                                    encryptedNotesService.clear();
+                                  }
+                                }
+                              } else {
+                                setVaultError(t('notepad.wrongPassword','Parola yanlış.')); 
+                                encryptedNotesService.clear();
+                              }
                             }
                           }} className="text-xs px-2 py-1 rounded bg-[var(--accent-color-600)] text-white">{t('common.unlock','Kilit Aç')}</button>
                         )}

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Görev İçe Aktarma (Excel)</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;max-width:760px;margin:24px auto;padding:0 16px}
+    h1{font-size:20px}
+    form{border:1px solid #ddd;border-radius:8px;padding:16px}
+    .row{display:flex;gap:12px;align-items:center;margin:8px 0}
+    label{min-width:140px}
+    input[type=text]{flex:1;padding:8px}
+    input[type=file]{padding:6px}
+    small{color:#666}
+    pre{background:#f8f8f8;border:1px solid #eee;padding:12px;border-radius:6px;max-height:260px;overflow:auto}
+    .ok{color:#0a7}
+    .err{color:#c00}
+  </style>
+</head>
+<body>
+  <h1>Excel'den Görev İçe Aktarma</h1>
+  <form id="f" enctype="multipart/form-data" method="post" action="/api/tasks/import-upload">
+    <div class="row">
+      <label>Kullanıcı ID</label>
+      <input name="user_id" type="text" value="u1" />
+    </div>
+    <div class="row">
+      <label>Excel Dosyası</label>
+      <input name="file" type="file" accept=".xlsx,.xls" required />
+    </div>
+    <div class="row">
+      <label>Sayfa Adı</label>
+      <input name="sheet" type="text" placeholder="(Boş bırak: ilk sayfa)" />
+    </div>
+    <hr />
+    <p><b>Sütun Eşlemesi</b> <small>(Excel başlık adları)</small></p>
+    <div class="row"><label>Başlık</label><input name="map_title" type="text" value="title" /></div>
+    <div class="row"><label>Tarih</label><input name="map_due_date" type="text" value="due_date" /></div>
+    <div class="row"><label>Dosya No</label><input name="map_case_no" type="text" value="case_no" /></div>
+    <div class="row"><label>Etiketler</label><input name="map_tags" type="text" value="tags" /></div>
+
+    <div class="row">
+      <label></label>
+      <button type="submit">İçe Aktar</button>
+    </div>
+  </form>
+
+  <h3>Sonuç</h3>
+  <pre id="out">–</pre>
+
+  <script>
+    const form = document.getElementById('f');
+    const out = document.getElementById('out');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      out.textContent = 'Yüklüyor...';
+      const fd = new FormData(form);
+      try {
+        const r = await fetch('/api/tasks/import-upload', { method: 'POST', body: fd });
+        const j = await r.json();
+        out.textContent = JSON.stringify(j, null, 2);
+        out.className = j.success ? 'ok' : 'err';
+      } catch (err) {
+        out.textContent = 'Hata: ' + (err && err.message || String(err));
+        out.className = 'err';
+      }
+    });
+  </script>
+</body>
+</html>

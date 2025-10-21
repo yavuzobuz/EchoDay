@@ -44,7 +44,7 @@ export async function deriveKey(passphrase: string, saltB64: string): Promise<Cr
   const subtle = getSubtle();
   const keyMaterial = await subtle.importKey(
     'raw',
-    strToUint8(passphrase),
+    strToUint8(passphrase) as BufferSource,
     { name: 'PBKDF2' },
     false,
     ['deriveKey']
@@ -52,7 +52,7 @@ export async function deriveKey(passphrase: string, saltB64: string): Promise<Cr
   return await subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt,
+      salt: salt as BufferSource,
       iterations: 250_000,
       hash: 'SHA-256',
     },
@@ -68,13 +68,13 @@ export async function encryptText(plaintext: string, passphrase: string): Promis
   const salt = toB64(randomBytes(16));
   const key = await deriveKey(passphrase, salt);
   const ivBytes = randomBytes(12);
-  const enc = await subtle.encrypt({ name: 'AES-GCM', iv: ivBytes }, key, strToUint8(plaintext));
+  const enc = await subtle.encrypt({ name: 'AES-GCM', iv: ivBytes as BufferSource }, key, strToUint8(plaintext) as BufferSource);
   return { ciphertext: toB64(enc), iv: toB64(ivBytes), salt };
 }
 
 export async function decryptText(ciphertextB64: string, ivB64: string, saltB64: string, passphrase: string): Promise<string> {
   const subtle = getSubtle();
   const key = await deriveKey(passphrase, saltB64);
-  const dec = await subtle.decrypt({ name: 'AES-GCM', iv: fromB64(ivB64) }, key, fromB64(ciphertextB64));
+  const dec = await subtle.decrypt({ name: 'AES-GCM', iv: fromB64(ivB64) as BufferSource }, key, fromB64(ciphertextB64) as BufferSource);
   return uint8ToStr(new Uint8Array(dec));
 }

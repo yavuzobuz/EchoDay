@@ -69,7 +69,7 @@ export const pdfService = {
   },
 
   /**
-   * PDF dosyasını validate eder
+   * PDF/Excel dosyasını validate eder
    * @param file - Kontrol edilecek dosya
    * @param maxPages - Maksimum sayfa sayısı (default: 15)
    * @param maxSizeMB - Maksimum dosya boyutu MB cinsinden (default: 10)
@@ -79,11 +79,18 @@ export const pdfService = {
     _maxPages: number = 15,
     maxSizeMB: number = 10
   ): PdfValidationResult {
-    // Dosya tipi kontrolü
-    if (file.type !== 'application/pdf') {
+    // Dosya tipi kontrolü: PDF veya Excel
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ];
+    const isExcel = /\.(xlsx|xls)$/i.test(file.name);
+    
+    if (!allowedTypes.includes(file.type) && !isExcel) {
       return {
         valid: false,
-        error: 'Sadece PDF dosyaları yüklenebilir (.pdf)',
+        error: 'Sadece PDF veya Excel dosyaları yüklenebilir (.pdf, .xlsx, .xls)',
       };
     }
 

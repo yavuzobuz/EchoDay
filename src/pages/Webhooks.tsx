@@ -35,8 +35,10 @@ const Webhooks: React.FC = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [testResult, setTestResult] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [testingWebhookId, setTestingWebhookId] = useState<string | null>(null);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
-  const [chatbotContext, setChatbotContext] = useState<{ type?: string; name?: string; setupInstructions?: string[] }>({});
+  const [chatbotContext, setChatbotContext] = useState<{ type?: string; name?: string; setupInstructions?: string[]; zapierConfigMode?: boolean; zapierConfig?: any }>({});
+  const [showQuickTemplates, setShowQuickTemplates] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -115,7 +117,7 @@ const Webhooks: React.FC = () => {
   };
 
   const handleTestWebhook = async (webhook: WebhookConfig) => {
-    setIsLoading(true);
+    setTestingWebhookId(webhook.id);
     try {
       const response = await webhookService.triggerWebhook(webhook.id, {
         event: 'task_completed',
@@ -132,7 +134,7 @@ const Webhooks: React.FC = () => {
     } catch (error) {
       setTestResult(`❌ Test hatası: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`);
     } finally {
-      setIsLoading(false);
+      setTestingWebhookId(null);
     }
   };
 
@@ -297,6 +299,37 @@ const Webhooks: React.FC = () => {
                   </button>
                 </div>
 
+                {/* Zapier Config Assistant Button */}
+                <div className="flex gap-3 mb-4">
+                  <button
+                    onClick={() => {
+                      setChatbotContext({
+                        type: selectedTemplate.type,
+                        name: selectedTemplate.name,
+                        setupInstructions: selectedTemplate.setupInstructions,
+                        zapierConfigMode: true,
+                        zapierConfig: (selectedTemplate as any).zapierConfig
+                      });
+                      setIsChatbotOpen(true);
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg font-medium transition-all shadow-md hover:shadow-lg"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                    🤖 Yapılandırma Asistanı
+                  </button>
+                  <button
+                    onClick={() => setShowQuickTemplates(!showQuickTemplates)}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg font-medium transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    📋 Hazır Şablonlar
+                  </button>
+                </div>
+
                 {/* Briefing Section */}
                 {selectedTemplate.briefing && (
                   <div className="bg-gradient-to-r from-[var(--accent-color-100)]/30 to-[var(--accent-color-100)]/10 dark:from-[var(--accent-color-900)]/10 dark:to-transparent p-4 rounded-lg border border-[var(--accent-color-200)] dark:border-[var(--accent-color-800)]">
@@ -326,6 +359,212 @@ const Webhooks: React.FC = () => {
                         )}
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Quick Zapier Templates */}
+                {showQuickTemplates && (
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800 mb-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      <h4 className="font-bold text-lg text-gray-900 dark:text-white">🚀 Hazır Zapier Yapılandırma Şablonları</h4>
+                    </div>
+                    
+                    {(selectedTemplate as any).zapierConfig ? (
+                      <div className="space-y-4">
+                        {/* Workflow başlığı ve açıklama */}
+                        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border-2 border-blue-300 dark:border-blue-700">
+                          <h5 className="font-bold text-base text-gray-900 dark:text-white mb-1">
+                            {(selectedTemplate as any).zapierConfig.title}
+                          </h5>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {(selectedTemplate as any).zapierConfig.description}
+                          </p>
+                        </div>
+
+                        {/* Action steps */}
+                        {(selectedTemplate as any).zapierConfig.actionSteps?.map((step: any, idx: number) => (
+                          <div key={idx} className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+                            <div className="flex items-start justify-between mb-3">
+                              <h6 className="font-semibold text-sm text-gray-900 dark:text-white">
+                                {step.step}
+                              </h6>
+                              <button
+                                onClick={() => {
+                                  const text = step.fields.map((f: any) => `${f.name}: ${f.value}${f.note ? ` (${f.note})` : ''}`).join('\n');
+                                  navigator.clipboard.writeText(text);
+                                  setTestResult('✅ Alan eşleştirmeleri panoya kopyalandı!');
+                                }}
+                                className="p-1.5 rounded bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+                                title="Kopyala"
+                              >
+                                <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              </button>
+                            </div>
+                            
+                            {/* Fields */}
+                            <div className="space-y-2">
+                              {step.fields.map((field: any, fIdx: number) => (
+                                <div key={fIdx} className="bg-gray-50 dark:bg-gray-900 p-3 rounded">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">
+                                        {field.name}
+                                      </div>
+                                      <div className="text-xs font-mono text-gray-700 dark:text-gray-300 break-all">
+                                        {field.value}
+                                      </div>
+                                      {field.note && (
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">
+                                          {field.note}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Sample Payload */}
+                        {(selectedTemplate as any).zapierConfig.samplePayload && (
+                          <div className="bg-gray-900 dark:bg-black p-4 rounded-lg border border-gray-700">
+                            <div className="flex items-center justify-between mb-2">
+                              <h6 className="font-semibold text-sm text-gray-100">
+                                📦 Örnek Webhook Verisi (Test için)
+                              </h6>
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText((selectedTemplate as any).zapierConfig.samplePayload);
+                                  setTestResult('✅ Örnek payload panoya kopyalandı!');
+                                }}
+                                className="p-1.5 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                                title="Kopyala"
+                              >
+                                <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                              </button>
+                            </div>
+                            <pre className="text-xs text-gray-300 font-mono overflow-x-auto whitespace-pre-wrap">
+                              {(selectedTemplate as any).zapierConfig.samplePayload}
+                            </pre>
+                          </div>
+                        )}
+
+                        <div className="mt-4 p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                          <p className="text-xs text-blue-800 dark:text-blue-200">
+                            💡 <strong>İpucu:</strong> Her bölümün sağ üstünden alan eşleştirmelerini kopyalayabilir, Zapier\'a yapıştırabilirsiniz!
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* Template 1 */}
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all group">
+                        <div className="flex items-start justify-between mb-2">
+                          <h5 className="font-semibold text-sm text-gray-900 dark:text-white">📅 Görev → Takvim Etkinliği</h5>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`**Trigger:** Webhooks by Zapier -> Catch Hook\n\n**Action:** ${selectedTemplate.name} -> Create Event\n\n**Field Mapping:**\n- Subject: {{webhook__data__title}}\n- Start Time: {{webhook__data__date}}\n- End Time: {{webhook__data__dueDate}}\n- Body: {{webhook__data__description}}\n- Priority: {{webhook__data__priority}}`);
+                              setTestResult('✅ Şablon panoya kopyalandı!');
+                            }}
+                            className="p-1.5 rounded bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Kopyala"
+                          >
+                            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Yeni görev ekleyince otomatik takvim etkinliği oluştur</p>
+                        <div className="text-xs font-mono bg-gray-100 dark:bg-gray-900 p-2 rounded text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          {'Subject: {{webhook__data__title}}\nStart: {{webhook__data__date}}\nEnd: {{webhook__data__dueDate}}'}
+                        </div>
+                      </div>
+
+                      {/* Template 2 */}
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all group">
+                        <div className="flex items-start justify-between mb-2">
+                          <h5 className="font-semibold text-sm text-gray-900 dark:text-white">✅ Görev Tamamlandı → Bildirim</h5>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`**Trigger:** Webhooks by Zapier -> Catch Hook\n\n**Filter:** Only continue if event = "task_completed"\n\n**Action:** ${selectedTemplate.name} -> Send Message/Email\n\n**Field Mapping:**\n- Message: "✅ Görev tamamlandı: {{webhook__data__title}}"\n- Details: {{webhook__data__description}}\n- User: {{webhook__user__name}}`);
+                              setTestResult('✅ Şablon panoya kopyalandı!');
+                            }}
+                            className="p-1.5 rounded bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Kopyala"
+                          >
+                            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Görev tamamlanınca bildirim gönder</p>
+                        <div className="text-xs font-mono bg-gray-100 dark:bg-gray-900 p-2 rounded text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          {'Filter: event = "task_completed"\nMessage: "✅ {{title}}"\nUser: {{webhook__user__name}}'}
+                        </div>
+                      </div>
+
+                      {/* Template 3 */}
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all group">
+                        <div className="flex items-start justify-between mb-2">
+                          <h5 className="font-semibold text-sm text-gray-900 dark:text-white">📊 Tüm Görevler → Sheets/DB</h5>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`**Trigger:** Webhooks by Zapier -> Catch Hook\n\n**Action:** Google Sheets / Airtable -> Create Row\n\n**Field Mapping:**\n- Title: {{webhook__data__title}}\n- Description: {{webhook__data__description}}\n- Priority: {{webhook__data__priority}}\n- Category: {{webhook__data__category}}\n- Date: {{webhook__data__date}}\n- Status: {{webhook__data__completed}}`);
+                              setTestResult('✅ Şablon panoya kopyalandı!');
+                            }}
+                            className="p-1.5 rounded bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Kopyala"
+                          >
+                            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Her görevi otomatik tabloya kaydet</p>
+                        <div className="text-xs font-mono bg-gray-100 dark:bg-gray-900 p-2 rounded text-gray-700 dark:text-gray-300">
+                          Columns: title, description,<br/>
+                          priority, category, date, status
+                        </div>
+                      </div>
+
+                      {/* Template 4 */}
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all group">
+                        <div className="flex items-start justify-between mb-2">
+                          <h5 className="font-semibold text-sm text-gray-900 dark:text-white">🔥 Yüksek Öncelik → Acil Bildirim</h5>
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`**Trigger:** Webhooks by Zapier -> Catch Hook\n\n**Filter:** Only continue if priority = "high"\n\n**Action:** ${selectedTemplate.name} -> Send Urgent Notification\n\n**Field Mapping:**\n- Message: "🔥 ACİL: {{webhook__data__title}}"\n- Description: {{webhook__data__description}}\n- Due Date: {{webhook__data__dueDate}}`);
+                              setTestResult('✅ Şablon panoya kopyalandı!');
+                            }}
+                            className="p-1.5 rounded bg-blue-100 dark:bg-blue-900 hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Kopyala"
+                          >
+                            <svg className="w-4 h-4 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Sadece yüksek öncelikli görevleri bildir</p>
+                        <div className="text-xs font-mono bg-gray-100 dark:bg-gray-900 p-2 rounded text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                          {'Filter: priority = "high"\nMessage: "🔥 ACİL: {{title}}"\nDue: {{webhook__data__dueDate}}'}
+                        </div>
+                      </div>
+
+                        <div className="mt-4 p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                          <p className="text-xs text-blue-800 dark:text-blue-200">
+                            💡 <strong>İpucu:</strong> Her şablonun sağ üstündeki <strong>kopyala</strong> butonuna tıklayarak Zapier&apos;a yapıştırabilirsiniz!
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -511,10 +750,10 @@ const Webhooks: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleTestWebhook(webhook)}
-                        disabled={isLoading || !webhook.isActive}
+                        disabled={testingWebhookId === webhook.id || !webhook.isActive}
                         className="bg-[var(--accent-color-600)] hover:bg-[var(--accent-color-700)] disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-3 py-1 rounded text-sm transition-colors shadow-sm"
                       >
-                        🧪 Test
+                        {testingWebhookId === webhook.id ? '⌛ Test...' : '🧪 Test'}
                       </button>
                       <button
                         onClick={() => toggleWebhook(webhook.id)}

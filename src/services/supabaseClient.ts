@@ -1,23 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import { getMobileEnvVar } from './mobileEnvService';
 
-// Electron ve web (Vite) için environment değişkenlerini güvenilir şekilde al
-// NOT: Vite production build'de dinamik erişim (import.meta.env[key]) çalışmaz.
-// Bu nedenle VITE_* anahtarlarına doğrudan erişiyoruz ve Electron'daki window.env ile yedekliyoruz.
-const rawUrl = (
-  (typeof window !== 'undefined' && (window as any).env?.VITE_SUPABASE_URL) ||
-  getMobileEnvVar('VITE_SUPABASE_URL') ||
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_URL) ||
-  import.meta.env?.VITE_SUPABASE_URL
-)?.trim();
-
-const rawKey = (
-  (typeof window !== 'undefined' && (window as any).env?.VITE_SUPABASE_ANON_KEY) ||
-  getMobileEnvVar('VITE_SUPABASE_ANON_KEY') ||
-  (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_SUPABASE_ANON_KEY) ||
-  import.meta.env?.VITE_SUPABASE_ANON_KEY
-)?.trim();
+const rawUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
+const rawKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim();
 
 function isValidHttpUrl(maybeUrl?: string): boolean {
   if (!maybeUrl) return false;
@@ -57,102 +42,21 @@ if (isElectron && typeof navigator !== 'undefined' && !navigator.locks) {
   };
 }
 
-// Debug mobile environment
-if (typeof window !== 'undefined') {
-  console.log('[Supabase Debug] Environment check:', {
-    hasAndroidEnv: !!(window as any).androidEnv,
-    androidEnv: (window as any).androidEnv || 'not found',
-    rawUrl,
-    rawKeyLength: rawKey?.length || 0,
-    hasValidConfig,
-    isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-  });
-}
-
-// Global supabase instance (will be set after env loads)
-let _supabaseInstance: any = null;
-
-// Initialize immediately if config available
-if (hasValidConfig) {
-  _supabaseInstance = createClient(rawUrl as string, rawKey as string, {
-    auth: {
-      storageKey: 'supabase-auth',
-      storage: window.localStorage,
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false
-    },
-    global: {
-      headers: {
-        'Accept': 'application/json'
-      }
+// Configure Supabase client safely (avoid runtime crash if env missing on Vercel)
+export const supabase = hasValidConfig ? createClient(rawUrl as string, rawKey as string, {
+  auth: {
+    storageKey: 'supabase-auth',
+    storage: window.localStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: false
+  },
+  global: {
+    headers: {
+      'Accept': 'application/json'
     }
-  });
-  console.log('[Supabase] Initialized immediately with import.meta.env');
-}
-
-// For mobile: Initialize after android-env.js loads
-if (typeof window !== 'undefined' && !_supabaseInstance) {
-  // Check periodically for androidEnv
-  let attempts = 0;
-  const checkInterval = setInterval(() => {
-    attempts++;
-    
-    if ((window as any).androidEnv) {
-      clearInterval(checkInterval);
-      
-      console.log('[Supabase] androidEnv detected, initializing...');
-      const mobileUrl = (window as any).androidEnv.VITE_SUPABASE_URL;
-      const mobileKey = (window as any).androidEnv.VITE_SUPABASE_ANON_KEY;
-      
-      if (isValidHttpUrl(mobileUrl) && mobileKey && mobileKey.length > 10) {
-        _supabaseInstance = createClient(mobileUrl, mobileKey, {
-          auth: {
-            storageKey: 'supabase-auth',
-            storage: window.localStorage,
-            autoRefreshToken: true,
-            persistSession: true,
-            detectSessionInUrl: false
-          },
-          global: {
-            headers: {
-              'Accept': 'application/json'
-            }
-          }
-        });
-        
-        console.log('[Supabase] Mobile initialization successful!', {
-          url: mobileUrl,
-          keyLength: mobileKey.length
-        });
-        
-        // Notify app that supabase is ready
-        window.dispatchEvent(new CustomEvent('supabase-ready'));
-        
-        // Update window reference
-        (window as any).__supabase = _supabaseInstance;
-      } else {
-        console.error('[Supabase] Invalid mobile config:', { mobileUrl, keyLength: mobileKey?.length });
-      }
-    } else if (attempts > 50) {
-      // Stop after 5 seconds (50 * 100ms)
-      clearInterval(checkInterval);
-      console.error('[Supabase] androidEnv not found after 5 seconds');
-    }
-  }, 100);
-}
-
-// Export as const with Proxy for dynamic getter
-export const supabase = new Proxy({} as any, {
-  get(_target, prop) {
-    const instance = _supabaseInstance || (window as any).__supabase;
-    if (!instance) {
-      console.warn('[Supabase] Not initialized yet');
-      return undefined;
-    }
-    return instance[prop];
   }
-});
+}) : (console.warn('[Supabase] Not configured: set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY for web builds'), null as any);
 
 // Dev helper: expose Supabase client for quick console testing (safe for dev)
 try {
@@ -358,10 +262,6 @@ export async function upsertNotes(userId: string, notes: any[]) {
       text,
       imageUrl,
       createdAt,
-      isEncrypted,
-      ciphertext,
-      iv,
-      salt,
       // Strip fields that don't exist in DB
       userId: _userId,
       pdfSource: _pdfSource,
@@ -372,13 +272,9 @@ export async function upsertNotes(userId: string, notes: any[]) {
       color: _color,
     } = n;
 
-    const textToStore = isEncrypted && ciphertext
-      ? JSON.stringify({ enc: true, v: 1, ct: ciphertext, iv, salt })
-      : (text || '');
-
     return {
       id: id || undefined, // Let DB generate if not provided
-      text: textToStore,
+      text: text || '',
       image_url: imageUrl || null,
       audio_url: null,
       created_at: createdAt || now,
@@ -475,14 +371,11 @@ export async function archiveUpsertNotes(userId: string, notes: any[]) {
   try {
     const now = new Date().toISOString();
     const payload = notes.map((n) => {
-      const { id, text, imageUrl, createdAt, isEncrypted, ciphertext, iv, salt } = n;
-      const textToStore = isEncrypted && ciphertext
-        ? JSON.stringify({ enc: true, v: 1, ct: ciphertext, iv, salt })
-        : (text || '');
+      const { id, text, imageUrl, createdAt } = n;
       return {
         id, // use original id as primary key for de-duplication
         user_id: userId,
-        text: textToStore,
+        text: text || '',
         image_url: imageUrl || null,
         created_at: createdAt || now,
         archived_at: now,
@@ -504,30 +397,22 @@ export async function archiveUpsertTodos(userId: string, todos: any[]) {
     console.warn('[Archive] Geçersiz userId (guest modu?) - archiveUpsertTodos atlandı');
     return;
   }
-  // Not: RLS zaten user_id ile koruyor. ensureSessionFor başarısız olsa bile denemeye devam et.
   const ok = await ensureSessionFor(userId);
   if (!ok) {
-    console.warn('[Archive] Oturum yok veya userId uyuşmuyor - yine de arşivlemeyi deneyeceğim');
+    console.warn('[Archive] Oturum yok veya userId uyuşmuyor - archiveUpsertTodos atlandı');
+    return;
   }
   try {
     const now = new Date().toISOString();
     const payload = todos.map((t) => {
-      const { id, text, priority, datetime, createdAt } = t;
-      // Priority'yi string'e dönüştür (DB enum/text bekleyebilir)
-      let priorityStr: any = 'medium';
-      if (typeof priority === 'string') {
-        const p = priority.toLowerCase();
-        priorityStr = p === 'high' ? 'high' : p === 'low' ? 'low' : 'medium';
-      } else if (typeof priority === 'number') {
-        // 0: low, 1: medium, 2: high varsayıyoruz
-        priorityStr = priority >= 2 ? 'high' : priority <= 0 ? 'low' : 'medium';
-      }
+      const { id, text, priority, datetime, createdAt, completed } = t;
       return {
         id, // use original id
         user_id: userId,
         text: text || '',
-        priority: priorityStr,
+        priority: priority || 'medium',
         datetime: datetime || null,
+        completed: completed ?? false,
         created_at: createdAt || now,
         archived_at: now,
       };
@@ -537,7 +422,7 @@ export async function archiveUpsertTodos(userId: string, todos: any[]) {
     
     console.log('[Archive] ✅ Görevler başarıyla arşivlendi:', todos.length);
   } catch (error: any) {
-    console.warn('[Archive] ⚠️ Arşiv tablosu mevcut değil veya insert hatası, arşivleme atlandı:', error.message);
+    console.warn('[Archive] ⚠️ Arşiv tablosu mevcut değil, arşivleme atlandı:', error.message);
     // Hata fırlatmak yerine sessizce geç - arşiv opsiyonel
   }
 }
@@ -562,14 +447,8 @@ export async function archiveFetchByDate(userId: string, date: string) {
     // Filter by archived_at (when it was archived) - this is the primary filter for archive date
     // Also include items created on the selected date as fallback
     const [tRes, nRes] = await Promise.all([
-      supabase.from('archived_todos')
-        .select('*')
-        .eq('user_id', userId)
-        .or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
-      supabase.from('archived_notes')
-        .select('*')
-        .eq('user_id', userId)
-        .or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
+      supabase.from('archived_todos').select('*').eq('user_id', userId).or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
+      supabase.from('archived_notes').select('*').eq('user_id', userId).or(`and(archived_at.gte.${startISO},archived_at.lte.${endISO}),and(created_at.gte.${startISO},created_at.lte.${endISO})`),
     ]);
     
     const todos = (tRes.data || []).map((row: any) => ({
@@ -577,27 +456,15 @@ export async function archiveFetchByDate(userId: string, date: string) {
       createdAt: row.created_at ?? row.createdAt,
       archivedAt: row.archived_at ?? row.archivedAt,
       userId: row.user_id ?? row.userId,
-      completed: true,
+      completed: row.completed ?? false,
     }));
-const notes = (nRes.data || []).map((row: any) => {
-      let parsed: any = { text: String(row.text || '') };
-      try {
-        if (typeof row.text === 'string' && row.text.trim().startsWith('{')) {
-          const obj = JSON.parse(row.text);
-          if (obj && obj.enc && obj.ct) {
-            parsed = { text: '', isEncrypted: true, ciphertext: obj.ct, iv: obj.iv, salt: obj.salt };
-          }
-        }
-      } catch {}
-      return {
-        id: row.id,
-        ...parsed,
-        createdAt: row.created_at ?? row.createdAt,
-        archivedAt: row.archived_at ?? row.archivedAt,
-        userId: row.user_id ?? row.userId,
-        imageUrl: row.image_url ?? row.imageUrl,
-      };
-    });
+    const notes = (nRes.data || []).map((row: any) => ({
+      ...row,
+      createdAt: row.created_at ?? row.createdAt,
+      archivedAt: row.archived_at ?? row.archivedAt,
+      userId: row.user_id ?? row.userId,
+      imageUrl: row.image_url ?? row.imageUrl,
+    }));
     
     console.log('[Archive] ✅ Tarih bazında arşiv getirildi:', { todosCount: todos.length, notesCount: notes.length });
     return { todos, notes };
@@ -626,18 +493,7 @@ export async function archiveSearch(userId: string, query: string) {
     ]);
     
     const todos = (tRes.data || []).map((row: any) => ({ ...row, imageUrl: row.image_url ?? row.imageUrl }));
-const notes = (nRes.data || []).map((row: any) => {
-      let parsed: any = { text: String(row.text || '') };
-      try {
-        if (typeof row.text === 'string' && row.text.trim().startsWith('{')) {
-          const obj = JSON.parse(row.text);
-          if (obj && obj.enc && obj.ct) {
-            parsed = { text: '', isEncrypted: true, ciphertext: obj.ct, iv: obj.iv, salt: obj.salt };
-          }
-        }
-      } catch {}
-      return { id: row.id, ...parsed, imageUrl: row.image_url ?? row.imageUrl };
-    });
+    const notes = (nRes.data || []).map((row: any) => ({ ...row, imageUrl: row.image_url ?? row.imageUrl }));
     
     console.log('[Archive] ✅ Arama tamamlandı:', { query, todosCount: todos.length, notesCount: notes.length });
     return { todos, notes };
@@ -784,7 +640,8 @@ export async function batchArchiveTodos(userId: string, todos: any[], batchSize 
   
   const ok = await ensureSessionFor(userId);
   if (!ok) {
-    console.warn('[BatchArchive] Oturum yok veya userId uyuşmuyor - yine de deneyeceğim');
+    console.warn('[BatchArchive] Oturum yok veya userId uyuşmuyor - batchArchiveTodos atlandı');
+    return;
   }
   
   try {
@@ -892,25 +749,13 @@ export async function fetchAll(userId: string) {
     userId: row.user_id ?? row.userId,
   }));
 
-const notes = (nRes.data || []).map((row: any) => {
-    let parsed: any = { text: String(row.text || '') };
-    try {
-      if (typeof row.text === 'string' && row.text.trim().startsWith('{')) {
-        const obj = JSON.parse(row.text);
-        if (obj && obj.enc && obj.ct) {
-          parsed = { text: '', isEncrypted: true, ciphertext: obj.ct, iv: obj.iv, salt: obj.salt };
-        }
-      }
-    } catch {}
-    return {
-      id: row.id,
-      ...parsed,
-      createdAt: row.created_at ?? row.createdAt,
-      updatedAt: row.updated_at ?? row.updatedAt,
-      userId: row.user_id ?? row.userId,
-      imageUrl: row.image_url ?? row.imageUrl,
-    };
-  });
+  const notes = (nRes.data || []).map((row: any) => ({
+    ...row,
+    createdAt: row.created_at ?? row.createdAt,
+    updatedAt: row.updated_at ?? row.updatedAt,
+    userId: row.user_id ?? row.userId,
+    imageUrl: row.image_url ?? row.imageUrl,
+  }));
 
   return { todos, notes };
 }

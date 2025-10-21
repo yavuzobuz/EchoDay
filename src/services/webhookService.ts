@@ -18,16 +18,17 @@ class WebhookService {
         'Proje ilerlemesini güncel tut'
       ],
       defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      zapierConfig: { needsCustomization: true, basePrompt: 'Kullanıcı Slack\'te bildirim almak istiyor. Ne tür bildirimler istiyorsun? (ör: Görev tamamlandığında, yeni görev eklendiğinde, günlük özet)' },
       setupInstructions: [
-        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/slack/integrations/webhook',
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/slack/integrations',
         '2. "Create Zap" butonuna tıklayın',
         '3. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin',
         '4. Zapier size webhook URL verecek - kopyalayın',
         '5. Action: "Slack" -> "Send Channel Message" seçin',
         '6. Slack hesabınıza bağlanın ve kanal seçin',
         '7. Mesaj formatını ayarlayın ve webhook URL\'i aşağıya yapıştırın',
-        '---',
-        'VEYA DİREKT WEBHOOK (Daha Hızlı): https://api.slack.com/messaging/webhooks',
+        '———',
+        'VEYA DİREKT WEBHOOK (Daha Hızlı): https://api.slack.com/messaging/webhooks üzerinden',
         'Slack workspace ayarlarından "Incoming Webhooks" ekleyin'
       ],
       exampleUrl: 'https://hooks.slack.com/services/T{workspace}/B{channel}/XXXXXXXXXXXXXXXXXXXXXXXX'
@@ -156,7 +157,7 @@ class WebhookService {
         '3. Integration\'a anlamıflı bir isim verin (isteğe bağlı: logo yükleyebilirsiniz)',
         '4. Hangi workspace\'te çalışacağını seçin ve "Submit" (Gönder) butonuna basın',
         '5. Sayfada görünen "Internal Integration Token" alanındaki token\'i kopyalayın (sadece bir kez görünür!)',
-        '6. Notion\'da kullanmak istediğiniz veritabanı/sayfayı açın, sağ üstten "..." -> "Add connections" -> Integration\'ınızı seçin',
+        '6. Notion\'da kullanmak istediğiniz veritabanı/sayfayı açın, sağ üstten "..." -> "Add connections" -> Integration\'nızı seçin',
         '7. Token\'i aşağıdaki alana yapıştırın (URL: https://api.notion.com/v1/pages)'
       ],
       exampleUrl: 'https://api.notion.com/v1/pages'
@@ -264,8 +265,38 @@ class WebhookService {
       briefing: 'Google Calendar, dünyanın en popüler takvim uygulamasıdır. EchoDay görevlerinizi otomatik olarak takvim etkinliklerine dönüştürün ve hatırlatmaları bir arada yönetin.',
       useCases: ['Görevleri takvim etkinliği olarak ekle', 'Deadline hatırlatmaları', 'Toplantı öncesi görev kontrolü', 'Zaman yönetimi optimizasyonu'],
       defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      zapierConfig: {
+        title: 'EchoDay -> Google Calendar Etkinlik',
+        description: 'Her yeni görev otomatik olarak Google Calendar etkinliğine dönüşsün',
+        triggerPrompt: 'Webhooks by Zapier -> Catch Hook',
+        actionSteps: [
+          {
+            step: 'Action: Google Calendar -> Create Detailed Event',
+            fields: [
+              { name: 'Calendar', value: '[Takvim seçin]', note: 'Varsayılan takvim veya özel takvim' },
+              { name: 'Event Title', value: '{{webhook__data__title}}', note: 'Görev başlığı' },
+              { name: 'Start Date & Time', value: '{{webhook__data__datetime}}', note: 'Görev zamanı' },
+              { name: 'End Date & Time', value: 'Start + 1 hour', note: 'Bitiş otomatik hesaplanacak' },
+              { name: 'Description', value: '{{webhook__data__description}}\n\nÖncelik: {{webhook__data__priority}}\nKategori: {{webhook__data__category}}', note: 'Detaylı açıklama' },
+              { name: 'Location', value: '{{webhook__data__location}}', note: 'Konum varsa' }
+            ]
+          }
+        ],
+        samplePayload: `{
+  "event": "task_created",
+  "timestamp": "2025-10-21T10:00:00Z",
+  "user": { "id": "user123", "name": "Ali Yılmaz" },
+  "data": {
+    "title": "Proje toplantısı",
+    "description": "Sprint planlama toplantısı",
+    "datetime": "2025-10-25T14:00:00Z",
+    "priority": "high",
+    "category": "toplantı"
+  }
+}`
+      },
       setupInstructions: [
-        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/google-calendar/integrations/webhooks',
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/google-calendar/integrations',
         '2. "Create Zap" butonuna tıklayın',
         '3. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin ve webhook URL alın',
         '4. Action: "Google Calendar" -> "Create Detailed Event" seçin',
@@ -283,8 +314,41 @@ class WebhookService {
       briefing: 'Gmail ile görev bildirimlerini e-posta olarak alın. Tamamlanan görevler, günlük özetler ve hatırlatıcılar doğrudan mailinize gelsin.',
       useCases: ['Görev tamamlandığında mail al', 'Günlük özet maili', 'Deadline yaklaşıyor uyarıları', 'Ekip üyelerine otomatik rapor'],
       defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      zapierConfig: {
+        title: 'EchoDay -> Gmail Bildirim',
+        description: 'Her görev oluştuğunda veya tamamlandığında Gmail ile bildirim al',
+        triggerPrompt: 'Webhooks by Zapier -> Catch Hook',
+        actionSteps: [
+          {
+            step: 'Action: Gmail -> Send Email',
+            fields: [
+              { name: 'To', value: 'your-email@gmail.com', note: 'Bildirimi alacak mail adresi' },
+              { name: 'Subject', value: '✅ Yeni Görev: {{webhook__data__title}}', note: 'Mail başlığı' },
+              { name: 'Body Type', value: 'HTML', note: 'Zengin format için HTML seçin' },
+              { name: 'Body', value: `<h2>🎯 {{webhook__data__title}}</h2>
+<p><strong>📅 Tarih:</strong> {{webhook__data__datetime}}</p>
+<p><strong>⚡ Öncelik:</strong> {{webhook__data__priority}}</p>
+<p><strong>🏷️ Kategori:</strong> {{webhook__data__category}}</p>
+<hr>
+<p>{{webhook__data__description}}</p>`, note: 'HTML formatında mail içeriği' }
+            ]
+          }
+        ],
+        samplePayload: `{
+  "event": "task_created",
+  "timestamp": "2025-10-21T10:00:00Z",
+  "user": { "id": "user123", "name": "Ayşe Kaya" },
+  "data": {
+    "title": "Rapor hazırla",
+    "description": "Aylık satış raporu",
+    "datetime": "2025-10-23T09:00:00Z",
+    "priority": "medium",
+    "category": "iş"
+  }
+}`
+      },
       setupInstructions: [
-        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/gmail/integrations/webhooks',
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/gmail/integrations',
         '2. "Create Zap" butonuna tıklayın',
         '3. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin',
         '4. Zapier size webhook URL verecek - kopyalayın',
@@ -303,8 +367,41 @@ class WebhookService {
       briefing: 'Google Sheets ile görev verilerinizi otomatik olarak bir tabloda toplayın. Analiz, raporlama ve veri işleme için mükemmel bir çözüm.',
       useCases: ['Görev geçmişini kaydet', 'Performans analizi yap', 'Aylık rapor oluştur', 'Takım dashboard\' u besle'],
       defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      zapierConfig: {
+        title: 'EchoDay -> Google Sheets Görev Takibi',
+        description: 'Her görev otomatik olarak Sheets\'e kaydedilsin ve analiz yapılabilsin',
+        triggerPrompt: 'Webhooks by Zapier -> Catch Hook',
+        actionSteps: [
+          {
+            step: 'Action: Google Sheets -> Create Spreadsheet Row',
+            fields: [
+              { name: 'Spreadsheet', value: '[Spreadsheet seçin veya yeni oluşturun]', note: 'EchoDay Görevler adında yeni sheet açın' },
+              { name: 'Worksheet', value: 'Sheet1', note: 'İlk sekme' },
+              { name: 'Görev ID', value: '{{webhook__data__id}}', note: 'A kolonu: Benzersiz ID' },
+              { name: 'Başlık', value: '{{webhook__data__title}}', note: 'B kolonu: Görev adı' },
+              { name: 'Tarih', value: '{{webhook__data__datetime}}', note: 'C kolonu: Tarih/saat' },
+              { name: 'Öncelik', value: '{{webhook__data__priority}}', note: 'D kolonu: high/medium/low' },
+              { name: 'Kategori', value: '{{webhook__data__category}}', note: 'E kolonu: Kategori' },
+              { name: 'Oluşturulma', value: '{{webhook__timestamp}}', note: 'F kolonu: Kayıt zamanı' },
+              { name: 'Kullanıcı', value: '{{webhook__user__name}}', note: 'G kolonu: Kim ekledi' }
+            ]
+          }
+        ],
+        samplePayload: `{
+  "event": "task_created",
+  "timestamp": "2025-10-21T10:00:00Z",
+  "user": { "id": "user123", "name": "Mehmet Demir" },
+  "data": {
+    "id": "task_12345",
+    "title": "Müşteri görüşmesi",
+    "datetime": "2025-10-22T15:00:00Z",
+    "priority": "high",
+    "category": "satış"
+  }
+}`
+      },
       setupInstructions: [
-        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/google-sheets/integrations/webhooks',
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/google-sheets/integrations',
         '2. "Create Zap" butonuna tıklayın',
         '3. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin ve webhook URL alın',
         '4. Action: "Google Sheets" -> "Create Spreadsheet Row" seçin',
@@ -322,15 +419,164 @@ class WebhookService {
       briefing: 'WhatsApp Business API ile görev bildirimlerini WhatsApp üzerinden alın. Dünya\'nın en popüler mesajlaşma uygulamasında hatırlatıcılarınızı görün.',
       useCases: ['Kişisel hatırlatıcı al', 'Takıma hızlı bildirim', 'Mobil first bildirim sistemi', 'Acil görev uyarıları'],
       defaultSettings: { retryCount: 3, timeout: 8000, includeDetails: true },
+      zapierConfig: {
+        title: 'EchoDay -> WhatsApp Bildirim',
+        description: 'Görevler WhatsApp mesajı olarak telefonunuza gelsin',
+        triggerPrompt: 'Webhooks by Zapier -> Catch Hook',
+        actionSteps: [
+          {
+            step: 'Action: Twilio -> Send WhatsApp Message (via Zapier)',
+            fields: [
+              { name: 'From Number', value: 'whatsapp:+14155238886', note: 'Twilio Sandbox numarası (veya onaylı numara)' },
+              { name: 'To Number', value: 'whatsapp:+905551234567', note: 'Sizin WhatsApp numaranız (+90 ile başlayarak)' },
+              { name: 'Message', value: `🎯 *Yeni Görev Eklendi*
+
+📝 {{webhook__data__title}}
+📅 {{webhook__data__datetime}}
+⚡ Öncelik: {{webhook__data__priority}}
+🏷️ {{webhook__data__category}}
+
+_EchoDay ile gönderildi_`, note: 'Markdown destekli mesaj' }
+            ]
+          }
+        ],
+        samplePayload: `{
+  "event": "task_created",
+  "timestamp": "2025-10-21T10:00:00Z",
+  "user": { "id": "user123", "name": "Fatma Yıldız" },
+  "data": {
+    "title": "Doktor randevusu",
+    "datetime": "2025-10-22T10:30:00Z",
+    "priority": "high",
+    "category": "sağlık"
+  }
+}`
+      },
       setupInstructions: [
-        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/whatsapp/integrations/webhooks',
-        '2. NOT: WhatsApp Business API kullanımı gerektirir (ücretsiz deneme mevcut)',
-        '3. "Create Zap" butonuna tıklayın',
-        '4. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin',
-        '5. Action: "WhatsApp" (veya "Twilio" -> "Send WhatsApp Message") seçin',
-        '6. WhatsApp Business hesabınıza bağlanın',
-        '7. Mesaj şablonunu ayarlayın ve webhook URL\'ini alıp aşağıya yapıştırın',
-        'Alternatif: https://www.twilio.com/whatsapp adresinden doğrudan Twilio kullanabilirsiniz'
+        '1. 🚀 TWILIO İLE KOLAY KURULUM: https://www.twilio.com/docs/whatsapp/quickstart',
+        '2. Twilio hesabı oluşturun (https://www.twilio.com/try-twilio - ücretsiz deneme mevcut)',
+        '3. WhatsApp Business API için başvurun veya Twilio Sandbox kullanın',
+        '4. Twilio Console\'da WhatsApp Sandbox\'u aktifleştirin',
+        '5. ZAPIER ENTEGRASYONU: https://zapier.com/apps/twilio/integrations',
+        '6. Zapier\'da "Create Zap" -> Trigger: "Webhooks by Zapier" -> "Catch Hook"',
+        '7. Action: "Twilio" -> "Send WhatsApp Message" seçin',
+        '8. Twilio hesabınıza bağlanın ve webhook URL\'ini alıp aşağıya yapıştırın',
+        'NOT: WhatsApp Business API onay süreci gerektirir, test için Sandbox kullanabilirsiniz'
+      ],
+      exampleUrl: 'https://hooks.zapier.com/hooks/catch/YOUR_HOOK_ID/'
+    },
+    {
+      type: 'outlook-calendar',
+      name: 'Outlook Calendar',
+      description: 'Görevleri Outlook takvime ekle',
+      icon: '📆',
+      briefing: 'Microsoft Outlook Calendar, kurumsal dünyada en çok kullanılan takvim uygulamasıdır. EchoDay görevlerinizi Outlook takviminize otomatik ekleyerek iş ve kişisel hayatınızı senkronize tutun.',
+      useCases: ['Görevleri takvim etkinliği olarak ekle', 'Toplantı öncesi hatırlatıcılar', 'Deadline takibi', 'Office 365 entegrasyonu'],
+      defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      zapierConfig: {
+        title: 'EchoDay -> Outlook Calendar Otomatik Etkinlik',
+        description: 'EchoDay\'de görev ekleyince otomatik Outlook Calendar etkinliği oluştur',
+        triggerPrompt: 'Webhooks by Zapier -> Catch Hook',
+        actionSteps: [
+          {
+            step: 'Action: Microsoft Outlook -> Create Event',
+            fields: [
+              { name: 'Calendar', value: '[Takvim seçin]', note: 'Office 365 veya Outlook.com takvimi' },
+              { name: 'Subject', value: '{{webhook__data__title}}', note: 'Görev başlığı' },
+              { name: 'Start Time', value: '{{webhook__data__date}}', note: 'Görev başlangıç tarihi/saati' },
+              { name: 'End Time', value: '{{webhook__data__dueDate}}', note: 'Görev bitiş tarihi/saati (veya Start Time + 1 saat)' },
+              { name: 'Body', value: '📝 {{webhook__data__description}}\n\n✅ Öncelik: {{webhook__data__priority}}\n🏷️ Kategori: {{webhook__data__category}}', note: 'Görev detayları' },
+              { name: 'Location', value: '{{webhook__data__location}}', note: 'Varsa konum bilgisi' },
+              { name: 'Reminder', value: '15 minutes before', note: 'Etkinlikten 15 dk önce hatırlat' }
+            ]
+          }
+        ],
+        samplePayload: `{
+  "event": "task_created",
+  "timestamp": "2025-10-20T12:00:00Z",
+  "user": { "id": "user123", "name": "Kullanıcı Adı" },
+  "data": {
+    "title": "Proje sunumu hazırla",
+    "description": "Q4 raporları için sunum hazırlanacak",
+    "priority": "high",
+    "category": "iş",
+    "date": "2025-10-25T09:00:00Z",
+    "dueDate": "2025-10-25T11:00:00Z",
+    "location": "Toplantı Odası A"
+  }
+}`
+      },
+      setupInstructions: [
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/microsoft-outlook/integrations',
+        '2. "Create Zap" butonuna tıklayın',
+        '3. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin',
+        '4. Zapier size webhook URL verecek - kopyalayın',
+        '5. Action: "Microsoft Outlook" -> "Create Event" seçin',
+        '6. Microsoft hesabınıza bağlanın (Office 365 veya Outlook.com)',
+        '7. Takvim seçin ve görev verilerini etkinlik alanlarına eşleştirin',
+        '8. Webhook URL\'ini aşağıya yapıştırın'
+      ],
+      exampleUrl: 'https://hooks.zapier.com/hooks/catch/YOUR_HOOK_ID/'
+    },
+    {
+      type: 'gmail-to-task',
+      name: 'Gmail → Görev',
+      description: 'Gelen mailleri otomatik görev yap',
+      icon: '📩',
+      briefing: 'Gmail\'e gelen belirli mailleri otomatik olarak EchoDay görevine dönüştürün. "TODO" etiketi, belirli gönderici veya konu filtreleriyle sadece istediğiniz mailleri görev yapın.',
+      useCases: ['"TODO" label\' lı mailleri görev yap', 'Belirli kişiden gelen görevleri otomatik ekle', 'Müşteri taleplerini göreve çevir', 'Mail inbox\'u boşalt, görevleri EchoDay\'de yönet'],
+      defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      setupInstructions: [
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/gmail/integrations',
+        '2. "Create Zap" butonuna tıklayın',
+        '3. Trigger: "Gmail" -> "New Email" (veya "New Labeled Email") seçin',
+        '4. Gmail hesabınıza bağlanın ve filtre ayarlayın (ör: Label = "TODO" veya belirli gönderici)',
+        '5. Action: "Webhooks by Zapier" -> "POST" seçin',
+        '6. URL: http://localhost:5123/api/tasks (veya EchoDay API endpoint\'iniz)',
+        '7. Payload Type: "json" seçin, Body\'ye: {"title": "{{Email Subject}}", "description": "{{Email Body Plain}}"}',
+        '8. Test edin ve webhook\'u aktif edin',
+        'NOT: Bu template için EchoDay\'de bir API endpoint ayarlamanız gerekir (localhost:5123/api/tasks)'
+      ],
+      exampleUrl: 'http://localhost:5123/api/tasks'
+    },
+    {
+      type: 'outlook-to-task',
+      name: 'Outlook → Görev',
+      description: 'Outlook maillerini otomatik görev yap',
+      icon: '📨',
+      briefing: 'Outlook\'a (Office 365 veya Outlook.com) gelen belirli mailleri otomatik olarak EchoDay görevine dönüştürün. Klasör, gönderici veya konu filtreleriyle tam kontrol.',
+      useCases: ['Belirli klasördeki mailleri görev yap', 'Şeften gelen talimatları otomatik ekle', 'Müşteri taleplerini takip et', 'Kurumsal mail\'i görev yönetimine entegre et'],
+      defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      setupInstructions: [
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/microsoft-outlook/integrations',
+        '2. "Create Zap" butonuna tıklayın',
+        '3. Trigger: "Microsoft Outlook" -> "New Email" (veya "New Email in Folder") seçin',
+        '4. Microsoft hesabınıza bağlanın ve filtre belirleyin (klasör, gönderici, konu)',
+        '5. Action: "Webhooks by Zapier" -> "POST" seçin',
+        '6. URL: http://localhost:5123/api/tasks (veya EchoDay API endpoint\'iniz)',
+        '7. Payload: {"title": "{{Subject}}", "description": "{{Body}}", "source": "outlook"}',
+        '8. Test edin ve Zap\'i aktif hale getirin',
+        'NOT: EchoDay\'de task oluşturma API endpoint\'i gereklidir'
+      ],
+      exampleUrl: 'http://localhost:5123/api/tasks'
+    },
+    {
+      type: 'outlook-mail',
+      name: 'Outlook Mail Gönder',
+      description: 'Outlook ile e-posta bildirimi',
+      icon: '✉️',
+      briefing: 'Microsoft Outlook Mail ile görev bildirimlerini profesyonel e-postalar olarak alın. Kurumsal mail hesabınızı kullanarak takım üyelerinize otomatik raporlar gönderin.',
+      useCases: ['Görev tamamlama mailleri', 'Günlük/haftalık raporlar', 'Ekip bilgilendirme', 'Kurumsal iletişim otomasyonu'],
+      defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
+      setupInstructions: [
+        '1. 🚀 ZAPIER İLE KOLAY KURULUM: https://zapier.com/apps/microsoft-outlook/integrations/webhooks',
+        '2. "Create Zap" butonuna tıklayın',
+        '3. Trigger: "Webhooks by Zapier" -> "Catch Hook" seçin ve webhook URL alın',
+        '4. Action: "Microsoft Outlook" -> "Send Email" seçin',
+        '5. Microsoft hesabınıza (Office 365/Outlook.com) bağlanın',
+        '6. "To" alanına alıcı mail adresini, "Subject" ve "Body" alanlarını webhook verileriyle doldurun',
+        '7. İsteğe bağlı: CC, BCC ve öncelik ayarlarını yapılandırın',
+        '8. Webhook URL\'ini aşağıya yapıştırın'
       ],
       exampleUrl: 'https://hooks.zapier.com/hooks/catch/YOUR_HOOK_ID/'
     },
@@ -385,10 +631,117 @@ class WebhookService {
     }
   }
 
+  // Webhook tipine göre URL formatını doğrula
+  private validateUrlForType(url: string, type: WebhookType): { valid: boolean; error?: string } {
+    const urlLower = url.toLowerCase();
+    
+    switch (type) {
+      case 'slack':
+        if (!urlLower.includes('hooks.slack.com')) {
+          return { valid: false, error: 'Slack webhook URL\'i "hooks.slack.com" içermelidir. Slack workspace ayarlarından "Incoming Webhooks" oluşturun.' };
+        }
+        break;
+        
+      case 'discord':
+        if (!urlLower.includes('discord.com/api/webhooks')) {
+          return { valid: false, error: 'Discord webhook URL\'i "discord.com/api/webhooks" içermelidir. Discord kanal ayarlarından webhook oluşturun.' };
+        }
+        break;
+        
+      case 'telegram':
+        if (!urlLower.includes('api.telegram.org')) {
+          return { valid: false, error: 'Telegram bot URL\'i "api.telegram.org" içermelidir. BotFather\'dan bot oluşturup token alın.' };
+        }
+        break;
+        
+      case 'teams':
+        if (!urlLower.includes('outlook.office.com/webhook')) {
+          return { valid: false, error: 'Microsoft Teams webhook URL\'i "outlook.office.com/webhook" içermelidir. Teams kanalından Incoming Webhook oluşturun.' };
+        }
+        break;
+        
+      case 'google-calendar':
+      case 'gmail':
+      case 'google-sheets':
+      case 'whatsapp':
+      case 'outlook-calendar':
+      case 'outlook-mail':
+        // Bu servisler Zapier webhook URL\'i gerektirir
+        if (!urlLower.includes('hooks.zapier.com')) {
+          return { 
+            valid: false, 
+            error: `${type === 'google-calendar' ? 'Google Calendar' : type === 'gmail' ? 'Gmail' : type === 'google-sheets' ? 'Google Sheets' : type === 'whatsapp' ? 'WhatsApp' : type === 'outlook-calendar' ? 'Outlook Calendar' : 'Outlook Mail'} için Zapier webhook URL\'i gereklidir. Zapier\'da "Webhooks by Zapier" -> "Catch Hook" ile webhook oluşturun.` 
+          };
+        }
+        break;
+        
+      case 'zapier':
+      case 'make':
+      case 'n8n':
+      case 'pabbly':
+        // Bu platformların kendi webhook URL\'leri var
+        if (type === 'zapier' && !urlLower.includes('hooks.zapier.com')) {
+          return { valid: false, error: 'Zapier webhook URL\'i "hooks.zapier.com" içermelidir.' };
+        }
+        if (type === 'make' && !urlLower.includes('hook.') && !urlLower.includes('make.com')) {
+          return { valid: false, error: 'Make webhook URL\'i "hook.*.make.com" formatında olmalıdır.' };
+        }
+        break;
+        
+      case 'notion':
+        if (!urlLower.includes('api.notion.com')) {
+          return { valid: false, error: 'Notion API URL\'i "api.notion.com" içermelidir.' };
+        }
+        break;
+        
+      case 'trello':
+        if (!urlLower.includes('api.trello.com')) {
+          return { valid: false, error: 'Trello API URL\'i "api.trello.com" içermelidir.' };
+        }
+        break;
+        
+      case 'asana':
+        if (!urlLower.includes('app.asana.com/api')) {
+          return { valid: false, error: 'Asana API URL\'i "app.asana.com/api" içermelidir.' };
+        }
+        break;
+        
+      case 'airtable':
+        if (!urlLower.includes('api.airtable.com')) {
+          return { valid: false, error: 'Airtable API URL\'i "api.airtable.com" içermelidir.' };
+        }
+        break;
+        
+      case 'google-chat':
+        if (!urlLower.includes('chat.googleapis.com')) {
+          return { valid: false, error: 'Google Chat webhook URL\'i "chat.googleapis.com" içermelidir.' };
+        }
+        break;
+        
+      // gmail-to-task ve outlook-to-task localhost veya custom endpoint olabilir
+      case 'gmail-to-task':
+      case 'outlook-to-task':
+        // Bu servisler kullanıcının kendi API endpoint\'i olabilir, validasyon yapmayız
+        break;
+        
+      case 'generic':
+        // Generic webhook için özel validasyon yok
+        break;
+    }
+    
+    return { valid: true };
+  }
+
   // Webhook ekleme
   addWebhook(config: Omit<WebhookConfig, 'id' | 'createdAt'>): string {
     if (!this.isValidUrl(config.url)) {
       throw new Error('Geçersiz URL formatı');
+    }
+    
+    // Webhook tipine göre URL formatını kontrol et
+    const validation = this.validateUrlForType(config.url, config.type);
+    if (!validation.valid) {
+      throw new Error(validation.error || 'Geçersiz webhook URL formatı');
     }
 
     const id = `webhook_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -453,55 +806,17 @@ class WebhookService {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        // Route strategy: external URLs -> proxy first (CSP-safe), local URLs -> direct first
-        const isExternal = /^https?:\/\/(?!localhost|0\.0\.0\.0)/i.test(webhook.url);
-        let response;
-        try {
-          if (isExternal) {
-            // Proxy first
-            response = await fetch('http://localhost:5123/proxy/webhook', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: webhook.url, payload: formattedPayload })
-            });
-          } else {
-            // Direct first
-            response = await fetch(webhook.url, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-              },
-              body: JSON.stringify(formattedPayload),
-              signal: controller.signal,
-              mode: 'cors'
-            });
-          }
-        } catch (firstErr) {
-          // Fallback: try the other route
-          try {
-            if (isExternal) {
-              response = await fetch(webhook.url, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Accept': 'application/json',
-                },
-                body: JSON.stringify(formattedPayload),
-                signal: controller.signal,
-                mode: 'cors'
-              });
-            } else {
-              response = await fetch('http://localhost:5123/proxy/webhook', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: webhook.url, payload: formattedPayload })
-              });
-            }
-          } catch (secondErr) {
-            throw secondErr;
-          }
-        }
+        // Zapier CORS için basit request kullan (preflight yok)
+        // Content-Type: text/plain kullanarak preflight'ı bypass et
+        let response = await fetch(webhook.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain',
+          },
+          body: JSON.stringify(formattedPayload),
+          signal: controller.signal,
+          mode: 'cors'
+        });
 
         clearTimeout(timeoutId);
 
@@ -595,6 +910,12 @@ class WebhookService {
   async testWebhook(url: string, type: WebhookType = 'generic'): Promise<WebhookResponse> {
     if (!this.isValidUrl(url)) {
       return { success: false, error: 'Geçersiz URL formatı' };
+    }
+    
+    // Webhook tipine göre URL formatını kontrol et
+    const validation = this.validateUrlForType(url, type);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
     }
 
     const testPayload: WebhookPayload = {

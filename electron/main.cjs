@@ -1,13 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
 const path = require('path');
-
-// .env dosyasını yükle
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-
-// Environment variable'ları kontrol et
-console.log('[Main] VITE_SUPABASE_URL:', process.env.VITE_SUPABASE_URL ? 'LOADED ✓' : 'NOT FOUND ✗');
-console.log('[Main] VITE_SUPABASE_ANON_KEY:', process.env.VITE_SUPABASE_ANON_KEY ? 'LOADED ✓' : 'NOT FOUND ✗');
-
 const os = require('os');
 const fs = require('fs');
 const isDev = process.env.NODE_ENV === 'development';
@@ -226,20 +218,8 @@ function createWindow() {
   mainWindow.webContents.on('unresponsive', () => {
     log('[WebContents] unresponsive');
   });
-  // Console-message handler - EPIPE hatasını önlemek için güvenli wrapper
   mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    try {
-      log('[Renderer]', { level, message, line, sourceId });
-    } catch (err) {
-      // EPIPE veya diğer stream hatalarını sessizce yoksay
-      // Sadece dosyaya kaydet
-      try {
-        const logLine = `[${new Date().toISOString()}] [Renderer] level=${level} msg=${message} line=${line}\n`;
-        fs.appendFileSync(logFile, logLine);
-      } catch {
-        // Dosya yazma da başarısız, tamamen sessiz
-      }
-    }
+    log('[Renderer]', { level, message, line, sourceId });
   });
 
   // Handle permission requests for media devices

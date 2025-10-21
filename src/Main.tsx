@@ -297,11 +297,25 @@ const Main: React.FC<MainProps> = ({
   //     }
   // }, [isTaskModalOpen, isChatOpen, isImageTaskModalOpen, isLocationPromptOpen, isSuggestionsModalOpen, isNotepadAiModalOpen, isArchiveModalOpen, isSelectionModeActive, mainCommandListener.isListening, wakeWordListener.isListening, wakeWordListener.startListening, wakeWordListener.stopListening]);
 
+  // Webhook servisini başlat (localStorage'dan yükle)
+  useEffect(() => {
+    (async () => {
+      try {
+        const { webhookService } = await import('./services/webhookService');
+        webhookService.loadFromLocalStorage();
+      } catch (error) {
+        console.error('[Main] Webhook servisi yüklenemedi:', error);
+      }
+    })();
+  }, []);
+
   // --- Task Management ---
   const handleAddTask = useCallback(async (description: string, imageBase64?: string, imageMimeType?: string, extra?: { locationReminder?: GeoReminder, skipAIAnalysis?: boolean }) => {
     if (!checkApiKey()) return;
     setIsLoading(true);
     setLoadingMessage(t('main.addTask.analyzing', 'Göreviniz analiz ediliyor...'));
+
+    let createdTodo: Todo | null = null; // Yeni eklenen görevi takip et
 
     try {
       // Skip AI analysis if requested (for simple modal-based task additions)
@@ -370,49 +384,11 @@ const Main: React.FC<MainProps> = ({
           reminders: reminders,
           ...(extra?.locationReminder ? { locationReminder: extra.locationReminder } : {}),
         };
+        createdTodo = newTodo; // Webhook için sakla
         setTodos(prev => [newTodo, ...prev]);
         
         // Chat'e kısa onay mesajı da ekle (kullanıcı geri bildirimi)
         setChatHistory(prev => [...prev, { role: 'model', text: `✅ Görev eklendi: "${(text || description).trim()}"` }]);
-        
-        // Webhook tetikleme - görev oluşturuldu
-        try {
-          const { webhookService } = await import('./services/webhookService');
-          const activeWebhooks = webhookService.getActiveWebhooks();
-          if (activeWebhooks.length > 0) {
-            const webhookPayload = {
-              event: 'task_created' as const,
-              timestamp: new Date().toISOString(),
-              user: { id: userId || 'guest', name: 'Kullanıcı' },
-              data: {
-                id: newTodo.id,
-                title: newTodo.text,
-                description: newTodo.text,
-                datetime: newTodo.datetime,
-                priority: newTodo.priority,
-                category: newTodo.aiMetadata?.category,
-                tags: newTodo.aiMetadata?.tags
-              }
-            };
-            
-            // Tüm aktif webhookları tetikle
-            activeWebhooks.forEach(webhook => {
-              if (webhook.events.includes('task_created')) {
-                webhookService.triggerWebhook(webhook.id, webhookPayload)
-                  .then(response => {
-                    if (response.success) {
-                      console.log(`[Main] Webhook ${webhook.name} başarıyla tetiklendi (task_created)`);
-                    } else {
-                      console.warn(`[Main] Webhook ${webhook.name} tetikleme hatası:`, response.error);
-                    }
-                  })
-                  .catch(err => console.error(`[Main] Webhook ${webhook.name} tetikleme hatası:`, err));
-              }
-            });
-          }
-        } catch (error) {
-          console.warn('[Main] Webhook tetikleme hatası:', error);
-        }
         
         // Check if location was extracted
         const hasLocation = location && location.trim().length > 0;
@@ -516,12 +492,60 @@ const Main: React.FC<MainProps> = ({
         completed: false,
         createdAt: new Date().toISOString(),
       };
+      createdTodo = newTodo; // Webhook için sakla (hata durumunda da)
       setTodos(prev => [newTodo, ...prev]);
       showMessage('Görev eklendi (AI analizi başarısız).', 'error');
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey, setTodos, checkApiKey, setChatHistory, setIsChatOpen]);
+    
+    // Webhook tetikleme - görev oluşturuldu
+    // Bu kod try-catch bloğunun dışında, tüm task creation yolları için çalışır
+    try {
+      if (createdTodo) {
+        const { webhookService } = await import('./services/webhookService');
+        const activeWebhooks = webhookService.getActiveWebhooks();
+        if (activeWebhooks.length > 0) {
+          const webhookPayload = {
+            event: 'task_created' as const,
+            timestamp: new Date().toISOString(),
+            user: { id: userId || 'guest', name: 'Kullanıcı' },
+            data: {
+              id: createdTodo.id,
+              title: createdTodo.text,
+              description: createdTodo.text,
+              datetime: createdTodo.datetime,
+              priority: createdTodo.priority,
+              category: createdTodo.aiMetadata?.category,
+              tags: createdTodo.aiMetadata?.tags
+            }
+          };
+          
+          console.log('[Main] 🔥 WEBHOOK TETİKLENİYOR - Görev:', webhookPayload.data.title);
+          console.log('[Main] 🔥 Aktif webhook sayısı:', activeWebhooks.length);
+          
+          // Tüm aktif webhookları tetikle
+          activeWebhooks.forEach(webhook => {
+            console.log('[Main] 🔥 Webhook kontrol:', webhook.name, 'Events:', webhook.events);
+            if (webhook.events.includes('task_created')) {
+              console.log('[Main] 🚀 Webhook gönderiliyor:', webhook.name, 'URL:', webhook.url);
+              webhookService.triggerWebhook(webhook.id, webhookPayload)
+                .then(response => {
+                  if (response.success) {
+                    console.log(`[Main] ✅ Webhook ${webhook.name} BAŞARIYLA gönderildi!`);
+                  } else {
+                    console.warn(`[Main] ❌ Webhook ${webhook.name} hata:`, response.error);
+                  }
+                })
+                .catch(err => console.error(`[Main] ❌ Webhook ${webhook.name} exception:`, err));
+            }
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('[Main] Webhook tetikleme hatası:', error);
+    }
+  }, [apiKey, setTodos, checkApiKey, setChatHistory, setIsChatOpen, todos, userId]);
   
   const createNextOccurrence = (todo: Todo): Todo | null => {
     if (!todo.recurrence) return null;
@@ -784,6 +808,86 @@ const Main: React.FC<MainProps> = ({
     const userMessage: ChatMessage = { role: 'user', text: message };
     setChatHistory(prev => [...prev, userMessage]);
     setIsLoading(true);
+
+    // Fast-path: when waiting for reminder details for the last added task,
+    // handle simple yes/no and common duration phrases locally (no LLM roundtrip)
+    if (lastAddedTaskId) {
+      const m = message.trim().toLowerCase();
+      const yesList = ['evet', 'ok', 'tamam', 'bitti', 'onayla', 'olur', 'evet ekle'];
+      const noList = ['hayır', 'hayir', 'istemiyorum', 'yok', 'gerek yok', 'iptal'];
+
+      // Helper: parse duration string to minutes
+      const parseMinutes = (s: string): number | null => {
+        const text = s.replace(/\s+/g, ' ').toLowerCase();
+        if (/yarım\s*saat/.test(text)) return 30;
+        if (/çeyrek\s*saat/.test(text)) return 15;
+        let m: RegExpMatchArray | null;
+        m = text.match(/(\d+)\s*(dakika|dk)/);
+        if (m) return parseInt(m[1], 10);
+        m = text.match(/(\d+)\s*(saat|hour|hr)/);
+        if (m) return parseInt(m[1], 10) * 60;
+        m = text.match(/(\d+)\s*(gün|gun|day)/);
+        if (m) return parseInt(m[1], 10) * 1440;
+        m = text.match(/(\d+)\s*(hafta|week)/);
+        if (m) return parseInt(m[1], 10) * 10080;
+        // single words
+        if (/hafta\s*önce/.test(text)) return 10080;
+        if (/gün\s*önce/.test(text)) return 1440;
+        if (/saat\s*önce/.test(text)) return 60;
+        if (/dakika\s*önce/.test(text)) return 30; // default to 30 if ambiguous
+        return null;
+      };
+
+      if (yesList.includes(m)) {
+        const modelMessage: ChatMessage = { 
+          role: 'model', 
+          text: 'Anlaşıldı! Hatırlatmayı ne kadar önce almak istersiniz? Örnekler: "1 gün önce", "2 saat önce", "30 dakika önce"' 
+        };
+        setChatHistory(prev => [...prev, modelMessage]);
+        setIsLoading(false);
+        return;
+      }
+
+      if (noList.includes(m)) {
+        setLastAddedTaskId(null);
+        const modelMessage: ChatMessage = { role: 'model', text: 'Anlaşıldı, hatırlatma eklenmedi. Başka bir şey yapabilir miyim?' };
+        setChatHistory(prev => [...prev, modelMessage]);
+        setIsLoading(false);
+        return;
+      }
+
+      const mins = parseMinutes(m);
+      if (mins && mins > 0) {
+        const task = todos.find(t => t.id === lastAddedTaskId);
+        if (task) {
+          const newReminder: ReminderConfig = {
+            id: uuidv4(),
+            type: 'relative' as ReminderType,
+            minutesBefore: mins,
+            triggered: false,
+          };
+          const updatedTask = { ...task, reminders: [...(task.reminders || []), newReminder] };
+          setTodos(prev => prev.map(t => t.id === lastAddedTaskId ? updatedTask : t));
+          setLastAddedTaskId(null);
+
+          // Build human readable label
+          let timeStr = '';
+          if (mins >= 1440) {
+            const days = Math.floor(mins / 1440);
+            timeStr = `${days} gün önce`;
+          } else if (mins >= 60) {
+            const hours = Math.floor(mins / 60);
+            timeStr = `${hours} saat önce`;
+          } else {
+            timeStr = `${mins} dakika önce`;
+          }
+          const modelMessage: ChatMessage = { role: 'model', text: `Mükemmel! "${task.text}" için ${timeStr} hatırlatma eklendi.` };
+          setChatHistory(prev => [...prev, modelMessage]);
+          setIsLoading(false);
+          return;
+        }
+      }
+    }
 
     const intentResult = await geminiService.classifyChatIntent(apiKey, message);
 
@@ -1274,28 +1378,49 @@ const Main: React.FC<MainProps> = ({
     const updatedContext = contextMemoryService.updateUserContext(todos);
     setUserContext(updatedContext);
     
-    // Generate proactive suggestions
-    // if (apiKey && todos.length > 0) {
-    //     const suggestions = proactiveSuggestionsService.generateAllSuggestions(
-    //         todos,
-    //         updatedContext,
-    //         taskDependencies
-    //     );
-    //     setProactiveSuggestions(suggestions);
-    // }
-  }, [todos, apiKey]);
+    // Fetch suggestions from server
+    const fetchSuggestions = async () => {
+      try {
+        if (userId) {
+          const response = await fetch('http://localhost:5123/api/suggestions/next', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, limit: 5 })
+          });
+          const data = await response.json();
+          if (data.success && data.suggestions) {
+            // Convert server suggestions to ProactiveSuggestion format
+            const formattedSuggestions = data.suggestions.map((s: any, idx: number) => ({
+              id: `sugg_${idx}`,
+              title: s.title || 'Önerilen Görev',
+              description: s.description || '',
+              priority: s.priority || 'medium',
+              actionable: true,
+              action: { type: 'add_task', data: { text: s.title } }
+            }));
+            setProactiveSuggestions(formattedSuggestions);
+          }
+        }
+      } catch (e) {
+        console.warn('[Main] Fetch suggestions failed:', e);
+      }
+    };
+    
+    if (todos.length > 0) {
+      fetchSuggestions();
+    }
+  }, [todos, userId]);
   
-  // Show proactive suggestions automatically if there are high priority ones
-  // useEffect(() => {
-  //     const highPrioritySuggestions = proactiveSuggestionsService.getHighPrioritySuggestions(proactiveSuggestions);
-  //     if (highPrioritySuggestions.length > 0 && !showProactiveSuggestions) {
-  //         // Auto-show after 2 seconds if there are high priority suggestions
-  //         const timer = setTimeout(() => {
-  //             setShowProactiveSuggestions(true);
-  //         }, 2000);
-  //         return () => clearTimeout(timer);
-  //     }
-  // }, [proactiveSuggestions, showProactiveSuggestions]);
+  // Show proactive suggestions automatically if there are any
+  useEffect(() => {
+    if (proactiveSuggestions.length > 0 && !showProactiveSuggestions) {
+      // Auto-show after 1 second if there are suggestions
+      const timer = setTimeout(() => {
+        setShowProactiveSuggestions(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [proactiveSuggestions, showProactiveSuggestions]);
   
   // Handler for accepting suggestions
   const handleAcceptSuggestion = useCallback(async (suggestion: ProactiveSuggestion) => {
@@ -2219,6 +2344,7 @@ const Main: React.FC<MainProps> = ({
         notes={notes}
         onProcessNotes={handleAnalyzeNotes}
         onAnalyzePdf={handleAnalyzePdf}
+        user={user}
       />
       <ImageTaskModal isOpen={isImageTaskModalOpen} onClose={() => setIsImageTaskModalOpen(false)} onAddTask={handleAddTask} />
       <LocationPromptModal isOpen={isLocationPromptOpen} onClose={() => setIsLocationPromptOpen(false)} onSubmit={handleLocationSubmit} destination={todoForDirections?.aiMetadata?.destination || ''} />

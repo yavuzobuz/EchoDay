@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNativeSpeechRecognition } from '../hooks/useNativeSpeechRecognition';
+import { useElectronSpeechRecognition } from '../hooks/useElectronSpeechRecognition';
 import { MobileModal, ModalActions } from './MobileModal';
 import { getCurrentCoords } from '../services/locationService';
 import type { GeoReminder } from '../types';
@@ -14,6 +15,7 @@ interface TaskModalProps {
 const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => {
   const [description, setDescription] = useState('');
   const [showPermissionHelp, setShowPermissionHelp] = useState(false);
+  const [showCommandHelp, setShowCommandHelp] = useState(false);
   const isProcessingRef = useRef(false); // useRef kullan - closure sorununu çöz
   const { t } = useI18n();
 
@@ -22,6 +24,17 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   const [geoCoords, setGeoCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoRadius, setGeoRadius] = useState<number>(200);
   const [geoTrigger, setGeoTrigger] = useState<'near' | 'enter' | 'exit'>('near');
+
+  // Basit yardım niyeti algılama
+  const isHelpIntent = (text: string) => {
+    const s = text.toLowerCase().trim();
+    const keys = [
+      'yardım', 'yardim', 'yardım et', 'yardim et', 'bana yardımcı ol', 'bana yardimci ol',
+      'help', 'help me', 'assist me', 'komut', 'komutlar', 'nasıl kullanılır', 'nasil kullanilir',
+      'how to use'
+    ];
+    return keys.some(k => s.includes(k));
+  };
 
   // Final transcript geldiğinde direkt görev ekle
   // (Stop kelimeleri zaten hook tarafından temizlenmiş olarak geliyor)
@@ -35,6 +48,14 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     }
     
     if (transcript.trim()) {
+      // Yardım isteği mi?
+      if (isHelpIntent(transcript)) {
+        console.log('[TaskModal] 🛈 Help intent detected');
+        setShowCommandHelp(true);
+        setDescription('');
+        return;
+      }
+
       // İşleme başla - flag'i HEMEN set et
       isProcessingRef.current = true;
       console.log('[TaskModal] ✅ Görev ekleniyor:', transcript);
@@ -64,26 +85,34 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     }
   };
 
-  const { 
-    isListening, 
-    transcript, 
-    startListening, 
-    stopListening, 
-    hasSupport
-  } = useNativeSpeechRecognition(
+  // Initialize both hooks and choose at runtime to obey React hook rules
+  const nativeSR = useNativeSpeechRecognition(
     (finalTranscript: string) => {
       console.log('[TaskModal] Final transcript (stop word detected):', finalTranscript);
-      // Stop word geldiğinde otomatik ekle
-      if (finalTranscript.trim()) {
-        handleTranscript(finalTranscript);
-      }
+      if (finalTranscript.trim()) handleTranscript(finalTranscript);
     },
     {
       stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'kayıt', 'ekle', 'oluştur', 'ok'],
       continuous: true,
-      stopOnSilence: false // Sessizlikte otomatik ekleme yapma, kullanıcı stop word söyleyecek
+      stopOnSilence: false,
     }
   );
+  const electronSR = useElectronSpeechRecognition(
+    (finalTranscript: string) => {
+      console.log('[TaskModal] Final transcript (electron):', finalTranscript);
+      if (finalTranscript.trim()) handleTranscript(finalTranscript);
+    },
+    {
+      stopOnKeywords: ['tamam', 'bitti', 'kaydet', 'kayıt', 'ekle', 'oluştur', 'ok'],
+      continuous: true,
+    }
+  );
+  const isElectronEnv = !!(window as any).isElectron || !!(window as any).electronAPI;
+  const isListening = isElectronEnv ? electronSR.isListening : nativeSR.isListening;
+  const transcript = isElectronEnv ? electronSR.transcript : nativeSR.transcript;
+  const startListening = isElectronEnv ? electronSR.startListening : nativeSR.startListening;
+  const stopListening = isElectronEnv ? electronSR.stopListening : nativeSR.stopListening;
+  const hasSupport = isElectronEnv ? electronSR.hasSupport : nativeSR.hasSupport;
   
   
   useEffect(() => {
@@ -97,6 +126,7 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   useEffect(() => {
     if (isOpen) {
       setDescription('');
+      setShowCommandHelp(false);
       isProcessingRef.current = false; // Reset processing flag on open
     } else {
       try { (stopListening as any)?.(); } catch {}
@@ -128,6 +158,11 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (description.trim()) {
+      // Yardım isteği ise görev ekleme, yardım panelini aç
+      if (isHelpIntent(description)) {
+        setShowCommandHelp(true);
+        return;
+      }
       const extra = (useGeoReminder && geoCoords) ? { locationReminder: {
         lat: geoCoords.lat,
         lng: geoCoords.lng,
@@ -151,6 +186,25 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onAddTask }) => 
     >
       <div>
         <div className="space-y-4">
+          {/* Command Help Panel */}
+          {showCommandHelp && (
+            <div className="p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+              <p className="text-sm font-semibold text-purple-800 dark:text-purple-200">Tabii! İşte kullanabileceğin komutlar</p>
+              <ul className="mt-2 text-sm text-purple-900/90 dark:text-purple-100 list-disc pl-5 space-y-1">
+                <li>Görev ekle: "alışveriş yap"</li>
+                <li>Zaman ekle: "Yarın 09:00'da raporu hazırla"</li>
+                <li>Öncelik belirt: "öncelik: yüksek"</li>
+                <li>Etiket ekle: "#iş", "#ev"</li>
+                <li>Konum hatırlatıcısı: "yakın olunca markete uğra" (üstteki konum seçeneğini aç)</li>
+                <li>Sesli komutu bitir: "tamam", "bitti", "kaydet"</li>
+              </ul>
+              <div className="mt-3 flex gap-2">
+                <button type="button" onClick={() => setDescription("Yarın 09:00'da raporu hazırla #iş öncelik: yüksek") } className="px-3 py-1.5 rounded bg-[var(--accent-color-600)] text-white text-xs">Örneği doldur</button>
+                <button type="button" onClick={() => setShowCommandHelp(false)} className="px-3 py-1.5 rounded bg-gray-200 dark:bg-gray-700 text-xs">Kapat</button>
+              </div>
+            </div>
+          )}
+
           {/* Enhanced Speech Recognition Info */}
           {isListening && (
             <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
