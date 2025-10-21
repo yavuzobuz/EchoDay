@@ -590,7 +590,7 @@ _EchoDay ile gönderildi_`, note: 'Markdown destekli mesaj' }
       defaultSettings: { retryCount: 3, timeout: 5000, includeDetails: true },
       setupInstructions: [
         '1. Tarayıcınızda https://airtable.com/create/tokens adresini açın',
-        '2. "Create new token" (Yeni Token Oluştur) butonuna tıklayın',
+        '2. "+ New token" (Yeni Token Oluştur) butonuna tıklayın',
         '3. Token\'a anlamlı bir isim verin (ör: "EchoDay Integration")',
         '4. Scopes bölümünde "data.records:write" iznini seçin',
         '5. Access bölümünde webhook göndermek istediğiniz base\'i seçin',
@@ -799,6 +799,9 @@ _EchoDay ile gönderildi_`, note: 'Markdown destekli mesaj' }
     const maxRetries = webhook.settings.retryCount || 3;
     const timeout = webhook.settings.timeout || 5000;
 
+    // Log the webhook attempt
+    console.log(`[WebhookService] Sending webhook to ${webhook.name} (${webhook.url}) for event ${payload.event}`);
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const formattedPayload = this.formatPayload(webhook.type, payload, webhook.settings);
@@ -806,23 +809,72 @@ _EchoDay ile gönderildi_`, note: 'Markdown destekli mesaj' }
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        // Zapier CORS için basit request kullan (preflight yok)
-        // Content-Type: text/plain kullanarak preflight'ı bypass et
-        let response = await fetch(webhook.url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'text/plain',
-          },
-          body: JSON.stringify(formattedPayload),
-          signal: controller.signal,
-          mode: 'cors'
-        });
+        // For better compatibility, we'll try multiple content types
+        let response;
+        
+        // Log the payload being sent
+        console.log(`[WebhookService] Attempt ${attempt}/${maxRetries} - Payload:`, formattedPayload);
+        
+        // Zapier webhook'ları için özel işlem - content-type header'ı olmadan
+        if (webhook.url.includes('hooks.zapier.com')) {
+          try {
+            response = await fetch(webhook.url, {
+              method: 'POST',
+              body: JSON.stringify(formattedPayload),
+              signal: controller.signal,
+              mode: 'cors'
+            });
+          } catch (zapierError) {
+            console.warn(`[WebhookService] Zapier request failed:`, zapierError);
+            throw zapierError; // Zapier için başka deneme yapmayalım
+          }
+        } else {
+          // Diğer webhook'lar için normal JSON request
+          try {
+            response = await fetch(webhook.url, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(formattedPayload),
+              signal: controller.signal,
+              mode: 'cors'
+            });
+          } catch (jsonError) {
+            console.warn(`[WebhookService] JSON request failed:`, jsonError);
+            // If JSON fails, try with form data for broader compatibility
+            try {
+              response = await fetch(webhook.url, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `payload=${encodeURIComponent(JSON.stringify(formattedPayload))}`,
+                signal: controller.signal,
+                mode: 'cors'
+              });
+            } catch (formError) {
+              console.warn(`[WebhookService] Form request failed:`, formError);
+              // If both fail, try with text/plain as fallback
+              response = await fetch(webhook.url, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'text/plain',
+                },
+                body: JSON.stringify(formattedPayload),
+                signal: controller.signal,
+                mode: 'cors'
+              });
+            }
+          }
+        }
 
         clearTimeout(timeoutId);
 
         if (response.ok) {
           webhook.lastTriggered = new Date();
           this.saveToLocalStorage();
+          console.log(`[WebhookService] Webhook ${webhook.name} sent successfully`);
           return {
             success: true,
             statusCode: response.status,
@@ -838,7 +890,7 @@ _EchoDay ile gönderildi_`, note: 'Markdown destekli mesaj' }
         }
 
       } catch (error) {
-        console.error(`Webhook gönderimi başarısız (Deneme ${attempt}/${maxRetries}):`, error);
+        console.error(`[WebhookService] Webhook gönderimi başarısız (Deneme ${attempt}/${maxRetries}):`, error);
         
         // Hata tiplerine göre mesaj özelleştir
         let errorMessage = 'Bilinmeyen hata';
@@ -853,6 +905,7 @@ _EchoDay ile gönderildi_`, note: 'Markdown destekli mesaj' }
         }
         
         if (attempt === maxRetries) {
+          console.error(`[WebhookService] Webhook ${webhook.name} failed after ${maxRetries} attempts:`, errorMessage);
           return {
             success: false,
             error: errorMessage
@@ -860,7 +913,9 @@ _EchoDay ile gönderildi_`, note: 'Markdown destekli mesaj' }
         }
 
         // Retry delay (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt - 1)));
+        const delay = 1000 * Math.pow(2, attempt - 1);
+        console.log(`[WebhookService] Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
@@ -883,6 +938,17 @@ _EchoDay ile gönderildi_`, note: 'Markdown destekli mesaj' }
           content: settings.customMessage || this.getDefaultMessage(payload),
           username: settings.username || 'EchoDay',
           avatar_url: 'https://your-domain.com/icon.png'
+        };
+
+      case 'teams':
+        return {
+          text: settings.customMessage || this.getDefaultMessage(payload),
+          summary: payload.event
+        };
+
+      case 'telegram':
+        return {
+          text: settings.customMessage || this.getDefaultMessage(payload)
         };
 
       default:

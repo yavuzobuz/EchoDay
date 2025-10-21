@@ -64,8 +64,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Auth check error:', error);
+      // Auto-recover from invalid refresh token errors
+      const msg = error?.message || '';
+      if (msg.includes('Invalid Refresh Token') || msg.includes('Refresh Token Not Found')) {
+        try {
+          await supabase.auth.signOut();
+        } catch {}
+        try {
+          localStorage.removeItem('supabase-auth');
+        } catch {}
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }

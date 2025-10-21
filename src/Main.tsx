@@ -49,6 +49,8 @@ import { useAuth } from './contexts/AuthContext';
 
 // FIX: Import the new AnalyzedTaskData type.
 import { Todo, Priority, ChatMessage, Note, DailyBriefing, AnalyzedTaskData, UserContext, ProactiveSuggestion, ReminderConfig, ReminderType, GeoReminder } from './types';
+// FIX: Import WebhookEvent type
+import { WebhookEvent } from './types/webhook';
 import { AccentColor } from './App';
 
 interface MainProps {
@@ -465,9 +467,11 @@ const Main: React.FC<MainProps> = ({
             minute: '2-digit' 
           });
           
+          const messageText = `"${text}" görevi ${taskDateFormatted} tarihinde planlandı. Bu görev için hatırlatma eklemek ister misiniz? Önerim: ${reminderSuggestion}`;
+          
           const aiQuestion: ChatMessage = {
             role: 'model',
-            text: `✅ Görev başarıyla eklendi ve AI ile analiz edildi!\n\n📅 "${text}"\n🕒 ${taskDateFormatted}${metadata?.category ? `\n🏷️ Kategori: ${metadata.category}` : ''}${priority === Priority.High ? '\n⚠️ Yüksek Öncelik' : ''}\n\n🔔 Hatırlatma eklemek ister misiniz? \n✍️ Önerim: **${reminderSuggestion}**\n\n“Evet” veya “Hayır” diyebilir ya da kendi sürenizi belirtebilirsiniz (ör: “2 saat önce”, “1 gün önce”)`
+            text: messageText
           };
           console.log('[Main] Adding AI smart reminder question to chat:', aiQuestion);
           setChatHistory(prev => {
@@ -667,7 +671,6 @@ const Main: React.FC<MainProps> = ({
         }
       } catch (error: any) {
         console.error('[Main] Failed to sync todo update:', error);
-        
         // Revert local state on sync failure
         setTodos(prev => prev.map(t => 
           t.id === id ? { ...t, completed: !newCompleted } : t
@@ -716,10 +719,73 @@ const Main: React.FC<MainProps> = ({
   };
 
   const handleEditTodo = (id: string, newText: string) => {
-    setTodos(todos.map(todo => todo.id === id ? { ...todo, text: newText } : todo));
-  };
+    const oldTodo = todos.find(t => t.id === id);
 
-  // --- Directions ---
+
+
+
+    setTodos(todos.map(todo => todo.id === id ? { ...todo, text: newText } : todo));
+    
+    // Webhook tetikleme - görev güncellendi
+    if (oldTodo && oldTodo.text !== newText) {
+      triggerTaskWebhook('task_updated', oldTodo);
+    }
+  };
+  
+
+
+
+  
+
+
+  // Webhook tetikleme fonksiyonu
+  const triggerTaskWebhook = async (event: WebhookEvent, todo: Todo) => {
+    try {
+      const { webhookService } = await import('./services/webhookService');
+      const activeWebhooks = webhookService.getActiveWebhooks();
+      if (activeWebhooks.length > 0) {
+        const webhookPayload = {
+          event,
+          timestamp: new Date().toISOString(),
+          user: { id: userId || 'guest', name: 'Kullanıcı' },
+          data: {
+            id: todo.id,
+            title: todo.text,
+            description: todo.text,
+            datetime: todo.datetime,
+            priority: todo.priority,
+            category: todo.aiMetadata?.category,
+            tags: todo.aiMetadata?.tags,
+            completed: todo.completed,
+            ...(event === 'task_completed' && todo.completed ? { completedAt: new Date().toISOString() } : {})
+          }
+        };
+        
+        console.log(`[Main] 🔥 WEBHOOK TETİKLENİYOR - ${event}:`, webhookPayload.data.title);
+        console.log('[Main] 🔥 Aktif webhook sayısı:', activeWebhooks.length);
+        
+        // Tüm aktif webhookları tetikle
+        activeWebhooks.forEach(webhook => {
+          console.log('[Main] 🔥 Webhook kontrol:', webhook.name, 'Events:', webhook.events);
+          if (webhook.events.includes(event)) {
+            console.log('[Main] 🚀 Webhook gönderiliyor:', webhook.name, 'URL:', webhook.url);
+            webhookService.triggerWebhook(webhook.id, webhookPayload)
+              .then(response => {
+                if (response.success) {
+                  console.log(`[Main] ✅ Webhook ${webhook.name} BAŞARIYLA gönderildi! (${event})`);
+                } else {
+                  console.warn(`[Main] ❌ Webhook ${webhook.name} hata (${event}):`, response.error);
+                }
+              })
+              .catch(err => console.error(`[Main] ❌ Webhook ${webhook.name} exception (${event}):`, err));
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('[Main] Webhook tetikleme hatası:', error);
+    }
+  };
+  
   const handleGetDirections = (todo: Todo) => {
     if (!checkApiKey()) return;
     if (todo.aiMetadata?.destination) {
@@ -738,10 +804,13 @@ const Main: React.FC<MainProps> = ({
     });
   };
 
+
   const handleLocationSubmit = async (origin: string) => {
     setIsLocationPromptOpen(false);
     if (!todoForDirections || !todoForDirections.aiMetadata?.destination) return;
     if (!checkApiKey()) return;
+
+
 
     setIsLoading(true);
     setLoadingMessage(t('main.directions.loading', 'Yol tarifi alınıyor...'));
@@ -749,6 +818,8 @@ const Main: React.FC<MainProps> = ({
     setIsLoading(false);
 
     if (directions) {
+
+
       setTodos(todos.map(t => t.id === todoForDirections.id ? {
         ...t,
         aiMetadata: {
@@ -889,6 +960,8 @@ const Main: React.FC<MainProps> = ({
       }
     }
 
+
+
     const intentResult = await geminiService.classifyChatIntent(apiKey, message);
 
     // Handle add_task intent
@@ -902,6 +975,8 @@ const Main: React.FC<MainProps> = ({
         setChatHistory(prev => [...prev, modelMessage]);
         setIsLoading(false);
         return;
+
+
       }
       
       // Description varsa görevi ekle - AI analizi ile (skipAIAnalysis = false)
@@ -986,7 +1061,11 @@ const Main: React.FC<MainProps> = ({
         return `• ${when} — ${t.text} (Öncelik: ${pr})`;
       }).join('\n');
 
-      const body = `📅 ${title} (${rangeLabel})\nToplam: ${agendaTodos.length} görev\nSıralama: ${ordering === 'importance' ? 'Önemliden önemsize' : 'Zamana göre'}\n\n${bullets || 'Bu dönem için planlanmış görev bulunmuyor.'}`;
+      const body = `📅 ${title} (${rangeLabel})
+Toplam: ${agendaTodos.length} görev
+Sıralama: ${ordering === 'importance' ? 'Önemliden önemsize' : 'Zamana göre'}
+
+${bullets || 'Bu dönem için planlanmış görev bulunmuyor.'}`;
 
       const modelMessage: ChatMessage = { role: 'model', text: body };
       setChatHistory(prev => [...prev, modelMessage]);
@@ -1020,7 +1099,13 @@ const Main: React.FC<MainProps> = ({
       
       const modelMessage: ChatMessage = { 
         role: 'model', 
-        text: `Anlaşıldı! "${task.text}" görevi için hatırlatmayı ne kadar önce almak istersiniz?\n\nÖrnekler:\n- "1 gün önce"\n- "2 saat önce"\n- "30 dakika önce"\n- "1 hafta önce"` 
+        text: `Anlaşıldı! "${task.text}" görevi için hatırlatmayı ne kadar önce almak istersiniz?
+
+Örnekler:
+- "1 gün önce"
+- "2 saat önce"
+- "30 dakika önce"
+- "1 hafta önce"` 
       };
       setChatHistory(prev => [...prev, modelMessage]);
       setIsLoading(false);

@@ -133,6 +133,16 @@ export function AdminSecurityProvider({ children }: { children: React.ReactNode 
       const { error } = await supabase.auth.refreshSession();
       if (error) {
         console.error('[Security] Session refresh failed:', error);
+        // Handle invalid refresh token by signing out and clearing storage
+        const msg = (error as any)?.message || '';
+        if (msg.includes('Invalid Refresh Token') || msg.includes('Refresh Token Not Found')) {
+          try {
+            await supabase.auth.signOut();
+          } catch {}
+          try {
+            localStorage.removeItem('supabase-auth');
+          } catch {}
+        }
         setIsSecure(false);
       }
     }, 5 * 60 * 1000); // 5 minutes

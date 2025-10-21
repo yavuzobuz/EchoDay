@@ -5,10 +5,7 @@ import { resolve } from 'path'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react({
-      // JSX runtime for better compatibility
-      jsxRuntime: 'automatic'
-    }),
+    react(),
     {
       name: 'electron-index-html-fix',
       enforce: 'post',
@@ -25,12 +22,12 @@ export default defineConfig({
     // Completely disable HMR and websockets for mobile
     hmr: process.env.MOBILE_BUILD === 'true' ? false : {
       port: 5174,
-      host: '0.0.0.0'
+      host: 'localhost'
     },
     // Disable file watching for mobile to prevent any websocket connections
     watch: process.env.MOBILE_BUILD === 'true' ? null : undefined,
     // Enable HTTPS for mobile microphone access
-    https: process.env.MOBILE_BUILD === 'true' ? {} : false,
+    https: process.env.MOBILE_BUILD === 'true' ? {} : undefined,
     headers: {
       // Security headers for development
       'X-Frame-Options': 'DENY',
@@ -39,8 +36,8 @@ export default defineConfig({
       'Referrer-Policy': 'strict-origin-when-cross-origin',
       // CSP for development (less strict) - allow mobile WebSocket connections
       'Content-Security-Policy': process.env.MOBILE_BUILD === 'true' 
-        ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' http://*:* ws://*:* wss://*:* https://generativelanguage.googleapis.com https://*.googleapis.com https://fonts.googleapis.com https://*.supabase.co; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
-        : "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* ws://localhost:* https://generativelanguage.googleapis.com https://*.googleapis.com https://fonts.googleapis.com https://*.supabase.co wss://*.supabase.co; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://r2cdn.perplexity.ai; img-src 'self' data: blob: https:; connect-src 'self' http://*:* ws://*:* wss://*:* https://generativelanguage.googleapis.com https://*.googleapis.com https://fonts.googleapis.com https://*.supabase.co https://*.zapier.com; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+        : "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://r2cdn.perplexity.ai; img-src 'self' data: blob: https:; connect-src 'self' http://localhost:* ws://localhost:* ws://0.0.0.0:* wss://localhost:* https://generativelanguage.googleapis.com https://*.googleapis.com https://fonts.googleapis.com https://*.supabase.co wss://*.supabase.co https://*.zapier.com; media-src 'self' blob: mediastream:; worker-src 'self' blob: 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     }
   },
   build: {
