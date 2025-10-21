@@ -90,8 +90,14 @@ const handleAddNote = useCallback(async (text: string) => {
           iv: enc.iv,
           salt: enc.salt,
         };
-      } catch (e) {
+      } catch (e: any) {
         console.warn('[DailyNotepad] Encryption cancelled or failed:', e);
+        // If passphrase not set, open Vault to let user set/unlock it
+        if (e?.code === 'PASS_REQUIRED_ENCRYPT') {
+          setIsVaultOpen(true);
+          setVaultUnlocked(false);
+          setVaultError('');
+        }
         return; // do not add note if encryption failed/cancelled
       }
     }
@@ -566,10 +572,51 @@ setNewNoteImageDataUrl(reader.result as string);
             className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white hover:bg-[var(--accent-color-700)]"
             onClick={async () => {
               try {
-                const plain = await encryptedNotesService.decrypt({ ciphertext: note.ciphertext!, iv: note.iv!, salt: note.salt! });
+                // Debug: Şifreli not verilerini kontrol et
+                console.log('[DailyNotepad] Attempting to decrypt note:', {
+                  noteId: note.id,
+                  hasIsEncrypted: !!note.isEncrypted,
+                  hasCiphertext: !!note.ciphertext,
+                  hasIv: !!note.iv,
+                  hasSalt: !!note.salt,
+                  ciphertextLength: note.ciphertext?.length || 0,
+                  ivLength: note.iv?.length || 0,
+                  saltLength: note.salt?.length || 0
+                });
+                
+                // Güvenli şifre çözme - alanların varlığını kontrol et
+                if (!note.ciphertext || !note.iv || !note.salt) {
+                  throw new Error('Şifreli not verileri eksik: ciphertext=' + !!note.ciphertext + ', iv=' + !!note.iv + ', salt=' + !!note.salt);
+                }
+                
+                // Passphrase durumunu kontrol et
+                console.log('[DailyNotepad] Encryption service state:', {
+                  isUnlocked: encryptedNotesService.isUnlocked()
+                });
+                
+                const plain = await encryptedNotesService.decrypt({ 
+                  ciphertext: note.ciphertext, 
+                  iv: note.iv, 
+                  salt: note.salt 
+                });
+                
+                console.log('[DailyNotepad] Decryption successful for note:', note.id);
                 setDecryptedTexts(prev => ({ ...prev, [note.id]: plain }));
-              } catch (e) {
-                alert('Parola hatalı veya çözme başarısız.');
+              } catch (e: any) {
+                console.error('[DailyNotepad] Decryption failed:', {
+                  error: e.message,
+                  noteId: note.id,
+                  code: e.code
+                });
+                
+                // Hata türüne göre farklı mesaj göster
+                if (e.code === 'PASS_REQUIRED_DECRYPT') {
+                  alert('Lütfen şifre girin.');
+                } else if (e.message?.includes('eksik')) {
+                  alert('Not verileri bozuk veya eksik.');
+                } else {
+                  alert('Parola hatalı veya çözme başarısız.');
+                }
               }
             }}
           >Kilit Aç</button>
@@ -1132,10 +1179,28 @@ setNewNoteImageDataUrl(reader.result as string);
                           <button onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              const plain = await encryptedNotesService.decrypt({ ciphertext: note.ciphertext as any, iv: note.iv as any, salt: note.salt as any });
+                              console.log('[VaultModal] Attempting to decrypt note:', {
+                                noteId: note.id,
+                                hasCiphertext: !!note.ciphertext,
+                                hasIv: !!note.iv,
+                                hasSalt: !!note.salt
+                              });
+                              
+                              if (!note.ciphertext || !note.iv || !note.salt) {
+                                throw new Error('Şifreli not verileri eksik');
+                              }
+                              
+                              const plain = await encryptedNotesService.decrypt({ 
+                                ciphertext: note.ciphertext, 
+                                iv: note.iv, 
+                                salt: note.salt 
+                              });
                               setDecryptedTexts(prev => ({ ...prev, [note.id]: plain }));
                               if (vaultTimerRef.current) { window.clearTimeout(vaultTimerRef.current); vaultTimerRef.current = window.setTimeout(() => { setVaultUnlocked(false); encryptedNotesService.clear(); }, 5*60*1000); }
-                            } catch { setVaultError(t('notepad.wrongPassword','Parola yanlış.')); }
+                            } catch (e: any) { 
+                              console.error('[VaultModal] Decryption failed:', e);
+                              setVaultError(t('notepad.wrongPassword','Parola yanlış.')); 
+                            }
                           }} className="text-xs px-2 py-1 rounded bg-[var(--accent-color-600)] text-white">{t('common.unlock','Kilit Aç')}</button>
                         )}
                       </div>
@@ -1179,10 +1244,28 @@ setNewNoteImageDataUrl(reader.result as string);
                       <span>🔒 {t('notepad.locked','Kilitli')}</span>
                       <button onClick={async () => {
                         try {
-                          const plain = await encryptedNotesService.decrypt({ ciphertext: vaultDetailNote.ciphertext as any, iv: vaultDetailNote.iv as any, salt: vaultDetailNote.salt as any });
+                          console.log('[VaultDetailModal] Attempting to decrypt note:', {
+                            noteId: vaultDetailNote.id,
+                            hasCiphertext: !!vaultDetailNote.ciphertext,
+                            hasIv: !!vaultDetailNote.iv,
+                            hasSalt: !!vaultDetailNote.salt
+                          });
+                          
+                          if (!vaultDetailNote.ciphertext || !vaultDetailNote.iv || !vaultDetailNote.salt) {
+                            throw new Error('Şifreli not verileri eksik');
+                          }
+                          
+                          const plain = await encryptedNotesService.decrypt({ 
+                            ciphertext: vaultDetailNote.ciphertext, 
+                            iv: vaultDetailNote.iv, 
+                            salt: vaultDetailNote.salt 
+                          });
                           setDecryptedTexts(prev => ({ ...prev, [vaultDetailNote.id]: plain }));
                           if (vaultTimerRef.current) { window.clearTimeout(vaultTimerRef.current); vaultTimerRef.current = window.setTimeout(() => { setVaultUnlocked(false); encryptedNotesService.clear(); }, 5*60*1000); }
-                        } catch { setVaultError(t('notepad.wrongPassword','Parola yanlış.')); }
+                        } catch (e: any) { 
+                          console.error('[VaultDetailModal] Decryption failed:', e);
+                          setVaultError(t('notepad.wrongPassword','Parola yanlış.')); 
+                        }
                       }} className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white">{t('common.unlock','Kilit Aç')}</button>
                     </div>
                   )}

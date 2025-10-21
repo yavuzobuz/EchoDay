@@ -577,10 +577,51 @@ const [_dbErrors, setDbErrors] = useState<string[]>([]);
                               className="px-2 py-1 text-xs rounded bg-[var(--accent-color-600)] text-white hover:bg-[var(--accent-color-700)]"
                               onClick={async () => {
                                 try {
-                                  const plain = await encryptedNotesService.decrypt({ ciphertext: (note as any).ciphertext, iv: (note as any).iv, salt: (note as any).salt });
+                                  // Debug: Şifreli not verilerini kontrol et
+                                  console.log('[ArchiveModal] Attempting to decrypt note:', {
+                                    noteId: note.id,
+                                    hasIsEncrypted: !!note.isEncrypted,
+                                    hasCiphertext: !!note.ciphertext,
+                                    hasIv: !!note.iv,
+                                    hasSalt: !!note.salt,
+                                    ciphertextLength: note.ciphertext?.length || 0,
+                                    ivLength: note.iv?.length || 0,
+                                    saltLength: note.salt?.length || 0
+                                  });
+                                  
+                                  // Güvenli şifre çözme - alanların varlığını kontrol et
+                                  if (!note.ciphertext || !note.iv || !note.salt) {
+                                    throw new Error('Şifreli not verileri eksik: ciphertext=' + !!note.ciphertext + ', iv=' + !!note.iv + ', salt=' + !!note.salt);
+                                  }
+                                  
+                                  // Passphrase durumunu kontrol et
+                                  console.log('[ArchiveModal] Encryption service state:', {
+                                    isUnlocked: encryptedNotesService.isUnlocked()
+                                  });
+                                  
+                                  const plain = await encryptedNotesService.decrypt({ 
+                                    ciphertext: note.ciphertext, 
+                                    iv: note.iv, 
+                                    salt: note.salt 
+                                  });
+                                  
+                                  console.log('[ArchiveModal] Decryption successful for note:', note.id);
                                   setDecryptedNoteTexts(prev => ({ ...prev, [note.id]: plain }));
-                                } catch (e) {
-                                  alert(t('archive.decryptFailed','Parola hatalı veya çözme başarısız.'));
+                                } catch (e: any) {
+                                  console.error('[ArchiveModal] Decryption failed:', {
+                                    error: e.message,
+                                    noteId: note.id,
+                                    code: e.code
+                                  });
+                                  
+                                  // Hata türüne göre farklı mesaj göster
+                                  if (e.code === 'PASS_REQUIRED_DECRYPT') {
+                                    alert(t('archive.passphraseRequired','Lütfen şifre girin.'));
+                                  } else if (e.message?.includes('eksik')) {
+                                    alert(t('archive.corruptedData','Not verileri bozuk veya eksik.'));
+                                  } else {
+                                    alert(t('archive.decryptFailed','Parola hatalı veya çözme başarısız.'));
+                                  }
                                 }
                               }}
                             >{t('archive.unlock','Kilit Aç')}</button>
