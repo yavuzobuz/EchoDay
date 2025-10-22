@@ -34,6 +34,8 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
   const [isSending, setIsSending] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [attachments, setAttachments] = useState<EmailAttachmentFile[]>([]);
+  const [_emailSource, _setEmailSource] = useState<'all' | 'imap' | 'webhook'>('all');
+  const [_webhookEmails, _setWebhookEmails] = useState<EmailMessage[]>([]);
   const { user } = useAuth();
   const { t } = useI18n();
   const userId = user?.id || 'guest';
@@ -45,6 +47,24 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
     const text = el.textContent || el.innerText || '';
     return text.replace(/\s+$/g, '').slice(0, 4000); // limit size defensively
   };
+
+  // Webhook email'lerini yükle
+  const fetchWebhookEmails = async () => {
+    try {
+      const response = await fetch('/api/mail/list?source=webhook');
+      if (response.ok) {
+        const webhookData = await response.json();
+        _setWebhookEmails(webhookData);
+      }
+    } catch (error) {
+      console.error('Webhook email yükleme hatası:', error);
+    }
+  };
+
+  // Component mount olduğunda webhook email'lerini yükle
+  useEffect(() => {
+    fetchWebhookEmails();
+  }, []);
 
   const analyzeEmailWithAI = async (email: EmailMessage) => {
     console.log('[MailList] Debug - API key from prop:', { hasKey: !!apiKey, type: typeof apiKey, length: apiKey?.length });
@@ -549,13 +569,19 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                   <div className="text-xs text-gray-500 dark:text-gray-500 truncate">
                     {email.snippet}
                   </div>
-                  {email.hasAttachments && (
-                    <div className="mt-2">
+                  <div className="mt-2 flex items-center gap-2">
+                    {email.hasAttachments && (
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-200 dark:bg-gray-600 rounded text-xs text-gray-700 dark:text-gray-300">
                         📎 {t('mail.hasAttachment')}
                       </span>
-                    </div>
-                  )}
+                    )}
+                    {/* Gmail webhook badge */}
+                    {(email as any).source === 'gmail-webhook' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded text-xs font-medium">
+                        📧 Gmail Webhook
+                      </span>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>

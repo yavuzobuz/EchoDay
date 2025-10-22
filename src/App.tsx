@@ -59,35 +59,68 @@ const AdminNotifications = lazy(() => import('./pages/admin/AdminNotifications')
 
 export type AccentColor = 'blue' | 'green' | 'red';
 
-// Protected Route Component
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+// Loading Spinner Component - Memoized to prevent recreation
+const LoadingSpinner = React.memo(() => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+  </div>
+));
 
+LoadingSpinner.displayName = 'LoadingSpinner';
+
+// Protected Route Component - Optimized to prevent component tree recreation
+const ProtectedRoute = React.memo(({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+
+  // Memoize the navigation effect to prevent unnecessary re-runs
+  const shouldRedirect = !loading && !user;
+  
+  React.useEffect(() => {
+    if (shouldRedirect) {
+      navigate('/login', { replace: true });
+    }
+  }, [shouldRedirect, navigate]);
+
+  // Early returns with memoized components
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
-}
+  // Return children directly without wrapping in fragment
+  return children as React.ReactElement;
+});
 
-// Admin Protected Route Component
-function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
+ProtectedRoute.displayName = 'ProtectedRoute';
+
+// Admin Protected Route Component - Optimized to prevent component tree recreation
+const AdminProtectedRoute = React.memo(({ children }: { children: React.ReactNode }) => {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: adminLoading } = useAdminAuth();
+  const navigate = useNavigate();
+
+  // Memoize conditions to prevent unnecessary re-runs
+  const isLoading = authLoading || adminLoading;
+  const shouldRedirectToLogin = !authLoading && !adminLoading && !user;
+  const shouldShowAccessDenied = !authLoading && !adminLoading && user && !isAdmin;
 
   console.log('[AdminProtectedRoute] authLoading:', authLoading, 'adminLoading:', adminLoading);
   console.log('[AdminProtectedRoute] user:', user?.id);
   console.log('[AdminProtectedRoute] isAdmin:', isAdmin);
 
-  if (authLoading || adminLoading) {
+  React.useEffect(() => {
+    if (shouldRedirectToLogin) {
+      console.log('[AdminProtectedRoute] No user, redirecting to login');
+      navigate('/admin/login', { replace: true });
+    }
+  }, [shouldRedirectToLogin, navigate]);
+
+  // Early returns with memoized components
+  if (isLoading) {
     console.log('[AdminProtectedRoute] Loading...');
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -97,11 +130,10 @@ function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    console.log('[AdminProtectedRoute] No user, redirecting to login');
     return <Navigate to="/admin/login" replace />;
   }
 
-  if (!isAdmin) {
+  if (shouldShowAccessDenied) {
     console.log('[AdminProtectedRoute] User is not admin, access denied');
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
@@ -122,10 +154,13 @@ function AdminProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   console.log('[AdminProtectedRoute] Access granted! Rendering children...');
-  return <>{children}</>;
-}
+  // Return children directly without wrapping in fragment
+  return children as React.ReactElement;
+});
 
-function AppContent() {
+AdminProtectedRoute.displayName = 'AdminProtectedRoute';
+
+const AppContent = React.memo(() => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const userId = user?.id || 'guest';
@@ -137,6 +172,39 @@ function AppContent() {
   const [apiKey, setApiKey] = useSettingsStorage<string>(`gemini-api-key_${userId}`, '');
   const [assistantName, setAssistantName] = useLocalStorage<string>(`assistant-name_${userId}`, 'ATO');
   const [followSystemTheme, setFollowSystemTheme] = useLocalStorage<boolean>(`theme-follow-system_${userId}`, false);
+
+  // Memoized callback functions to prevent component recreation
+  const handleNavigateToProfile = React.useCallback(() => {
+    console.log('[App] 🟢 PROFILE NAVIGATION TRIGGERED FROM MAIN');
+    console.log('[App] navigate function type:', typeof navigate);
+    console.log('[App] Current location:', window.location.href);
+    console.log('[App] Current hash:', window.location.hash);
+    
+    try {
+      console.log('[App] 📞 Calling navigate("/profile")...');
+      const result = navigate('/profile');
+      console.log('[App] ✅ navigate() completed, result:', result);
+      
+      // Verify navigation after a short delay
+      setTimeout(() => {
+        console.log('[App] 🔍 Navigation verification:');
+        console.log('[App] New location:', window.location.href);
+        console.log('[App] New hash:', window.location.hash);
+      }, 100);
+    } catch (err) {
+      console.error('[App] ❌ navigate() failed:', err);
+      console.error('[App] Error stack:', (err as Error)?.stack);
+    }
+  }, [navigate]);
+
+  const handleNavigateToHome = React.useCallback(() => {
+    console.log('[App] Home butonuna tıklandı, /welcome yapılıyor');
+    navigate('/welcome');
+  }, [navigate]);
+
+  const handleNavigateBack = React.useCallback(() => {
+    navigate('/app');
+  }, [navigate]);
 
 
   // Apply theme class to HTML
@@ -220,32 +288,8 @@ function AppContent() {
                 setAccentColor={setAccentColor}
                 apiKey={apiKey}
                 assistantName={assistantName}
-                onNavigateToProfile={() => {
-                  console.log('[App] 🟢 PROFILE NAVIGATION TRIGGERED FROM MAIN');
-                  console.log('[App] navigate function type:', typeof navigate);
-                  console.log('[App] Current location:', window.location.href);
-                  console.log('[App] Current hash:', window.location.hash);
-                  
-                  try {
-                    console.log('[App] 📞 Calling navigate("/profile")...');
-                    const result = navigate('/profile');
-                    console.log('[App] ✅ navigate() completed, result:', result);
-                    
-                    // Verify navigation after a short delay
-                    setTimeout(() => {
-                      console.log('[App] 🔍 Navigation verification:');
-                      console.log('[App] New location:', window.location.href);
-                      console.log('[App] New hash:', window.location.hash);
-                    }, 100);
-                  } catch (err) {
-                  console.error('[App] ❌ navigate() failed:', err);
-                  console.error('[App] Error stack:', (err as Error)?.stack);
-                  }
-                }}
-                onNavigateToHome={() => {
-                  console.log('[App] Home butonuna tıklandı, /welcome yapılıyor');
-                  navigate('/welcome');
-                }}
+                onNavigateToProfile={handleNavigateToProfile}
+                onNavigateToHome={handleNavigateToHome}
               />
             </ProtectedRoute>
           }
@@ -269,7 +313,7 @@ function AppContent() {
                 setAssistantName={setAssistantName}
                 followSystemTheme={followSystemTheme}
                 setFollowSystemTheme={setFollowSystemTheme}
-                onNavigateBack={() => navigate('/app')}
+                onNavigateBack={handleNavigateBack}
               />
             </ProtectedRoute>
           }
@@ -396,7 +440,9 @@ function AppContent() {
       </Suspense>
     </div>
   );
-}
+});
+
+AppContent.displayName = 'AppContent';
 
 const App: React.FC = () => {
   const isElectron = typeof (window as any).electronAPI !== 'undefined' || typeof (window as any).isElectron !== 'undefined';

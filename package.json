@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "dev:full": "concurrently \"npm run dev\" \"npm run mail:server\"",
+    "proxy:server": "node server.cjs",
+    "dev:with-proxy": "concurrently \"npm run dev\" \"npm run proxy:server\"",
     "dev:all": "concurrently \"vite --port 3000\" \"npm run mail:server\" \"cross-env MOBILE_BUILD=true vite --host 0.0.0.0 --port 5173\" \"npm run electron:start\"",
     "dev:simple": "concurrently \"npm run dev\" \"npm run mail:server\" \"npm run electron:simple\"",
     "electron:start": "concurrently \"cross-env NODE_ENV=development vite --port 5174\" \"wait-on http://localhost:5174 && cross-env NODE_ENV=development electron .\"",
@@ -114,6 +116,7 @@
     "imapflow": "^1.0.200",
     "mailparser": "^3.7.4",
     "multer": "^2.0.2",
+    "node-fetch": "^2.7.0",
     "nodemailer": "^6.10.1",
     "poplib": "^0.1.7",
     "react": "^18.2.0",

@@ -740,6 +740,131 @@ const Settings: React.FC<SettingsProps> = ({
           </div>
         </div>
 
+        {/* Email Filtering Settings */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">
+            🎯 {t('profile.emailFiltering', 'Akıllı Email Filtreleme')}
+          </h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="font-semibold text-lg block">{t('profile.autoForward', 'Otomatik Yönlendirme')}</label>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  {t('profile.autoForwardDesc', 'Önemli emailleri otomatik olarak mail sayfasına gönder')}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  const currentSettings = JSON.parse(localStorage.getItem('emailFilterSettings') || '{}');
+                  const newSettings = { ...currentSettings, autoForward: !currentSettings.autoForward };
+                  localStorage.setItem('emailFilterSettings', JSON.stringify(newSettings));
+                  setNotification(newSettings.autoForward ? 'Otomatik yönlendirme açıldı' : 'Otomatik yönlendirme kapatıldı');
+                  setTimeout(() => setNotification(null), 3000);
+                }}
+                className={`px-4 py-2 rounded-md text-sm transition-colors ${
+                  JSON.parse(localStorage.getItem('emailFilterSettings') || '{}').autoForward
+                    ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                    : 'bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-500'
+                }`}
+              >
+                {JSON.parse(localStorage.getItem('emailFilterSettings') || '{}').autoForward ? 'Açık' : 'Kapalı'}
+              </button>
+            </div>
+
+            <div className="space-y-3 pt-4 border-t dark:border-gray-700">
+              <h3 className="font-semibold text-md text-gray-800 dark:text-gray-200">Filtreleme Kuralları</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Spam Filtreleme</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      defaultChecked={JSON.parse(localStorage.getItem('emailFilterSettings') || '{}').blockSpam !== false}
+                      onChange={(e) => {
+                        const currentSettings = JSON.parse(localStorage.getItem('emailFilterSettings') || '{}');
+                        const newSettings = { ...currentSettings, blockSpam: e.target.checked };
+                        localStorage.setItem('emailFilterSettings', JSON.stringify(newSettings));
+                      }}
+                      className="rounded border-gray-300 dark:border-gray-600 text-[var(--accent-color-600)] focus:ring-[var(--accent-color-500)]"
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Spam ve promosyon emaillerini engelle</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Önemlilik Eşiği</label>
+                  <select
+                    defaultValue={JSON.parse(localStorage.getItem('emailFilterSettings') || '{}').importanceThreshold || 'medium'}
+                    onChange={(e) => {
+                      const currentSettings = JSON.parse(localStorage.getItem('emailFilterSettings') || '{}');
+                      const newSettings = { ...currentSettings, importanceThreshold: e.target.value };
+                      localStorage.setItem('emailFilterSettings', JSON.stringify(newSettings));
+                    }}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  >
+                    <option value="low">Düşük - Tüm emailler</option>
+                    <option value="medium">Orta - Önemli emailler</option>
+                    <option value="high">Yüksek - Sadece çok önemli</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Önemli Gönderenler</label>
+                <textarea
+                  placeholder="boss@company.com, client@important.com (virgülle ayırın)"
+                  defaultValue={JSON.parse(localStorage.getItem('emailFilterSettings') || '{}').importantSenders?.join(', ') || ''}
+                  onChange={(e) => {
+                    const currentSettings = JSON.parse(localStorage.getItem('emailFilterSettings') || '{}');
+                    const senders = e.target.value.split(',').map(s => s.trim()).filter(s => s);
+                    const newSettings = { ...currentSettings, importantSenders: senders };
+                    localStorage.setItem('emailFilterSettings', JSON.stringify(newSettings));
+                  }}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  rows={2}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Önemli Anahtar Kelimeler</label>
+                <textarea
+                  placeholder="urgent, deadline, meeting, project (virgülle ayırın)"
+                  defaultValue={JSON.parse(localStorage.getItem('emailFilterSettings') || '{}').importantKeywords?.join(', ') || ''}
+                  onChange={(e) => {
+                    const currentSettings = JSON.parse(localStorage.getItem('emailFilterSettings') || '{}');
+                    const keywords = e.target.value.split(',').map(k => k.trim()).filter(k => k);
+                    const newSettings = { ...currentSettings, importantKeywords: keywords };
+                    localStorage.setItem('emailFilterSettings', JSON.stringify(newSettings));
+                  }}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  rows={2}
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 border-t dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Filtreleme ayarları otomatik olarak kaydedilir
+                </span>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('emailFilterSettings');
+                    setNotification('Filtreleme ayarları sıfırlandı');
+                    setTimeout(() => setNotification(null), 3000);
+                    window.location.reload();
+                  }}
+                  className="px-3 py-1 text-xs bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-900/70"
+                >
+                  Sıfırla
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Notifications */}
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md space-y-4">
           <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200 border-b pb-2 dark:border-gray-600">
