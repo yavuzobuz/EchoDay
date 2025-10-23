@@ -115,7 +115,7 @@ export class EmailFilter {
     }
 
     // Aşırı emoji/büyük harf kullanımı
-    const emojiCount = (email.subject.match(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]/gu) || []).length;
+    const emojiCount = (email.subject.match(/[\u2600-\u26FF]|[\u2700-\u27BF]|[\uD83C-\uD83E][\uDC00-\uDFFF]/g) || []).length;
     const upperCaseRatio = (email.subject.match(/[A-Z]/g) || []).length / email.subject.length;
 
     if (emojiCount > 3) {
@@ -341,6 +341,48 @@ export class EmailFilter {
   // ⚙️ Ayarları güncelle
   updateSettings(newSettings: Partial<FilterSettings>): void {
     this.settings = { ...this.settings, ...newSettings };
+  }
+
+  // 📧 Email listesini filtrele
+  async filterEmails(emails: any[]): Promise<any[]> {
+    const filteredEmails = [];
+    
+    for (const email of emails) {
+      // Email'i EmailData formatına dönüştür
+      const emailData: EmailData = {
+        from: email.from?.address || email.from?.name || email.from || '',
+        subject: email.subject || '',
+        body: email.bodyText || email.snippet || '',
+        date: email.date || new Date().toISOString(),
+        labels: email.labels || [],
+        snippet: email.snippet || ''
+      };
+
+      // Email'i analiz et
+      const filterResult = this.analyzeEmail(emailData);
+      
+      // Spam değilse listeye ekle
+      if (!filterResult.isSpam || !this.settings.blockSpam) {
+        // Filter result'ı email objesine ekle
+        const emailWithFilter = {
+          ...email,
+          filterResult: {
+            ...filterResult,
+            importance: filterResult.isImportant ? 
+              (filterResult.score >= 50 ? 'high' : 'medium') : 'low'
+          }
+        };
+        
+        filteredEmails.push(emailWithFilter);
+      }
+    }
+    
+    // Önemli email'leri önce sırala
+    return filteredEmails.sort((a, b) => {
+      const aScore = a.filterResult?.score || 0;
+      const bScore = b.filterResult?.score || 0;
+      return bScore - aScore;
+    });
   }
 
   // 📊 Varsayılan ayarlar

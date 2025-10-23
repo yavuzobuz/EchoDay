@@ -10,6 +10,7 @@ import { geminiService } from '../services/geminiService';
 import RichTextEditor from './RichTextEditor';
 import EmailTemplateManager from './EmailTemplateManager';
 import AttachmentPicker from './AttachmentPicker';
+import { EmailFilter, FilterSettings } from '../utils/emailFilter';
 
 interface MailListProps {
   onConnectClick: () => void;
@@ -36,6 +37,19 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
   const [attachments, setAttachments] = useState<EmailAttachmentFile[]>([]);
   const [_emailSource, _setEmailSource] = useState<'all' | 'imap' | 'webhook'>('all');
   const [_webhookEmails, _setWebhookEmails] = useState<EmailMessage[]>([]);
+  
+  // Smart filtering states
+  const [smartFilterEnabled, setSmartFilterEnabled] = useState(false);
+  const [filterSettings, setFilterSettings] = useState<FilterSettings>({
+    autoForward: true,
+    minImportanceScore: 30,
+    blockSpam: true,
+    importantSenders: [],
+    spamKeywords: [],
+    importantKeywords: []
+  });
+  const [emailFilter] = useState(() => new EmailFilter(filterSettings));
+  
   const { user } = useAuth();
   const { t } = useI18n();
   const userId = user?.id || 'guest';
@@ -65,6 +79,38 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
   useEffect(() => {
     fetchWebhookEmails();
   }, []);
+
+  // Load filter settings from localStorage
+  useEffect(() => {
+    const savedSettings = localStorage.getItem(`emailFilterSettings_${userId}`);
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        setFilterSettings(parsed);
+        emailFilter.updateSettings(parsed);
+      } catch (error) {
+        console.error('Filter settings yükleme hatası:', error);
+      }
+    }
+    
+    const smartFilterState = localStorage.getItem(`smartFilterEnabled_${userId}`);
+    if (smartFilterState) {
+      setSmartFilterEnabled(smartFilterState === 'true');
+    }
+  }, [userId, emailFilter]);
+
+
+
+  // Smart filter toggle handler
+  const handleSmartFilterToggle = (enabled: boolean) => {
+    setSmartFilterEnabled(enabled);
+    localStorage.setItem(`smartFilterEnabled_${userId}`, enabled.toString());
+    
+    // Reload emails with new filter setting
+    if (selectedAccount) {
+      loadEmails(selectedAccount.id);
+    }
+  };
 
   const analyzeEmailWithAI = async (email: EmailMessage) => {
     console.log('[MailList] Debug - API key from prop:', { hasKey: !!apiKey, type: typeof apiKey, length: apiKey?.length });
@@ -373,7 +419,21 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
       const cfg = (selectedAccount as any).customConfig;
       const j = await mailService.listIMAP(cfg, 20);
       if (j.success) {
-        setEmails(j.data);
+        let emailsToSet = j.data;
+        
+        // Apply smart filtering if enabled
+        if (smartFilterEnabled) {
+          try {
+            emailsToSet = await emailFilter.filterEmails(j.data);
+            console.log(`[MailList] Smart filtering applied to IMAP: ${j.data.length} -> ${emailsToSet.length} emails`);
+          } catch (error) {
+            console.error('[MailList] Smart filtering error for IMAP:', error);
+            // Fall back to unfiltered emails if filtering fails
+            emailsToSet = j.data;
+          }
+        }
+        
+        setEmails(emailsToSet);
       } else {
         let errorMsg = j.error || t('mail.emailsLoadFailed');
         // Better error messages for common issues
@@ -389,7 +449,21 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
     } else {
       const response = await mailService.fetchEmails(accountId, 20);
       if (response.success && response.data) {
-        setEmails(response.data);
+        let emailsToSet = response.data;
+        
+        // Apply smart filtering if enabled
+        if (smartFilterEnabled) {
+          try {
+            emailsToSet = await emailFilter.filterEmails(response.data);
+            console.log(`[MailList] Smart filtering applied: ${response.data.length} -> ${emailsToSet.length} emails`);
+          } catch (error) {
+            console.error('[MailList] Smart filtering error:', error);
+            // Fall back to unfiltered emails if filtering fails
+            emailsToSet = response.data;
+          }
+        }
+        
+        setEmails(emailsToSet);
       } else {
         setError(response.error || t('mail.emailsLoadFailed'));
       }
@@ -514,6 +588,37 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
           )}
         </div>
 
+        {/* Smart Filtering Toggle */}
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Smart Filter</span>
+            </div>
+            <button
+              onClick={() => handleSmartFilterToggle(!smartFilterEnabled)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                smartFilterEnabled 
+                  ? 'bg-blue-600' 
+                  : 'bg-gray-200 dark:bg-gray-700'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  smartFilterEnabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+          {smartFilterEnabled && (
+            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Filtering emails by importance and spam detection
+            </div>
+          )}
+        </div>
+
         {/* Email List */}
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
@@ -580,6 +685,26 @@ const MailList: React.FC<MailListProps> = ({ onConnectClick, apiKey }) => {
                       <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-200 rounded text-xs font-medium">
                         📧 Gmail Webhook
                       </span>
+                    )}
+                    {/* Smart filtering indicators */}
+                    {smartFilterEnabled && (email as any).filterResult && (
+                      <>
+                        {(email as any).filterResult.importance === 'high' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-200 rounded text-xs font-medium">
+                            🔥 High Priority
+                          </span>
+                        )}
+                        {(email as any).filterResult.importance === 'medium' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded text-xs font-medium">
+                            ⚡ Medium Priority
+                          </span>
+                        )}
+                        {(email as any).filterResult.isSpam && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/40 text-orange-800 dark:text-orange-200 rounded text-xs font-medium">
+                            🚫 Filtered
+                          </span>
+                        )}
+                      </>
                     )}
                   </div>
                 </button>

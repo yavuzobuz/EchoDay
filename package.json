@@ -9,6 +9,8 @@
     "dev:full": "concurrently \"npm run dev\" \"npm run mail:server\"",
     "proxy:server": "node server.cjs",
     "dev:with-proxy": "concurrently \"npm run dev\" \"npm run proxy:server\"",
+    "dev:all-servers": "node server-all.cjs",
+    "start:all": "node server-all.cjs",
     "dev:all": "concurrently \"vite --port 3000\" \"npm run mail:server\" \"cross-env MOBILE_BUILD=true vite --host 0.0.0.0 --port 5173\" \"npm run electron:start\"",
     "dev:simple": "concurrently \"npm run dev\" \"npm run mail:server\" \"npm run electron:simple\"",
     "electron:start": "concurrently \"cross-env NODE_ENV=development vite --port 5174\" \"wait-on http://localhost:5174 && cross-env NODE_ENV=development electron .\"",
